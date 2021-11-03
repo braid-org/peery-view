@@ -1,0 +1,50 @@
+<script type="coffee">
+    document.title = 'Braid News Placeholder'
+
+    dom.BODY = ->
+        DIV {},
+            H1 "Braid News"
+
+            USER()
+            POSTS()
+
+    dom.POSTS = ->
+        c = fetch '/current_user'
+        # If the user is logged out then we fetch the feed for the default user.
+        # In this mode we prevent editing votes and weights.
+        userkey = "/users/default"
+        if c.logged_in
+            userkey = c.user.key
+            # This throws errors for some reason..?
+            #forget("/user_feed/default")
+            #forget("/votes_on_users/default")
+        posts = (fetch "/user_feed#{userkey}").all ? []
+        weights = fetch("/weights#{userkey}").weights
+
+        ordered = sort_posts posts, weights
+        DIV {},
+            for post in ordered
+                RENDER_POST
+                    post: post
+                    user: userkey
+
+    dom.USER = ->
+        c = fetch('/current_user')
+        if c.logged_in
+            # My Personal Rankings
+            ratings = (fetch "/votes_on_users#{c.user.key}").all ? []
+            DIV
+                width: "100\%"
+                H3 c.user.name
+                DIV {},
+                    for v in ratings
+                        DIV "#{v.id}: #{v.weight}"
+        else
+            LOGIN
+                c: c
+
+
+</script>
+<script src="https://stateb.us/client6.js" server="http://localhost:3006"></script>
+<script src="/coffee/post.coffee" crossorigin=anonymous></script>
+<script src="/coffee/login.coffee" crossorigin=anonymous></script>
