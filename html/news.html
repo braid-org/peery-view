@@ -1,8 +1,16 @@
+<style>
+    body {
+        margin: min(4vw, 25px);
+    }
+</style>
 <script type="coffee">
     document.title = 'Braid News Placeholder'
 
     dom.BODY = ->
-        DIV {},
+        DIV
+            maxWidth: "800px"
+            margin: "auto"
+
             H1 "Braid News"
 
             USER()
@@ -12,39 +20,153 @@
         c = fetch '/current_user'
         # If the user is logged out then we fetch the feed for the default user.
         # In this mode we prevent editing votes and weights.
-        userkey = "/users/default"
-        if c.logged_in
-            userkey = c.user.key
-            # This throws errors for some reason..?
-            #forget("/user_feed/default")
-            #forget("/votes_on_users/default")
-        posts = (fetch "/user_feed#{userkey}").all ? []
-        weights = fetch("/weights#{userkey}").weights
+        posts = (fetch "/posts").all ? []
+
+        userkey = if c.logged_in then c.user.key else "/users/default"
+        weights = compute_weights userkey
 
         ordered = sort_posts posts, weights
         DIV {},
             for post in ordered
                 RENDER_POST
                     post: post
-                    user: userkey
 
+    # The layout for a single post, including slidergram and such
+    dom.RENDER_POST = (post) ->
+        author = fetch post.user
+        hashcolor = Array.from(author.key.substr("/user/".length, 3))
+            .map((c) -> (c.charCodeAt(0) % 16).toString(16))
+            .join("")
+        # Gross hack, find a better way to format a time differential
+        time = (Date.now() / 1000) - post.time
+        suffix = "seconds"
+        if time > 60
+            time /= 60
+            suffix = "minutes"
+            if time > 60
+                time /= 60
+                suffix = "hours"
+                if time > 24
+                    time /= 24
+                    suffix = "days"
+                    if time > 30
+                        time /= 30
+                        suffix = "months"
+        time = Math.round(time)
+        
+        DIV
+            marginTop: "10px"
+            display: "grid"
+            grid: '"icon details slider" 1.5em
+                   "title title slider" auto
+                  / 1.5em 2fr 1fr'
+            DIV
+                width: "1.4em"
+                height: "1.4em"
+                placeSelf: "center"
+                backgroundColor: "##{hashcolor}"
+                borderRadius: "1em"
+                gridArea: "icon"
+            DIV
+                gridArea: "details"
+                color: "#444"
+                alignSelf: "center"
+                "#{author.name}, #{time} #{suffix} ago"
+            DIV
+                gridArea: "title"
+                fontSize: "1.3em"
+                marginLeft: "10px"
+                "#{post.title}"
+            DIV
+                gridArea: "slider"
+                SLIDERGRAM
+                    sldr: "/votes_on#{post.key}"
+                    width: 300
+                    height: 50
+
+                
+
+
+    # Information about the current user:
+    # Login/Out/Register
+    # Vote on other users
+    # Submit a new link
     dom.USER = ->
         c = fetch('/current_user')
         if c.logged_in
             # My Personal Rankings
-            ratings = (fetch "/votes_on_users#{c.user.key}").all ? []
             DIV
                 width: "100\%"
-                H3 c.user.name
-                DIV {},
-                    for v in ratings
-                        DIV "#{v.id}: #{v.weight}"
+                # User Settings Bar
+                DIV
+                    width: "min(400px, 75%)"
+                    marginLeft: "auto"
+                    marginRight: "auto"
+                    display: "flex"
+                    flexDirection: "row"
+                    alignItems: "center"
+                    DIV
+                        width: "2em"
+                        height: "2em"
+                        borderRadius: "2em"
+                        backgroundColor: "#aaa"
+                    H3
+                        marginLeft: "5px"
+                        c.user.name
+                    DIV
+                        flexGrow: 1
+                    BUTTON
+                        height: "2em"
+                        marginRight: "5px"
+                        "Settings"
+                    BUTTON
+                        height: "2em"
+                        onClick: (e) ->
+                            c.logout = true
+                            save(c)
+                        "Log Out"
+                # Slidegram and web-of-trust
+                #NETWORK()
+                # Submit Box
+                DIV
+                    width: "min(600px, 90%)"
+                    marginLeft: "auto"
+                    marginRight: "auto"
+                    display: "flex"
+                    flexDirection: "row"
+                    justifyContent: "center"
+                    INPUT
+                        id: "post-title"
+                        placeholder: "Title"
+                        flexGrow: "3"
+                    INPUT
+                        id: "post-url"
+                        placeholder: "URL"
+                        flexGrow: "2"
+                        marginLeft: "5px"
+                        marginRight: "15px"
+                    BUTTON
+                        onClick: (e) ->
+                            title = document.getElementById("post-title")
+                            link = document.getElementById("post-url")
+                            make_post title.value, link.value, c.user.key
+                            title.value = ""
+                            link.value = ""
+                        "Submit"
         else
             LOGIN
                 c: c
-
 
 </script>
 <script src="https://stateb.us/client6.js" server="http://localhost:3006"></script>
 <script src="/coffee/post.coffee" crossorigin=anonymous></script>
 <script src="/coffee/login.coffee" crossorigin=anonymous></script>
+
+<!-- For slidergrams -->
+
+<script src="https://considerit.us:3006/client/shared.coffee"></script>
+<script src="https://considerit.us:3006/client/avatar.coffee"></script>
+<script src="https://considerit.us:3006/client/slidergrams.coffee"></script>
+
+<script src="https://considerit.us:3006/static/vendor/md5.js"></script>
+<script src="https://considerit.us:3006/static/vendor/d3.quadtree.js"></script>

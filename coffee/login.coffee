@@ -1,15 +1,18 @@
 # Login Form
 dom.LOGIN = (c) ->
     DIV
-        width: "50\%"
-        border: "1px solid black"
+        width: "min(400px, 75%)"
         display: "grid"
+        # Maybe use flex instead here?
+        marginLeft: "auto"
+        marginRight: "auto"
         grid: '"error error" auto
                "name name" 40px
                "pw pw" 40px
                "email email" 40px
                "register login" 40px
                 / auto auto'
+        gap: "10px"
         DIV
             gridArea: "error"
             display: "none" unless c.error

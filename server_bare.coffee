@@ -1,31 +1,56 @@
 ######### Clientwise handlers ##########
 bus = require('statebus').serve
-    client: (client, socket) ->
-        ###
-        client("vote/*").to_save = (val, star, t) ->
-            vote = bus.fetch "vote/#{star}"
-            c = client.fetch "current_user"
+    client: (client, server) ->
+        client("votes_on/*").to_fetch = (star, t) ->
+            votes = (bus.fetch("votes").all ? [])
+                .filter (v) -> v.target == star
 
-            # Also need to check the shape of the data...
-            if c.logged_in and c.user.key == vote.user
-                t.done val
-            else
-                t.abort()
+            return
+                poles: ["-1", "+1"]
+                values: votes
 
-        client("post/*").to_save = (val, star, t) ->
-            post = bus.fetch "post/#{star}"
-            c = client.fetch "current_user"
+        client("votes_on/*").to_save = (val, star, t) ->
+            # Travis's slidergram is going to try to save to this endpoint.
+            # Save an actual vote
+            c = client.fetch 'current_user'
+            if c.logged_in
+                # Just change the vote for the user
+                # Find the right vote in the list
+                votes_from_us = val.values.filter (v) -> unprefix(v.user) is unprefix(c.user.key)
+                # Pull out its value. 
+                # If the value isn't there then the vote was probably deleted.
+                value = votes_from_us[0]?.value ? 0
+                if value == 0
+                    console.log(val)
 
-            # Also need to check the shape of the data...
-            if c.logged_in and c.user.key == post.user
-                t.done val
-            else
-                t.abort()
+                # Where such a vote should be stored.
+                vote_key =  "votes/_#{c.user.key}_#{star}_"
+                new_vote = bus.fetch vote_key
+                
+                # ie, if the vote doesn't exist yet
+                unless new_vote.user
+                    # then we have to put it in the votes array
+                    all_votes = bus.fetch("votes").all ? []
+                    all_votes.push new_vote
+                    bus.save
+                        key: "votes"
+                        all: all_votes
+                    # at this point it's just a stub
+                    # basically, a pointer to an unallocated location
+                    # but that's fine because we're going to put something at that key now
+                # Put properties on the vote
+                Object.assign new_vote, {
+                    user: c.user.key
+                    target: star
+                    value: value
+                }
+                # Save it
+                bus.save new_vote
+                # Save the vote to the list of votes
+            # Allow the client to keep the "slidergram-computed" version of the votes
+            t.done val
 
-        client("posts/*").to_save = (val, star, t) ->
-            t.abort()
-        ###
-
+        client.shadows bus
 ######### main bus handlers #########
 
 # '/feed' = union over all /posts/*
@@ -62,7 +87,7 @@ bus('weights/*').to_fetch = (star) ->
             continue
         for vote in (bus.fetch "votes_on_users#{uid}").all ? []
             unless vote.target of weights
-                queue.push [vote.target, vote.weight * base_weight * NETWORK_ATT]
+                queue.push [vote.target, vote.value * base_weight * NETWORK_ATT]
     {weights: weights}
 
 
@@ -92,3 +117,4 @@ bus.http.get('/coffee/*', (req, res) ->
 dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
+unprefix = (t) -> if t.startsWith("/") then t.substr(1) else t
