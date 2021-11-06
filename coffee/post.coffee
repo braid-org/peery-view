@@ -15,16 +15,16 @@ sort_posts = (posts) ->
         # time-based attenuation
         att = att_curve (now - p.time)
         # author weight
-        user_weight = weights[p.user]?.weight ? 1.0 # PLACEHOLDER 1.0, maybe should be 0 instead?
+        user_weight = weights[unslash p.user]?.weight ? 1.0 # PLACEHOLDER 1.0, maybe should be 0 instead?
         sum_votes = 0.1
 
-        votes = (fetch "/votes_on#{p.key}").all ? []
-        if p.key in votes
+        votes = (fetch "/votes_on#{p.key}").values ? []
+        if votes.length
             # weighted sum of votes.
             # double check this part.
-            sum_votes = votes[p.key]
-                .map((v) -> v.value * weights[v.user]?.weight ? 0)
-                .reduce((a, b) -> a + b)
+            sum_votes = votes
+                .map (v) -> v.value * (weights[unslash v.user] ? 0)
+                .reduce (a, b) -> a + b
 
         scores[p.key] = att * user_weight * sum_votes
 
@@ -51,7 +51,7 @@ make_post = (title, url, userkey) ->
         user: userkey
         title: title
         url: url
-        time: Math.floor(Date.now() / 1000)
+        time: Math.floor (Date.now() / 1000)
 
     save post
 

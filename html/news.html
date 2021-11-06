@@ -5,6 +5,7 @@
 </style>
 <script type="coffee">
     document.title = 'Braid News Placeholder'
+    window.unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
 
     dom.BODY = ->
         DIV
