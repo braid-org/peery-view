@@ -17,15 +17,9 @@
             POSTS()
 
     dom.POSTS = ->
-        c = fetch '/current_user'
-        # If the user is logged out then we fetch the feed for the default user.
-        # In this mode we prevent editing votes and weights.
         posts = (fetch "/posts").all ? []
 
-        userkey = if c.logged_in then c.user.key else "/users/default"
-        weights = compute_weights userkey
-
-        ordered = sort_posts posts, weights
+        ordered = sort_posts posts
         DIV {},
             for post in ordered
                 RENDER_POST
@@ -53,6 +47,8 @@
                         time /= 30
                         suffix = "months"
         time = Math.round(time)
+
+        c = fetch '/current_user'
         
         DIV
             marginTop: "10px"
@@ -83,6 +79,7 @@
                     sldr: "/votes_on#{post.key}"
                     width: 300
                     height: 50
+                    read_only: !c.logged_in
 
                 
 
@@ -166,7 +163,7 @@
 
 <script src="https://considerit.us:3006/client/shared.coffee"></script>
 <script src="https://considerit.us:3006/client/avatar.coffee"></script>
-<script src="https://considerit.us:3006/client/slidergrams.coffee"></script>
+<script src="/coffee/slidergrams.coffee" crossorigin=anonymous></script>
 
 <script src="https://considerit.us:3006/static/vendor/md5.js"></script>
 <script src="https://considerit.us:3006/static/vendor/d3.quadtree.js"></script>

@@ -2,28 +2,23 @@ att_curve = (delta) ->
     xs = delta / (60*60*24*3)
     1 / (xs*xs + 1)
 
-sort_posts = (posts, weights) ->
-    # We have what each user has voted on each post, and what we rate each user.
-    # And an exponential time decay
-    now = Date.now() / 1000
+sort_posts = (posts) ->
 
-    vote_ids = (fetch "/votes").all ? []
-    votes = {}
-    vote_ids
-        .filter (t) ->
-            t.key.startsWith("/post")
-        .forEach (t) ->
-            v = fetch "/votes#{t.key}"
-            votes[v.target] ?= []
-            votes[v.target].push v
+    c = fetch "/current_user"
+    me = if c.logged_in then c.user.key else "/user/default"
+    weights = fetch "/weights#{me}"
+
+    now = Date.now() / 1000
     
     scores = {}
     posts.forEach (p) ->
         # time-based attenuation
         att = att_curve (now - p.time)
         # author weight
-        user_weight = weights[p.user]?.weight ? 1.0 # PLACEHOLDER 1.0
+        user_weight = weights[p.user]?.weight ? 1.0 # PLACEHOLDER 1.0, maybe should be 0 instead?
         sum_votes = 0.1
+
+        votes = (fetch "/votes_on#{p.key}").all ? []
         if p.key in votes
             # weighted sum of votes.
             # double check this part.
@@ -41,28 +36,6 @@ sort_posts = (posts, weights) ->
 MIN_WEIGHT = 0.05
 NETWORK_ATT = 0.95
 
-compute_weights = (user) ->
-    weights = {}
-    vote_ids = (fetch "/votes").all ? []
-    votes = {}
-    vote_ids
-        .filter (t) ->
-            t.key.startsWith("/user")
-        .forEach (t) ->
-            v = fetch "/votes#{t.key}"
-            votes[v.user] ?= []
-            votes[v.user].push v
-
-    queue = [[user, 1.0, 0]]
-    while queue.length
-        [uid, base_weight, d] = queue.shift()
-        weights[uid] = {weight: base_weight, distance: d}
-        if base_weight < MIN_WEIGHT
-            continue
-        (votes[uid] ? []).forEach (vote) ->
-            unless vote.target of weights
-                queue.push [vote.target, vote.value * base_weight * NETWORK_ATT, d+1]
-    weights
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)

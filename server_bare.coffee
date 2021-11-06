@@ -1,78 +1,57 @@
 ######### Clientwise handlers ##########
 bus = require('statebus').serve
     client: (client, server) ->
-        client("votes_on/*").to_fetch = (star, t) ->
-            votes = (bus.fetch("votes").all ? [])
-                .filter (v) -> v.target == star
+        # Client cannot edit /votes_by/
+        client('votes_by/*').to_save = (val, star, t) ->
+            t.abort()
 
-            return
-                poles: ["-1", "+1"]
-                values: votes
+        # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
+        # We add a (redundant here) 'target', which is just star.
+        # But we also add a key (concatenation of the user and the target)
+        # This means that each vote will actually get a url.
+        # 
+        # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
+        client('votes_on/*').to_save = (val, old, star, t) ->
+            # since we're going to set properties directly on votes_by we have to prevent injection
+            if star is "key"
+                return t.abort()
 
-        client("votes_on/*").to_save = (val, star, t) ->
-            # Travis's slidergram is going to try to save to this endpoint.
-            # Save an actual vote
-            c = client.fetch 'current_user'
-            if c.logged_in
-                # Just change the vote for the user
-                # Find the right vote in the list
-                votes_from_us = val.values.filter (v) -> unprefix(v.user) is unprefix(c.user.key)
-                # Pull out its value. 
-                # If the value isn't there then the vote was probably deleted.
-                value = votes_from_us[0]?.value ? 0
-                if value == 0
-                    console.log(val)
+            c = client.fetch "current_user"
+            userkey = c.user?.key
+            our_vote = false
+            
+            val.values.forEach (v) ->
+                v.target ?= star
+                v.key ?= "votes/_#{unslash v.user}_#{star}_"
 
-                # Where such a vote should be stored.
-                vote_key =  "votes/_#{c.user.key}_#{star}_"
-                new_vote = bus.fetch vote_key
-                
-                # ie, if the vote doesn't exist yet
-                unless new_vote.user
-                    # then we have to put it in the votes array
-                    all_votes = bus.fetch("votes").all ? []
-                    all_votes.push new_vote
-                    bus.save
-                        key: "votes"
-                        all: all_votes
-                    # at this point it's just a stub
-                    # basically, a pointer to an unallocated location
-                    # but that's fine because we're going to put something at that key now
-                # Put properties on the vote
-                Object.assign new_vote, {
-                    user: c.user.key
-                    target: star
-                    value: value
-                }
-                # Save it
-                bus.save new_vote
-                # Save the vote to the list of votes
-            # Allow the client to keep the "slidergram-computed" version of the votes
+                if userkey is unslash v.user
+                    our_vote = v
+            
+            bus.save val
+            # now any new votes will have a url.
+            if userkey?
+                # If there is a vote by the client, put it in votes_by if it isn't already there.
+                votes_by = bus.fetch "votes_by/#{userkey}"
+
+                need_to_save = false
+                if our_vote
+                    need_to_save = !votes_by[star]?
+                    votes_by[star] ?= our_vote
+                # Delete a vote if it's not there
+                else
+                    need_to_save = votes_by[star]?
+                    delete votes_by[star]
+                # Only save if there was a difference, so that we don't waste time diffing a big array.
+                if need_to_save
+                    bus.save votes_by
+            # finally, tell the client that we accept their value
             t.done val
 
         client.shadows bus
+
 ######### main bus handlers #########
 
-# '/feed' = union over all /posts/*
-# '/user_feed/*' = feed for a particular user = union of 
-# '/posts/*' = posts made by user
-# '/network/*' = complete network for a certain user
-# '/votes_on/*'.to_fetch = all votes made on the specified thing: either a user or a post.
-# '/votes_on_users/*'.to_fetch = all votes made on users by the specified user.
-# '/votes_on_posts/*'.to_fetch = all votes made on posts by the specified user.
-
-# Virtual keys cannot actually be edited.
-virtual_keys = [
-    'feed'
-    'user_feed/*'
-    'network/*'
-    'weights/*'
-    'votes_on/*'
-    'votes_on_users/*'
-    'votes_on_posts/*'
-]
-virtual_keys.forEach((key) ->
-    bus(key).to_save = ((val, t) -> t.abort()))
+# Create user/default?
 
 # Network-spread weighting
 MIN_WEIGHT = 0.05
@@ -85,11 +64,20 @@ bus('weights/*').to_fetch = (star) ->
         weights[uid] = base_weight
         if base_weight < MIN_WEIGHT
             continue
-        for vote in (bus.fetch "votes_on_users#{uid}").all ? []
-            unless vote.target of weights
-                queue.push [vote.target, vote.value * base_weight * NETWORK_ATT]
-    {weights: weights}
 
+        queue.concat(
+            Object.values(bus.fetch "votes_by/#{uid}")
+                .filter (v) ->
+                    unless v.target?
+                        return
+                    slashes_wtf = unslash(v.target)
+                    slashes_wtf.startsWith "user" and slashes_wtf not of weights
+                .map (v) -> [v.target, v.value * base_weight * NETWORK_ATT]
+            )
+    weights
+
+bus('weights/*').to_save = (star, t) ->
+    t.abort()
 
 
 ###### Sending static content over HTTP ##############
@@ -117,4 +105,4 @@ bus.http.get('/coffee/*', (req, res) ->
 dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
-unprefix = (t) -> if t.startsWith("/") then t.substr(1) else t
+unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
