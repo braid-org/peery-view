@@ -3,7 +3,7 @@
         margin: min(4vw, 25px);
     }
 </style>
-<script type="coffee">
+<script type="statebus">
     document.title = 'Braid News Placeholder'
     window.unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
 
@@ -18,9 +18,12 @@
             POSTS()
 
     dom.POSTS = ->
+
+        # Local copy of posts, ordered.
         posts = (fetch "/posts").all ? []
 
         ordered = sort_posts posts
+
         DIV {},
             for post in ordered
                 RENDER_POST
@@ -30,9 +33,9 @@
     dom.RENDER_POST = (post) ->
         author = fetch post.user
         hashcolor = Array.from(author.key.substr("/user/".length, 3))
-            .map((c) -> (c.charCodeAt(0) % 16).toString(16))
-            .join("")
-        # Gross hack, find a better way to format a time differential
+            .map (c) -> (c.charCodeAt(0) % 16).toString(16)
+            .join ""
+        # ugly, find a better way to format a time differential
         time = (Date.now() / 1000) - post.time
         suffix = "seconds"
         if time > 60
@@ -47,10 +50,9 @@
                     if time > 30
                         time /= 30
                         suffix = "months"
-        time = Math.round(time)
+        time = Math.round time
 
         c = fetch '/current_user'
-        
         DIV
             marginTop: "10px"
             display: "grid"
@@ -61,14 +63,16 @@
                 width: "1.4em"
                 height: "1.4em"
                 placeSelf: "center"
-                backgroundColor: "##{hashcolor}"
                 borderRadius: "1em"
                 gridArea: "icon"
+                # or a photo
+                background: "##{hashcolor}"
             DIV
                 gridArea: "details"
                 color: "#444"
                 alignSelf: "center"
-                "#{author.name}, #{time} #{suffix} ago"
+                marginLeft: "7px"
+                "#{author.name},  #{time} #{suffix} ago"
             DIV
                 gridArea: "title"
                 fontSize: "1.3em"
@@ -78,11 +82,23 @@
                 gridArea: "slider"
                 SLIDERGRAM
                     sldr: "/votes_on#{post.key}"
-                    width: 300
-                    height: 50
+                    width: 200
+                    height: 40
+                    max_avatar_radius: 15
                     read_only: !c.logged_in
+                    no_label: true
 
-                
+    wrap_slidergram = ->
+        # Make a local copy of key
+        local_key = "local_#{unslash @props.sldr}"
+        # Do we actually want to deep copy this and remove keys from votes?
+        props_ = Object.assign {}, @props
+        props_.sldr = local_key
+        # When we call SLIDERGRAM, it will make a second local copy of the target key.
+        consider_local_key = shared_local_key local_key
+        # We need to have a to_save on this key, that we can use to output the data as desired.
+        # Call SLIDERGRAM with the local key
+        SLIDERGRAM props_...
 
 
     # Information about the current user:
@@ -90,9 +106,11 @@
     # Vote on other users
     # Submit a new link
     dom.USER = ->
-        c = fetch('/current_user')
+        c = fetch '/current_user'
         if c.logged_in
             # My Personal Rankings
+            s = fetch "show_settings"
+            s.show ?= false
             DIV
                 width: "100\%"
                 # User Settings Bar
@@ -116,15 +134,19 @@
                     BUTTON
                         height: "2em"
                         marginRight: "5px"
+                        onClick: (e) ->
+                            s.show = !s.show ? true
+                            save s
                         "Settings"
+
                     BUTTON
                         height: "2em"
                         onClick: (e) ->
                             c.logout = true
-                            save(c)
+                            save c
                         "Log Out"
-                # Slidegram and web-of-trust
-                #NETWORK()
+                # Slidegram and web-of-trust, or account settings
+                if s.show then SETTINGS() else NETWORK()
                 # Submit Box
                 DIV
                     width: "min(600px, 90%)"
@@ -133,6 +155,10 @@
                     display: "flex"
                     flexDirection: "row"
                     justifyContent: "center"
+                    DIV
+                        fontWeight: "bold"
+                        marginRight: "15px"
+                        "New Post:"
                     INPUT
                         id: "post-title"
                         placeholder: "Title"
@@ -155,6 +181,96 @@
             LOGIN
                 c: c
 
+    dom.NETWORK = ->
+        # // My IDE doesn't know that this isn't javascript
+        # // Two things go here:
+        # // The users slidergram (allowing you to change the vote you've previously made)
+        # // A box to create a new vote
+        DIV
+            width: "min(700px, 95%)"
+            marginLeft: "auto"
+            marginRight: "auto"
+            padding: "0 15px 15px 15px"
+            display: "flex"
+            alignItems: "center"
+            flexDirection: "column"
+
+            MULTIGRAM
+                sldr: 'multigram'
+                width: 500
+                height: 40
+                max_avatar_radius: 15
+                no_label: true
+            # Does this thing need to have suggestions?
+            DIV {},
+                INPUT
+                    placeholder: "user/someone"
+                    id: "add-follow"
+                BUTTON
+                    marginLeft: "5px"
+                    onClick: (e) ->
+                        t = unslash (document.getElementById("add-follow").value)
+                        c = fetch "/current_user"
+                        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in)
+                            console.log JSON.stringify fetch "/#{t}"
+                            return
+                        # Ok, the input is the username of a real user, and we are also logged in.
+                        # But have we already voted on them?
+                        key = "/votes/_#{unslash c.user.key}_#{t}_"
+                        if (fetch key).name?
+                            # Also clear the input
+                            document.getElementById("add-follow").value = ""
+                            return
+                        # Ok, we have not voted on this user yet.
+                        # Make a default vote.
+                       
+                        userkey = c.user.key
+                        votes = fetch "/votes_on/#{t}"
+                        votes.values ?= []
+                        votes.values.push
+                            user: userkey
+                            value: 0
+                            key: key
+                            target: "/#{t}"
+                        save votes
+
+                        # clear input
+                        document.getElementById("add-follow").value = ""
+                    "Add"
+
+    multigram_aux = {}
+
+    bus('multigram').to_fetch = () ->
+        c = fetch "/current_user"
+        unless c.logged_in
+            return {key: 'muligram'}
+
+        votes_arr = Object.values(fetch "/votes_by#{c.user.key}")
+            .filter (v) ->
+                unless v.target?
+                    return false
+                (unslash v.target).startsWith "user"
+        # if we want to "suggest" users in the extended network that could be voted on, we should pull them from "weights" and include them here.
+
+        Object.assign multigram_aux, {values: votes_arr, poles: ["-1", "+1"]}
+
+    bus('multigram').to_save = (val, t) ->
+
+        #// Save the auxilliary data
+        Object.assign multigram_aux, val
+        #// We don't actually want to save thing like mouse state to the server, but we need to keep a copy of it.
+
+        #// The multigram can't add new values, so we just have to save the values in it to the server.
+        #// Ie, the multigram has an array of values, each of which is an actual vote state.
+        #// But, we only save these if the user is done dragging!
+
+        #// TODO: These sometimes just don't save...
+        unless val.dragging
+            val.values.forEach (v) -> save v
+
+        t.done val
+
+
 </script>
 <script src="https://stateb.us/client6.js" server="http://localhost:3006"></script>
 <script src="/coffee/post.coffee" crossorigin=anonymous></script>
@@ -164,7 +280,9 @@
 
 <script src="https://considerit.us:3006/client/shared.coffee"></script>
 <script src="https://considerit.us:3006/client/avatar.coffee"></script>
+
 <script src="/coffee/slidergrams.coffee" crossorigin=anonymous></script>
+<script src="/coffee/multigrams.coffee" crossorigin=anonymous></script>
 
 <script src="https://considerit.us:3006/static/vendor/md5.js"></script>
 <script src="https://considerit.us:3006/static/vendor/d3.quadtree.js"></script>

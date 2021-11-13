@@ -53,7 +53,8 @@ make_post = (title, url, userkey) ->
         url: url
         time: Math.floor (Date.now() / 1000)
 
-    save post
+    # This seems to cause race conditions...
+    #save post
 
     all_posts = fetch "/posts"
     all_posts.all ?= []

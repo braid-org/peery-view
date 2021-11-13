@@ -13,7 +13,7 @@ bus = require('statebus').serve
         # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
         client('votes_on/*').to_save = (val, old, star, t) ->
             # since we're going to set properties directly on votes_by we have to prevent injection
-            if star is "key"
+            if star is "key" or star is "_dirty"
                 return t.abort()
 
             c = client.fetch "current_user"
@@ -29,6 +29,9 @@ bus = require('statebus').serve
             
             bus.save val
             # now any new votes will have a url.
+            
+            # This thing doesn't really work:
+            # the problem is that votes_by won't get dirtied if we changed just *the values* of votes.
             if userkey?
                 # If there is a vote by the client, put it in votes_by if it isn't already there.
                 votes_by = bus.fetch "votes_by/#{userkey}"
@@ -41,7 +44,6 @@ bus = require('statebus').serve
                 else
                     need_to_save = votes_by[star]?
                     delete votes_by[star]
-                # Only save if there was a difference, so that we don't waste time diffing a big array.
                 if need_to_save
                     bus.save votes_by
             # finally, tell the client that we accept their value
@@ -65,19 +67,32 @@ bus('weights/*').to_fetch = (star) ->
         if base_weight < MIN_WEIGHT
             continue
 
-        queue.concat(
+        # queue.push ...stuff
+        queue.push.apply(queue,
             Object.values(bus.fetch "votes_by/#{uid}")
                 .filter (v) ->
                     unless v.target?
-                        return
-                    slashes_wtf = unslash(v.target)
-                    slashes_wtf.startsWith "user" and slashes_wtf not of weights
-                .map (v) -> [v.target, v.value * base_weight * NETWORK_ATT]
+                        return false
+                    slashes_wtf = unslash v.target
+                    (slashes_wtf.startsWith "user") and (slashes_wtf not of weights)
+                .map (v) -> [(unslash v.target), v.value * base_weight * NETWORK_ATT]
             )
     weights
 
 bus('weights/*').to_save = (star, t) ->
     t.abort()
+
+bus('votes/*').to_save = (val, old, star, t) ->
+    # Check if the vote is the same as the old one
+    unless (JSON.stringify val) is (JSON.stringify old)
+        # Dirty the pointers to it
+        # Just calling bus.dirty doesn't work:
+        # 1. These keys don't actually have custom to_fetch handlers on them
+        # 2. The value of the array itself hasn't strictly changed at the right time.
+        force_dirty "votes_on/#{unslash val.target}"
+        force_dirty "votes_by/#{unslash val.user}"
+    # Should we call t.done before or after we dirty the arrays?
+    t.done val
 
 
 ###### Sending static content over HTTP ##############
@@ -106,3 +121,7 @@ dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
 unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
+force_dirty = (key) ->
+    val = bus.fetch key
+    val._dirty = !(val._dirty ? false)
+    bus.save val

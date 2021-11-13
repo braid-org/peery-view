@@ -47,11 +47,12 @@ dom.SLIDERGRAM = ->
   read_only = @props.read_only
 
   slidergram_width = @props.width
+  svg_sides = slidergram_width / 2
 
-  sldr.poles ||= ['','']
+  sldr.poles ||= ['-1','+1']
 
   # console.log 'RENDERING value', get_your_slide(sldr)?.value
-
+    
   DIV 
     style: 
       #width: slidergram_width
@@ -84,7 +85,7 @@ dom.SLIDERGRAM = ->
 
     if !@props.no_label && !@props.one_sided
 
-      LABEL_TAG = @props.draw_label or BASIC_SLIDER_LABEL
+      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
       DIV  
         style: 
 
@@ -146,7 +147,7 @@ dom.SLIDERGRAM = ->
         style :
           width: slidergram_width
           position: 'relative'
-          borderTop: "1px solid #{@props.slider_color or SLIDER_COLOR}"
+          borderTop: "1.5px solid #{@props.slider_color or SLIDER_COLOR}"
           textAlign: 'left' # prevent inherited centering from happening
 
 
@@ -154,17 +155,24 @@ dom.SLIDERGRAM = ->
         SVG
           style:
             position: 'absolute'
-            right: -6
-            top: -2.5
-          width: 6
-          height: 3
-          viewBox: "0 0 6 3"
+            left: 0
+            bottom: 0
+          width: slidergram_width
+          height: 5
+          viewBox: "-#{svg_sides} 0 #{slidergram_width} 3"
 
           G
             fill: @props.slider_color or SLIDER_COLOR
             
             POLYGON
-              points: "0,0 0,3 6,1.5"
+              points: "#{-svg_sides},0 #{-svg_sides},5 #{8 - svg_sides},5"
+
+            POLYGON
+              points: "#{svg_sides},0 #{svg_sides},5 #{svg_sides - 8},5"
+
+            POLYGON
+              points: "-4,5 0,0 4,5"
+
 
         if !@props.no_feedback
           SLIDER_FEEDBACK 
@@ -179,7 +187,7 @@ dom.SLIDERGRAM = ->
 
     if !@props.no_label
 
-      LABEL_TAG = @props.draw_label or BASIC_SLIDER_LABEL
+      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
       DIV  
         style: 
           marginLeft: 12
@@ -308,6 +316,27 @@ dom.BASIC_SLIDER_LABEL = ->
 
 
 
+dom.STATIC_SLIDER_LABEL = ->
+
+  sldr = fetch @props.sldr
+  pole_idx = @props.pole_idx
+  pole_idx ?= 1
+
+  if !@local.text? or @props.text != @local.text
+    @local.text = @props.text or sldr.poles?[pole_idx] or '+'
+
+  if @local.text == 'undefined'
+    @local.text = ''
+
+  # noneditable
+  DIV
+    style: defaults {}, (@props.style or {}),
+      #width: if @local.focused then 300 else 'auto'
+      minHeight: 24 # firefox made short boxes when empty
+      minWidth: "2ch"
+      whiteSpace: 'nowrap'
+
+    dangerouslySetInnerHTML: if @local.text?.length > 0 then {__html: (if emojione? then emojione.unicodeToImage(@local.text) else @local.text)}
       
 
 
@@ -355,6 +384,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
   if slide_type == 'dragging'
     your_slide = get_your_slide(sldr)
     val = if your_slide then your_slide.value else DEFAULT_SLIDER_VAL
+    # How do I not do this part?
     target_sldr = sldr # save changes immediately to server  
     #target_sldr = local
     extend local,
@@ -382,7 +412,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
 
   # Mouse DOWN events (only for tracking)
   if slide_type == 'tracking'
-    mousedown = (e) -> 
+    mousedown = (e) ->
       e.preventDefault()
       local.tracking_mouse = 'activated'
       save local
@@ -413,7 +443,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
 
       your_slide = get_your_slide(target_sldr)
       if !your_slide
-        your_slide = 
+        your_slide =
           user: your_key()
           explanation: ''
 
@@ -695,7 +725,6 @@ style.innerHTML =   """
     position: absolute;
     border-radius: 50%;
     background-color: #ccc;
-    transition: top .4s, left .4s, width .4s, height .4s;
   } [data-widget='HISTOGRAM'] .you[data-widget='AVATAR'] {
     transition: none;
   } [data-widget='HISTOGRAM'] span[data-widget='AVATAR'] {
