@@ -250,6 +250,11 @@
                 unless v.target?
                     return false
                 (unslash v.target).startsWith "user"
+            .map (v) ->
+                t = Object.assign {}, v
+                delete t.key
+                t
+
         # if we want to "suggest" users in the extended network that could be voted on, we should pull them from "weights" and include them here.
 
         Object.assign multigram_aux, {values: votes_arr, poles: ["-1", "+1"]}
@@ -266,8 +271,11 @@
 
         #// TODO: These sometimes just don't save...
         unless val.dragging
-            val.values.forEach (v) -> save v
-
+            val.values.forEach (v) ->
+                cop = Object.assign {}, v
+                cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"
+                save cop
+        #// Then save it:
         t.done val
 
 
