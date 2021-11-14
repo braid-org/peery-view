@@ -17,8 +17,17 @@ sort_posts = (posts) ->
         # time-based attenuation
         att = att_curve (now - p.time)
         # author weight
-        user_weight = weights[unslash p.user]?.weight ? 1.0 # PLACEHOLDER 1.0, maybe should be 0 instead?
-        sum_votes = 0.1
+        # Naively multiplying by the author weight causes problems:
+        # Negative author weight times negative votes = ... positive score ???
+        # Also, if a post by an unknown user is rated very highly in your network, you won't see it at all.
+        
+        # We consider the author to have an implicit vote on their own post.
+        # We'll just add this one to the votes.
+        author_vote = weights[unslash p.user]?.weight ? 0.0
+        # As for the multiplicative factor, we compute it as follows
+        author_weight = Math.sqrt((author_vote + 1) / 2)
+
+        sum_votes = 0.05
 
         votes = (fetch "/votes_on#{p.key}").values ? []
         if votes.length
@@ -31,7 +40,7 @@ sort_posts = (posts) ->
                     (2 * v.value - 1) * (weights[unslash v.user] ? 0)
                 .reduce (a, b) -> a + b
 
-        scores[p.key] = att * user_weight * sum_votes
+        scores[p.key] = att * author_weight * (sum_votes + author_vote)
 
     # Should we save scores and weights to the local state?
 
