@@ -15,7 +15,7 @@
 </style>
 <script type="statebus">
     document.title = 'Braid News'
-    window.unslash = (t) -> if t?.startsWith("/") then t.substr(1) else t
+    window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
 
     dom.BODY = ->
         DIV
@@ -263,7 +263,7 @@
     add_user_weight = (username) ->
         t = unslash username
         c = fetch "/current_user"
-        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in) and (unslash c.user.key != t)
+        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in) and ((unslash c.user.key) != t)
             return false
         # Ok, the input is the username of a real user, and we are also logged in.
         # But have we already voted on them?
