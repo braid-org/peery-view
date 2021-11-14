@@ -1,7 +1,17 @@
 <style>
     body {
         margin: min(4vw, 25px);
+        font-family: Lato, sans-serif;
     }
+    .material-icons { user-select: none; }
+    /* Rules for using icons as black on a light background. */
+    .material-icons.md-dark { color: rgba(0, 0, 0, 0.54); }
+    .material-icons.md-dark.md-inactive { color: rgba(0, 0, 0, 0.26); }
+
+    /* Rules for using icons as white on a dark background. */
+    .material-icons.md-light { color: rgba(255, 255, 255, 1); }
+    .material-icons.md-light.md-inactive { color: rgba(255, 255, 255, 0.3); }
+
 </style>
 <script type="statebus">
     document.title = 'Braid News'
@@ -35,25 +45,9 @@
         # Subscribe to the post
         if post.key then fetch post
         author = fetch post.user
-        # ugly, find a better way to format a time differential
-        time = (Date.now() / 1000) - post.time
-        suffix = "seconds"
-        if time > 60
-            time /= 60
-            suffix = "minutes"
-            if time > 60
-                time /= 60
-                suffix = "hours"
-                if time > 24
-                    time /= 24
-                    suffix = "days"
-                    if time > 30
-                        time /= 30
-                        suffix = "months"
-        time = Math.round time
 
-        plus_visible = fetch "hover#{post.key}" 
-        plus_visible.visible ?= false
+        hover = fetch "hover#{post.key}" 
+        hover.hover ?= false
 
         c = fetch '/current_user'
 
@@ -63,79 +57,71 @@
         DIV
             key: "post-#{post.key}"
             marginTop: "10px"
-            display: "grid"
-            grid: '"plus icon details slider ." 25px
-                   ". title title slider ." auto
-                  / 25px 25px 2fr 200px 25px'
+            marginBottom: "10px"
+            display: "flex"
+            alignItems: "center"
+
+            SPAN
+                width: 30
+                height: 30
+                lineHeight: "30px"
+                textAlign: "center"
+                opacity: if clickable and hover.hover then 0.54 else 0
+                fontWeight: "bold"
+                fontSize: 24
+                userSelect: "none"
+                "+"
+
             AVATAR
                 user: author
                 style:
-                    placeSelf: "center"
-                    width: 25
-                    height: 25
-                    gridArea: "icon"
+                    width: 30
+                    height: 30
                     borderRadius: "50%"
                     cursor: if clickable then "pointer"
 
                 onClick: if clickable then (e) ->
                     add_user_weight author.key
-                    plus_visible.visible = false
-                    save plus_visible
+                    hover.hover = false
+                    save hover
 
-                onMouseOver: if clickable then (e) ->
-                    plus_visible.visible = true
-                    save plus_visible
+                onMouseOver: (e) ->
+                    hover.hover = true
+                    save hover
 
-                onMouseOut: if clickable then (e) ->
-                    plus_visible.visible = false
-                    save plus_visible
+                onMouseOut: (e) ->
+                    hover.hover = false
+                    save hover
 
             DIV
-                gridArea: "plus"
-                opacity: if plus_visible.visible then 1 else 0
-                fontWeight: "bold"
-                fontSize: 24
-                placeSelf: "center"
-                color: "#bbb"
-                userSelect: "none"
-                "+"
-            DIV
-                gridArea: "details"
-                color: "#444"
-                alignSelf: "center"
-                marginLeft: "7px"
-                "#{author.name},  #{time} #{suffix} ago"
-            DIV
-                gridArea: "title"
+                display: "inline-flex"
+                flexDirection: "row"
                 overflowX: "hidden"
-                DIV
-                    display: "inline-flex"
-                    flexDirection: "row"
+                alignItems: "center"
+                marginLeft: "10px"
+                flexGrow: 1
+                cursor: if post.url.length then "pointer"
+
+                onClick: (e) ->
+                    if post.url.length
+                        window.location.assign post.url
+
+                SPAN
+                    marginRight: "10px"
+                    fontSize: "1.3em"
+                    "#{post.title}"
+                SPAN
+                    fontSize: "1em"
+                    color: "#444"
                     overflowX: "hidden"
-                    alignItems: "center"
-                    marginLeft: "10px"
-                    cursor: if post.url.length then "pointer"
-
-                    onClick: (e) ->
-                        if post.url.length
-                            window.location.assign post.url
-
-                    SPAN
-                        marginRight: "10px"
-                        fontSize: "1.3em"
-                        "#{post.title}"
-                    SPAN
-                        fontSize: "1em"
-                        color: "#444"
-                        overflowX: "hidden"
-                        "#{post.url}"
+                    "#{post.url}"
 
             DIV
                 gridArea: "slider"
                 SLIDERGRAM
                     sldr: "/votes_on#{post.key}"
                     width: 200
-                    height: 40
+                    height: 35
                     max_avatar_radius: 15
                     read_only: !c.logged_in
 
@@ -171,24 +157,27 @@
                             borderRadius: "50%"
 
                     H3
-                        marginLeft: "5px"
-                        c.user.name
-                    DIV
+                        marginLeft: "6px"
                         flexGrow: 1
-                    BUTTON
-                        height: "2em"
+                        c.user.name
+
+                    SPAN
+                        className: "material-icons md-dark"
+                        fontSize: "20px"
+                        cursor: "pointer"
                         marginRight: "5px"
                         onClick: (e) ->
                             s.show = !s.show ? true
                             save s
-                        "Settings"
-
-                    BUTTON
-                        height: "2em"
+                        "settings"
+                    SPAN
+                        className: "material-icons md-dark"
+                        fontSize: "20px"
+                        cursor: "pointer"
                         onClick: (e) ->
                             c.logout = true
                             save c
-                        "Log Out"
+                        "logout"
                 # Slidegram and web-of-trust, or account settings
                 if s.show then SETTINGS() else NETWORK()
                 # Submit Box
@@ -214,14 +203,17 @@
                         flexGrow: "2"
                         marginLeft: "5px"
                         marginRight: "15px"
-                    BUTTON
+                    SPAN
+                        className: "material-icons md-dark"
                         onClick: (e) ->
                             title = document.getElementById("post-title")
                             link = document.getElementById("post-url")
-                            make_post title.value, link.value, c.user.key
-                            title.value = ""
-                            link.value = ""
-                        "Submit"
+                            if title.value.length > 1
+                                make_post title.value, link.value, c.user.key
+                                title.value = ""
+                                link.value = ""
+                        cursor: "pointer"
+                        "post_add"
         else
             LOGIN
                 c: c
@@ -246,17 +238,23 @@
                 height: 40
                 max_avatar_radius: 15
             # Does this thing need to have suggestions?
-            DIV {},
+            DIV 
+                display: "flex"
+                alignItems: "center"
                 INPUT
                     placeholder: "user/someone"
                     id: "add-follow"
-                BUTTON
-                    marginLeft: "5px"
+                    height: 16
+                SPAN
+                    className: "material-icons md-dark"
+                    marginLeft: "7px"
                     onClick: (e) ->
                         box = document.getElementById("add-follow")
                         if add_user_weight box.value
                             box.value = ""
-                    "Add"
+                    fontSize: 24
+                    cursor: "pointer"
+                    "person_add"
 
     # Attempt to add a neutral vote on the specified user.
     # The return value is whether or not *such a vote exists*.
@@ -265,12 +263,12 @@
     add_user_weight = (username) ->
         t = unslash username
         c = fetch "/current_user"
-        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in)
+        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in) and (unslash c.user.key != t)
             return false
         # Ok, the input is the username of a real user, and we are also logged in.
         # But have we already voted on them?
         key = "/votes/_#{unslash c.user.key}_#{t}_"
-        if (fetch key).name?
+        if (fetch key).value?
             # Also clear the input
             return true
         # Ok, we have not voted on this user yet.
@@ -344,3 +342,10 @@
 
 <script src="https://considerit.us:3006/static/vendor/md5.js"></script>
 <script src="https://considerit.us:3006/static/vendor/d3.quadtree.js"></script>
+
+<!-- Google Fonts: Lato -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+

@@ -71,7 +71,7 @@ dom.SETTINGS = ->
     unless c.logged_in
         return
     DIV
-        width: "min(500px, 75%)"
+        width: "min(400px, 75%)"
         display: "grid"
         # Maybe use flex instead here?
         marginLeft: "auto"

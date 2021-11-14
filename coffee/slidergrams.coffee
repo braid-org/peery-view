@@ -51,104 +51,83 @@ dom.SLIDERGRAM = ->
 
   # console.log 'RENDERING value', get_your_slide(sldr)?.value
     
-  DIV
-    style:
-      #width: slidergram_width
-      position: 'relative'
-      zIndex: 2
-      display: 'flex'
-      flexDirection: 'row'
-      alignItems: 'flex-end'
-      paddingBottom: 32/2
 
-    # on option-click, delete self (or slidergram as whole if already empty)
-    onClick: (e) =>
-      if e.altKey
-        if sldr.values.length == 0
-          delete_slider_if_no_activity(sldr)
-        else
-          remove_self_from_slider(sldr)
-    onMouseEnter: (e) =>
+  DIV
+    key: 'opinion_area'
+    ref: 'opinion_area'
+    style:
+      flex: 2
+
+    onMouseEnter: if !read_only then (e) =>
+      @local.hover_opinion_area = true
       @local.hover = true
       save @local
-    onMouseLeave: (e) =>
+      if !has_opined && !local_sldr.tracking_mouse
+        x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
+        start_slide sldr, @props.width, 'tracking',
+          initial_val: x_entry / slidergram_width
+          slidergram_width: slidergram_width
+
+
+    onMouseLeave: if !read_only then (e) =>
+      @local.hover_opinion_area = false
       @local.hover = false
       save @local
 
-    DIV
-      key: 'opinion_area'
-      ref: 'opinion_area'
-      style:
-        flex: 2
-
-      onMouseEnter: if !read_only then (e) => 
-        @local.hover_opinion_area = true
-        save @local
-        if !has_opined && !local_sldr.tracking_mouse
-          x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-          start_slide sldr, @props.width, 'tracking',
-            initial_val: x_entry / slidergram_width
-            slidergram_width: slidergram_width
+      # only remove if we haven't added ourselves
+      if local_sldr.tracking_mouse == 'tracking'
+        e.preventDefault()
+        stop_slider_mouse_tracking(sldr)
+    
 
 
-      onMouseLeave: if !read_only then (e) =>
-        @local.hover_opinion_area = false
-        save @local
+    HISTOGRAM
+      width: slidergram_width
+      height: @props.height
+      sldr: sldr
+      show_ghosted_user: !has_opined && (local_sldr.tracking_mouse || @props.force_ghosting)
+      read_only: read_only
+      max_avatar_radius: @props.max_avatar_radius
 
-        # only remove if we haven't added ourselves
-        if local_sldr.tracking_mouse == 'tracking'
-          e.preventDefault()
-          stop_slider_mouse_tracking(sldr)
-      
-
-
-      HISTOGRAM
+    DIV # slider base
+      style :
         width: slidergram_width
-        height: @props.height
-        sldr: sldr
-        show_ghosted_user: !has_opined && (local_sldr.tracking_mouse || @props.force_ghosting)
-        read_only: read_only
-        max_avatar_radius: @props.max_avatar_radius
-
-      DIV # slider base
-        style :
-          width: slidergram_width
-          position: 'relative'
-          borderTop: "1.5px solid #{@props.slider_color or SLIDER_COLOR}"
-          textAlign: 'left' # prevent inherited centering from happening
+        position: 'relative'
+        borderTop: "1.5px solid #{@props.slider_color or SLIDER_COLOR}"
+        textAlign: 'left' # prevent inherited centering from happening
 
 
-        # arrowtip
-        SVG
+      # arrowtip
+      SVG
+        style:
+          position: 'absolute'
+          left: 0
+          bottom: 0
+        width: slidergram_width
+        height: 5
+        viewBox: "-#{svg_sides} 0 #{slidergram_width} 3"
+
+        G
+          fill: @props.slider_color or SLIDER_COLOR
+          
+          POLYGON
+            points: "#{-svg_sides},0 #{-svg_sides},5 #{8 - svg_sides},5"
+
+          POLYGON
+            points: "#{svg_sides},0 #{svg_sides},5 #{svg_sides - 8},5"
+
+          POLYGON
+            points: "-4,5 0,0 4,5"
+
+
+      if !@props.no_feedback
+        SLIDER_FEEDBACK
+          sldr: sldr
+          width: @props.width
           style:
-            position: 'absolute'
-            left: 0
-            bottom: 0
-          width: slidergram_width
-          height: 5
-          viewBox: "-#{svg_sides} 0 #{slidergram_width} 3"
-
-          G
-            fill: @props.slider_color or SLIDER_COLOR
-            
-            POLYGON
-              points: "#{-svg_sides},0 #{-svg_sides},5 #{8 - svg_sides},5"
-
-            POLYGON
-              points: "#{svg_sides},0 #{svg_sides},5 #{svg_sides - 8},5"
-
-            POLYGON
-              points: "-4,5 0,0 4,5"
-
-
-        if !@props.no_feedback
-          SLIDER_FEEDBACK
-            sldr: sldr
-            width: @props.width
-            style:
-              display: if !(@local.hover_opinion_area || \
-                          local_sldr.dragging || local_sldr.tracking_mouse == 'activated') \
-                        then 'none'
+            display: if !(@local.hover_opinion_area || \
+                        local_sldr.dragging || local_sldr.tracking_mouse == 'activated') \
+                      then 'none'
 
 
 #########
@@ -204,7 +183,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
     register_window_event "slide-#{local.key}", 'touchstart', mousedown
 
   # Mouse MOVE events
-  mousemove = (e) -> 
+  mousemove = (e) ->
     e.preventDefault()
     x = mouseX
     y = mouseY
@@ -250,7 +229,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
   register_window_event "slide-#{local.key}", 'touchmove', mousemove
 
   # Mouse UP events
-  mouseup = (e) -> 
+  mouseup = (e) ->
     if slide_type == 'dragging'
       saw_thing(sldr)
       stop_slider_dragging(sldr)
@@ -343,8 +322,8 @@ dom.SLIDER_FEEDBACK = ->
 # The user avatars are arranged imprecisely on the histogram
 # based on the user's opinion, using a physics simulation. 
 
-dom.HISTOGRAM = -> 
-  sldr = fetch @props.sldr 
+dom.HISTOGRAM = ->
+  sldr = fetch @props.sldr
   sldr.values ||= []
   local_sldr = fetch(shared_local_key(sldr))
 
@@ -355,7 +334,7 @@ dom.HISTOGRAM = ->
 
   focus_on_dragging = local_sldr.dragging || local_sldr.tracking_mouse == 'activated'
 
-  DIV extend( props, 
+  DIV extend( props,
     ref: 'histo'
     className: 'histogram'
     style:
@@ -390,7 +369,7 @@ dom.HISTOGRAM = ->
 
       if is_you && !@props.read_only
         # console.log "  RE-RENDERING @ #{opinion.value}"
-        extend props, 
+        extend props,
           className: 'you grab_cursor'
           hide_tooltip: true
 
@@ -405,12 +384,12 @@ dom.HISTOGRAM = ->
       r = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
       val = if local_sldr.values?[0]?
               local_sldr.values[0].value
-            else 
+            else
               DEFAULT_SLIDER_VAL
       opaque = local_sldr.tracking_mouse == 'activated'
 
       left = within val * @props.width - r, 0, @props.width - 2 * r
-      style = 
+      style =
         position: 'absolute'
         left: left
         top: @props.height - r * 2
@@ -418,8 +397,8 @@ dom.HISTOGRAM = ->
         height: r * 2
         backgroundColor: '#f1f1f1'
         borderRadius: '50%'
-        zIndex: if !opaque then -1            
-        opacity: .5 if !opaque 
+        zIndex: if !opaque then -1
+        opacity: .5 if !opaque
         cursor: if !opaque then 'pointer'
         className: if opaque then 'grab_cursor'
 
@@ -452,7 +431,7 @@ dom.HISTOGRAM.refresh = ->
       avatar_radius = @calcRadius(@props.width, @props.height, avatars, @props.max_avatar_radius)
       for u, weight of opinion_weights
         radii[u] = weight * avatar_radius
-    else 
+    else
       radii = null
       avatar_radius = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
 
@@ -475,6 +454,7 @@ style.innerHTML =   """
     background-color: #ccc;
   } [data-widget='HISTOGRAM'] .you[data-widget='AVATAR'] {
     transition: none;
+    cursor: pointer;
   } [data-widget='HISTOGRAM'] span[data-widget='AVATAR'] {
     text-align: center; 
     background-color: #aaa;

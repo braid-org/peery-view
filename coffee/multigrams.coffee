@@ -248,6 +248,7 @@ dom.MULTIHISTOGRAM = ->
                 top: size?.top or 0
                 opacity: if focus_on_dragging and (local_sldr.target != opinion.target) then 0.4
                 filter: if focus_on_dragging and (local_sldr.target != opinion.target) then 'grayscale(80%)'
+                cursor: "pointer"
 
         props = implements_slide_target sldr, opinion.target, @props.width, props
         AVATAR props

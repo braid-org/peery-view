@@ -52,7 +52,7 @@ dom.AVATAR = ->
           className: 'initials'
           style:
             fontSize: (@props.style?.width or 50) / 2
-            padding: (@props.style?.width or 50) / 4
+            lineHeight: 2
           name
 
       if @props.prompt_avatar && fetch('/current_user').user?.key == user.key
