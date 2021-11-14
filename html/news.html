@@ -79,9 +79,29 @@
                 "#{author.name},  #{time} #{suffix} ago"
             DIV
                 gridArea: "title"
-                fontSize: "1.3em"
-                marginLeft: "10px"
-                "#{post.title}"
+                overflowX: "hidden"
+                DIV
+                    display: "inline-flex"
+                    flexDirection: "row"
+                    overflowX: "hidden"
+                    alignItems: "center"
+                    cursor: if post.url.length then "pointer"
+
+                    onClick: (e) ->
+                        if post.url.length
+                            window.location.assign post.url
+
+                    SPAN
+                        marginLeft: "10px"
+                        marginRight: "10px"
+                        fontSize: "1.3em"
+                        "#{post.title}"
+                    SPAN
+                        fontSize: "1em"
+                        color: "#444"
+                        overflowX: "hidden"
+                        "#{post.url}"
+
             DIV
                 gridArea: "slider"
                 SLIDERGRAM
@@ -156,6 +176,7 @@
                         flexGrow: "3"
                     INPUT
                         id: "post-url"
+                        type: "url"
                         placeholder: "URL"
                         flexGrow: "2"
                         marginLeft: "5px"
