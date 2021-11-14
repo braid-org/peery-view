@@ -2,6 +2,8 @@ DEFAULT_SLIDER_VAL = 0.5
 SLIDER_COLOR = '#999'
 feedback_orange = '#F19135'
 considerit_salmon = '#F45F73'
+color_positive = '#5fb4f4'
+color_negative = '#f46444'
 
 # Remove current user from this slider, if they're on it
 window.remove_self_from_slider = (sldr) ->
@@ -142,7 +144,6 @@ dom.SLIDERGRAM = ->
         if !@props.no_feedback
           SLIDER_FEEDBACK
             sldr: sldr
-            color: considerit_salmon
             width: @props.width
             style:
               display: if !(@local.hover_opinion_area || \
@@ -331,7 +332,7 @@ dom.SLIDER_FEEDBACK = ->
       zIndex: 1
       left: @props.width * Math.min val, 0.5
       width: @props.width * Math.abs(val - 0.5)
-      backgroundColor: @props.color or feedback_orange #focus_blue #'#666'
+      backgroundColor: @props.color ? (if val >= 0.5 then color_positive else color_negative)
 
 
 ####

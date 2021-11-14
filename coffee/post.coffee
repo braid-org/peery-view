@@ -73,3 +73,10 @@ make_post = (title, url, userkey) ->
     save all_posts
 
     # Do we need to forget the things we fetched?
+
+delete_post = (key_or_post) ->
+    key = key_or_post?.key ? key_or_post
+    post = fetch key
+    c = fetch "/current_user"
+    unless c.logged_in and c.user.key == post.user
+        return False

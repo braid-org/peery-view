@@ -92,7 +92,6 @@ dom.MULTIGRAM = ->
         if !@props.no_feedback
           SLIDER_FEEDBACK
             sldr: sldr
-            color: considerit_salmon
             width: @props.width
             target: local_sldr.target
             style:

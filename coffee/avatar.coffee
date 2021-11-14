@@ -21,6 +21,7 @@ dom.AVATAR = ->
     'data-user': name
     'data-showtooltip': !@props.hide_tooltip
     'data-color': @props.color
+    'draggable': 'false'
 
   name = name.split(' ')
   if @props.hide_tooltip && !user.key == your_key()

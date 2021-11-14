@@ -52,14 +52,21 @@
                         suffix = "months"
         time = Math.round time
 
+        plus_visible = fetch "hover#{post.key}" 
+        plus_visible.visible ?= false
+
         c = fetch '/current_user'
+
+        clickable = c.logged_in and \
+            (c.user.key != author.key) and \
+            not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
         DIV
             key: "post-#{post.key}"
             marginTop: "10px"
             display: "grid"
-            grid: '"icon details slider" 25px
-                   "title title slider" auto
-                  / 1.5em 2fr 1fr'
+            grid: '"plus icon details slider ." 25px
+                   ". title title slider ." auto
+                  / 25px 25px 2fr 200px 25px'
             AVATAR
                 user: author
                 style:
@@ -68,6 +75,30 @@
                     height: 25
                     gridArea: "icon"
                     borderRadius: "50%"
+                    cursor: if clickable then "pointer"
+
+                onClick: if clickable then (e) ->
+                    add_user_weight author.key
+                    plus_visible.visible = false
+                    save plus_visible
+
+                onMouseOver: if clickable then (e) ->
+                    plus_visible.visible = true
+                    save plus_visible
+
+                onMouseOut: if clickable then (e) ->
+                    plus_visible.visible = false
+                    save plus_visible
+
+            DIV
+                gridArea: "plus"
+                opacity: if plus_visible.visible then 1 else 0
+                fontWeight: "bold"
+                fontSize: 24
+                placeSelf: "center"
+                color: "#bbb"
+                userSelect: "none"
+                "+"
             DIV
                 gridArea: "details"
                 color: "#444"
@@ -82,6 +113,7 @@
                     flexDirection: "row"
                     overflowX: "hidden"
                     alignItems: "center"
+                    marginLeft: "10px"
                     cursor: if post.url.length then "pointer"
 
                     onClick: (e) ->
@@ -89,7 +121,6 @@
                             window.location.assign post.url
 
                     SPAN
-                        marginLeft: "10px"
                         marginRight: "10px"
                         fontSize: "1.3em"
                         "#{post.title}"
@@ -138,6 +169,7 @@
                             height: 30
                             gridArea: "icon"
                             borderRadius: "50%"
+
                     H3
                         marginLeft: "5px"
                         c.user.name
@@ -221,34 +253,40 @@
                 BUTTON
                     marginLeft: "5px"
                     onClick: (e) ->
-                        t = unslash (document.getElementById("add-follow").value)
-                        c = fetch "/current_user"
-                        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in)
-                            console.log JSON.stringify fetch "/#{t}"
-                            return
-                        # Ok, the input is the username of a real user, and we are also logged in.
-                        # But have we already voted on them?
-                        key = "/votes/_#{unslash c.user.key}_#{t}_"
-                        if (fetch key).name?
-                            # Also clear the input
-                            document.getElementById("add-follow").value = ""
-                            return
-                        # Ok, we have not voted on this user yet.
-                        # Make a default vote.
-                       
-                        userkey = c.user.key
-                        votes = fetch "/votes_on/#{t}"
-                        votes.values ?= []
-                        votes.values.push
-                            user: userkey
-                            value: 0.5
-                            key: key
-                            target: "/#{t}"
-                        save votes
-
-                        # clear input
-                        document.getElementById("add-follow").value = ""
+                        box = document.getElementById("add-follow")
+                        if add_user_weight box.value
+                            box.value = ""
                     "Add"
+
+    # Attempt to add a neutral vote on the specified user.
+    # The return value is whether or not *such a vote exists*.
+    # That is, returns true if the desired vote already exists or it was created successfuly.
+    # Returns false if the user does not exist or we are not logged in.
+    add_user_weight = (username) ->
+        t = unslash username
+        c = fetch "/current_user"
+        unless (t.startsWith "user\/" ) and ((fetch "/#{t}").name?) and (c.logged_in)
+            return false
+        # Ok, the input is the username of a real user, and we are also logged in.
+        # But have we already voted on them?
+        key = "/votes/_#{unslash c.user.key}_#{t}_"
+        if (fetch key).name?
+            # Also clear the input
+            return true
+        # Ok, we have not voted on this user yet.
+        # Make a default vote.
+       
+        votes = fetch "/votes_on/#{t}"
+        votes.values ?= []
+        votes.values.push
+            user: c.user.key
+            value: 0.5
+            key: key
+            target: "/#{t}"
+
+        save votes
+
+        return true
 
     multigram_aux = {}
 
