@@ -329,8 +329,8 @@ dom.SLIDER_FEEDBACK = ->
       position: 'absolute'
       #marginLeft: -handle_width / 2
       zIndex: 1
-      left: 0
-      width: @props.width * val
+      left: @props.width * Math.min val, 0.5
+      width: @props.width * Math.abs(val - 0.5)
       backgroundColor: @props.color or feedback_orange #focus_blue #'#666'
 
 
