@@ -373,19 +373,18 @@ dom.HISTOGRAM = ->
       size = opinion.size?[key]
       is_you = opinion.user == you
 
-      props = 
+      props =
         key: "histo-avatar-#{opinion.user}"
         user: opinion.user
-        hide_tooltip: focus_on_dragging        
-        style: 
+        hide_tooltip: focus_on_dragging
+        style:
           # cached width/height/left/top
           width: size?.width or 50
           height: size?.width or 50
           left: size?.left or 0
           top: size?.top or 0
-          opacity: if focus_on_dragging && !is_you then .2
-          WebkitFilter: if focus_on_dragging && !is_you then 'grayscale(100%)'
-          filter: if  focus_on_dragging && !is_you then 'grayscale(100%)'  
+          opacity: if focus_on_dragging && !is_you then .4
+          filter: if  focus_on_dragging && !is_you then 'grayscale(80%)'
 
 
       if is_you && !@props.read_only

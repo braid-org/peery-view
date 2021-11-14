@@ -215,7 +215,7 @@ dom.MULTIHISTOGRAM = ->
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
-  focus_on_dragging = local_sldr.dragging || local_sldr.tracking_mouse == 'activated'
+  focus_on_dragging = local_sldr.dragging
 
   DIV extend( props,
     ref: 'histo'
@@ -247,6 +247,8 @@ dom.MULTIHISTOGRAM = ->
                 height: size?.width or 50
                 left: size?.left or 0
                 top: size?.top or 0
+                opacity: if focus_on_dragging and (local_sldr.target != opinion.target) then 0.4
+                filter: if focus_on_dragging and (local_sldr.target != opinion.target) then 'grayscale(80%)'
 
         props = implements_slide_target sldr, opinion.target, @props.width, props
         AVATAR props
