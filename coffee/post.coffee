@@ -12,6 +12,8 @@ sort_posts = (posts) ->
     
     scores = {}
     posts.forEach (p) ->
+        # Subscribe to the post
+        fetch p
         # time-based attenuation
         att = att_curve (now - p.time)
         # author weight
@@ -23,7 +25,10 @@ sort_posts = (posts) ->
             # weighted sum of votes.
             # double check this part.
             sum_votes = votes
-                .map (v) -> (2 * v.value - 1) * (weights[unslash v.user] ? 0)
+                .map (v) ->
+                    # first subscribe to the vote
+                    if v.key then fetch v
+                    (2 * v.value - 1) * (weights[unslash v.user] ? 0)
                 .reduce (a, b) -> a + b
 
         scores[p.key] = att * user_weight * sum_votes
@@ -52,9 +57,6 @@ make_post = (title, url, userkey) ->
         title: title
         url: url
         time: Math.floor (Date.now() / 1000)
-
-    # This seems to cause race conditions...
-    #save post
 
     all_posts = fetch "/posts"
     all_posts.all ?= []

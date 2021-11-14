@@ -75,25 +75,15 @@ bus('weights/*').to_fetch = (star) ->
                         return false
                     slashes_wtf = unslash v.target
                     (slashes_wtf.startsWith "user") and (slashes_wtf not of weights)
-                .map (v) -> [(unslash v.target), (2 * v.value - 1) * base_weight * NETWORK_ATT]
+                .map (v) ->
+                    # Causes a subscription on each individual vote
+                    bus.fetch v
+                    [(unslash v.target), (2 * v.value - 1) * base_weight * NETWORK_ATT]
             )
     weights
 
 bus('weights/*').to_save = (star, t) ->
     t.abort()
-
-bus('votes/*').to_save = (val, old, star, t) ->
-    # Check if the vote is the same as the old one
-    unless (JSON.stringify val) is (JSON.stringify old)
-        # Dirty the pointers to it
-        # Just calling bus.dirty doesn't work:
-        # 1. These keys don't actually have custom to_fetch handlers on them
-        # 2. The value of the array itself hasn't strictly changed at the right time.
-        force_dirty "votes_on/#{unslash val.target}"
-        force_dirty "votes_by/#{unslash val.user}"
-    # Should we call t.done before or after we dirty the arrays?
-    t.done val
-
 
 ###### Sending static content over HTTP ##############
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
@@ -120,8 +110,4 @@ bus.http.get('/coffee/*', (req, res) ->
 dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
-unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
-force_dirty = (key) ->
-    val = bus.fetch key
-    val._dirty = !(val._dirty ? false)
-    bus.save val
+unslash = (t) -> if t?.startsWith("/") then t.substr(1) else t

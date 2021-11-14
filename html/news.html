@@ -5,7 +5,7 @@
 </style>
 <script type="statebus">
     document.title = 'Braid News Placeholder'
-    window.unslash = (t) -> if t.startsWith("/") then t.substr(1) else t
+    window.unslash = (t) -> if t?.startsWith("/") then t.substr(1) else t
 
     dom.BODY = ->
         DIV
@@ -24,13 +24,16 @@
 
         ordered = sort_posts posts
 
-        DIV {},
+        DIV 
+            key: "post-list"
             for post in ordered
                 RENDER_POST
                     post: post
 
     # The layout for a single post, including slidergram and such
     dom.RENDER_POST = (post) ->
+        # Subscribe to the post
+        if post.key then fetch post
         author = fetch post.user
         hashcolor = Array.from(author.key.substr("/user/".length, 3))
             .map (c) -> (c.charCodeAt(0) % 16).toString(16)
@@ -54,6 +57,7 @@
 
         c = fetch '/current_user'
         DIV
+            key: "post-#{post.key}"
             marginTop: "10px"
             display: "grid"
             grid: '"icon details slider" 1.5em
@@ -86,19 +90,6 @@
                     height: 40
                     max_avatar_radius: 15
                     read_only: !c.logged_in
-                    no_label: true
-
-    wrap_slidergram = ->
-        # Make a local copy of key
-        local_key = "local_#{unslash @props.sldr}"
-        # Do we actually want to deep copy this and remove keys from votes?
-        props_ = Object.assign {}, @props
-        props_.sldr = local_key
-        # When we call SLIDERGRAM, it will make a second local copy of the target key.
-        consider_local_key = shared_local_key local_key
-        # We need to have a to_save on this key, that we can use to output the data as desired.
-        # Call SLIDERGRAM with the local key
-        SLIDERGRAM props_...
 
 
     # Information about the current user:
@@ -200,7 +191,6 @@
                 width: 500
                 height: 40
                 max_avatar_radius: 15
-                no_label: true
             # Does this thing need to have suggestions?
             DIV {},
                 INPUT
@@ -251,6 +241,9 @@
                     return false
                 (unslash v.target).startsWith "user"
             .map (v) ->
+                # Subscribe to each individual vote...
+                fetch v
+                # Now make a copy of it that isnt tied to the real state url
                 t = Object.assign {}, v
                 delete t.key
                 t
