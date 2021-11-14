@@ -25,21 +25,13 @@ dom.MULTIGRAM = ->
   slidergram_width = @props.width
   svg_sides = slidergram_width / 2
 
-  sldr.poles ||= ['-1','+1']
-
   # console.log 'RENDERING value', get_your_slide(sldr)?.value
     
   DIV
     style:
       #width: slidergram_width
       position: 'relative'
-      #width: 9999 # so slider label doesn't wrap
-      zIndex: if local_sldr.editing_label then 2 else 1
-                # Set at least 1 so that when you hover over a slidergram that 
-                # is below this post, the other post doesn't prevent mouseovers
-                # on this slidergram. The 2 is for putting a slidergram being
-                # edited above the other ones, so that the drop down label
-                # selection works. 
+      zIndex: 1
       display: 'flex'
       flexDirection: 'row'
       alignItems: 'flex-end'
@@ -52,31 +44,6 @@ dom.MULTIGRAM = ->
     onMouseLeave: (e) =>
       @local.hover = false
       save @local
-
-    if !@props.no_label && !@props.one_sided
-
-      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
-      DIV
-        style:
-
-          marginRight: 12
-          marginBottom: -12
-
-        LABEL_TAG
-          style:
-            fontSize: 14
-            fontWeight: 400
-            color:  @props.slider_color or SLIDER_COLOR
-
-          key: sldr.key
-          sldr: sldr
-          height: @props.height
-          text: sldr.poles[0]
-          pole_idx: 0
-          onInput: (e) =>
-            sldr.poles[0] = e.target.innerHTML
-            # save sldr
-
 
     DIV
       key: 'opinion_area'
@@ -124,39 +91,15 @@ dom.MULTIGRAM = ->
 
         if !@props.no_feedback
           SLIDER_FEEDBACK
-            show_handle: @local.hover_opinion_area
             sldr: sldr
             color: considerit_salmon
             width: @props.width
+            target: local_sldr.target
             style:
-              display: if !(@local.hover_opinion_area || \
-                          local_sldr.dragging || local_sldr.tracking_mouse == 'activated') \
-                        then 'none'
-
-    if !@props.no_label
-
-      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
-      DIV
-        style:
-          marginLeft: 12
-          marginBottom: -12
-
-        LABEL_TAG
-          style:
-            fontSize: 14
-            fontWeight: 400
-            color:  @props.slider_color or SLIDER_COLOR
-          key: sldr.key
-          sldr: sldr
-          height: @props.height
-          pole_idx: 1
-          text: sldr.poles[1]
-          onInput: (e) =>
-            sldr.poles[1] = e.target.innerHTML
-            # save sldr
+              display: if !(local_sldr.dragging) then 'none'
 
 #########
-# start_slide
+# start_slide_target
 #
 # Initiates a user moving themself on a slider, either invoked 
 # via mouse tracking or by dragging. 
@@ -170,16 +113,11 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
 
     targeted_slide = get_target_slide sldr, target
     val = if targeted_slide then targeted_slide.value else DEFAULT_SLIDER_VAL
-    # How do I not do this part?
-    target_sldr = sldr # save changes immediately to server  
-    #target_sldr = local
-    # extend local,
-        #values: [{
-        #  target: target
-        #  value: val
-        #}]
+    target_sldr = sldr
 
     local.dragging = true
+    # We won't bother unsetting this, as it suffices to check local.dragging to see if something is targeted.
+    local.target = target
 
     local.mouse_positions = [{x: mouseX, y: mouseY}]
     # adjust for starting location - offset
@@ -258,64 +196,6 @@ implements_slide_target = (sldr, target, width, props) ->
     onMouseDown: (e) -> e.preventDefault(); start_slide_target(sldr, width, target)
     onTouchStart: (e) -> e.preventDefault(); start_slide_target(sldr, width, target)
   props
-
-
-##
-# SliderHandle
-#
-# A little feedback on the slider that shows where you're dragging
-dom.SLIDER_FEEDBACK = ->
-  handle_height = @props.handle_height or 2
-  handle_width = @props.handle_width or 1
-
-  local_sldr = fetch shared_local_key(@props.sldr)
-
-  val = if local_sldr.tracking_mouse
-          local_sldr.values[0].value
-        else #if local_sldr.dragging
-          get_your_slide(@props.sldr)?.value or 0
-
-  return SPAN null if val < 0 || val > 1.0
-
-  DIV
-    style: defaults @props.style,
-      width: handle_width
-      height: handle_height
-      top: -2
-      position: 'absolute'
-      #marginLeft: -handle_width / 2
-      zIndex: 1
-      left: 0
-      width: @props.width * val
-      backgroundColor: @props.color or feedback_orange #focus_blue #'#666'
-
-
-    if @props.show_handle
-      @props.draw_handle?() or SVG defaults (@props.handle_attrs or {}),
-        style:
-          position: 'relative'
-          left: @props.width * val - 14 / 2
-        className: 'grab_cursor'
-        width: 14
-        height: 15
-        viewBox: "0 0 14 15"
-        dangerouslySetInnerHTML: __html: """
-          <defs>
-            <path d="M986,1295 L1000,1295 L1000,1303 L986,1303 L986,1295 Z M993,1309 L986,1303 L1000,1303 L993,1309 Z" id="path-1"></path>
-            <filter x="-3.6%" y="-10.7%" width="107.1%" height="114.3%" filterUnits="objectBoundingBox" id="filter-2">
-                <feOffset dx="0" dy="-1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
-                <feColorMatrix values="0 0 0 0 0.641528486   0 0 0 0 0.236649693   0 0 0 0 0.29099584  0 0 0 1 0" type="matrix" in="shadowOffsetOuter1"></feColorMatrix>
-            </filter>
-          </defs>
-          <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-              <g id="Desktop-HD-Copy-23" transform="translate(-986.000000, -1295.000000)">
-                  <g id="Rectangle-7" transform="translate(993.000000, 1302.000000) scale(1, -1) translate(-993.000000, -1302.000000) ">
-                      <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
-                      <use fill="#F45F73" fill-rule="evenodd" xlink:href="#path-1"></use>
-                  </g>
-              </g>
-          </g>
-        """
 
 
 ####

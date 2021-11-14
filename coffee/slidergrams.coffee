@@ -4,13 +4,13 @@ feedback_orange = '#F19135'
 considerit_salmon = '#F45F73'
 
 # Remove current user from this slider, if they're on it
-window.remove_self_from_slider = (sldr) -> 
+window.remove_self_from_slider = (sldr) ->
   sldr = fetch sldr
   return if !(sldr.selection or sldr.anchor)
 
   you = your_key()
   for o, idx in sldr.values
-    if o.user == you 
+    if o.user == you
       sldr.values.splice(idx, 1)
       save sldr
       break
@@ -19,25 +19,23 @@ window.remove_self_from_slider = (sldr) ->
 # BUG: if someone else has slid the slider, but that slide 
 #      hasn't been synchronized to this client yet, the slider
 #      might be erroneously deleted
-window.delete_slider_if_no_activity = (sldr) -> 
+window.delete_slider_if_no_activity = (sldr) ->
   sldr = fetch sldr
   return if !(sldr.selection or sldr.anchor or sldr.point)
 
   anchor = fetch(sldr.selection or sldr.anchor or sldr.point)
 
   if !sldr.values || sldr.values.length == 0
-    idx = anchor.sliders.indexOf sldr.key 
-    if idx > -1 
+    idx = anchor.sliders.indexOf sldr.key
+    if idx > -1
       anchor.sliders.splice(idx, 1)
       save anchor
 
-    del sldr 
+    del sldr
 
 
 
-
-
-dom.SLIDERGRAM = -> 
+dom.SLIDERGRAM = ->
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
 
@@ -49,84 +47,51 @@ dom.SLIDERGRAM = ->
   slidergram_width = @props.width
   svg_sides = slidergram_width / 2
 
-  sldr.poles ||= ['-1','+1']
-
   # console.log 'RENDERING value', get_your_slide(sldr)?.value
     
-  DIV 
-    style: 
+  DIV
+    style:
       #width: slidergram_width
       position: 'relative'
-      #width: 9999 # so slider label doesn't wrap
-      zIndex: if local_sldr.editing_label then 2 else 1 
-                # Set at least 1 so that when you hover over a slidergram that 
-                # is below this post, the other post doesn't prevent mouseovers
-                # on this slidergram. The 2 is for putting a slidergram being
-                # edited above the other ones, so that the drop down label
-                # selection works. 
+      zIndex: 2
       display: 'flex'
       flexDirection: 'row'
       alignItems: 'flex-end'
       paddingBottom: 32/2
 
     # on option-click, delete self (or slidergram as whole if already empty)
-    onClick: (e) => 
+    onClick: (e) =>
       if e.altKey
         if sldr.values.length == 0
           delete_slider_if_no_activity(sldr)
-        else 
+        else
           remove_self_from_slider(sldr)
-    onMouseEnter: (e) => 
-      @local.hover = true 
-      save @local 
-    onMouseLeave: (e) => 
-      @local.hover = false 
+    onMouseEnter: (e) =>
+      @local.hover = true
+      save @local
+    onMouseLeave: (e) =>
+      @local.hover = false
       save @local
 
-    if !@props.no_label && !@props.one_sided
-
-      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
-      DIV  
-        style: 
-
-          marginRight: 12
-          marginBottom: -12
-
-        LABEL_TAG
-          style: 
-            fontSize: 14
-            fontWeight: 400
-            color:  @props.slider_color or SLIDER_COLOR
-
-          key: sldr.key
-          sldr: sldr
-          height: @props.height
-          text: sldr.poles[0]
-          pole_idx: 0
-          onInput: (e) =>
-            sldr.poles[0] = e.target.innerHTML
-            # save sldr
-
-
-    DIV 
+    DIV
       key: 'opinion_area'
-      ref: 'opinion_area'        
-      style: 
+      ref: 'opinion_area'
+      style:
         flex: 2
 
       onMouseEnter: if !read_only then (e) => 
-        @local.hover_opinion_area = true 
-        save @local 
-        if !has_opined && !local_sldr.tracking_mouse 
+        @local.hover_opinion_area = true
+        save @local
+        if !has_opined && !local_sldr.tracking_mouse
           x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-          start_slide sldr, @props.width, 'tracking', 
+          start_slide sldr, @props.width, 'tracking',
             initial_val: x_entry / slidergram_width
             slidergram_width: slidergram_width
 
 
-      onMouseLeave: if !read_only then (e) => 
-        @local.hover_opinion_area = false 
-        save @local 
+      onMouseLeave: if !read_only then (e) =>
+        @local.hover_opinion_area = false
+        save @local
 
         # only remove if we haven't added ourselves
         if local_sldr.tracking_mouse == 'tracking'
@@ -175,197 +140,14 @@ dom.SLIDERGRAM = ->
 
 
         if !@props.no_feedback
-          SLIDER_FEEDBACK 
-            show_handle: @local.hover_opinion_area
-            sldr: sldr 
+          SLIDER_FEEDBACK
+            sldr: sldr
             color: considerit_salmon
             width: @props.width
-            style: 
+            style:
               display: if !(@local.hover_opinion_area || \
                           local_sldr.dragging || local_sldr.tracking_mouse == 'activated') \
                         then 'none'
-
-    if !@props.no_label
-
-      LABEL_TAG = @props.draw_label or (if @props.edit_label then BASIC_SLIDER_LABEL else STATIC_SLIDER_LABEL)
-      DIV  
-        style: 
-          marginLeft: 12
-          marginBottom: -12
-
-        LABEL_TAG
-          style: 
-            fontSize: 14
-            fontWeight: 400
-            color:  @props.slider_color or SLIDER_COLOR
-          key: sldr.key
-          sldr: sldr
-          height: @props.height
-          pole_idx: 1
-          text: sldr.poles[1]
-          onInput: (e) =>
-            sldr.poles[1] = e.target.innerHTML
-            # save sldr
-
-
-
-
-    if @local.hover && fetch('/permissions')[you] == 'admin'
-      BUTTON
-        style: 
-          backgroundColor: 'transparent'
-          color: '#ddd'
-          fontSize: 10
-          position: 'absolute'
-          left: '100%'
-          paddingLeft: 100 
-          fontWeight: 'normal'
-        onClick: => 
-          if window.confirm('Are you sure?') 
-            del sldr
-        'Delete'
-
-
-split_label = (label) ->
-  first_part = ""
-  second_part = ""
-
-  idx = 0 
-  while true 
-    img = label.substring(idx).match(/^<img[^>]*(.*?)>(<\/img>)?/)?[0]
-    if img 
-      first_part += img 
-      idx += img.length 
-    else if label[idx] == ' '
-      second_part = label.substring(idx + 1)
-      break
-    else 
-      first_part += label[idx]
-      idx += 1
-
-    break if idx >= label.length 
-
-  [first_part, second_part]
-
-  
-
-
-
-set_style """
-  [data-widget='BASIC_SLIDER_LABEL'] .emojione {
-    width: 32px; height: 32px;
-    vertical-align: middle;
-  }
-"""
-dom.BASIC_SLIDER_LABEL = ->
-
-  sldr = fetch @props.sldr
-  pole_idx = @props.pole_idx
-  pole_idx ?= 1
-
-  if !@local.text? or @props.text != @local.text
-    @local.text = @props.text or sldr.poles?[pole_idx] or '+'
-
-  if @local.text == 'undefined'
-    @local.text = ''
-
-  # The contenteditable label
-  DIV
-    key: 'content_editable_label' 
-    ref: 'editor'
-    spellCheck: false
-    contentEditable: true
-    style: defaults {}, (@props.style or {}),
-      border: '1px solid'
-      outline: 'none'
-      #width: if @local.focused then 300 else 'auto'
-      minHeight: 24 # firefox made short boxes when empty
-      minWidth: 32
-      whiteSpace: 'nowrap'
-      borderColor: if @local.hovering
-                     '#ddd'
-                   else 
-                     'transparent'
-
-    onInput: @props.onInput or ((e) =>
-      sldr.poles ||= ['','']
-      old_text = sldr.poles[pole_idx]
-      new_text = @refs.editor.getDOMNode().innerHTML
-      sldr.poles[pole_idx] = new_text
-      save sldr)
-
-    onMouseEnter: =>
-      @local.hovering = true
-      save @local
-
-    onMouseLeave: (e) => 
-      @local.hovering = false
-      save @local
-
-    onFocus: (e) => 
-      @local.focused = true 
-      save @local 
-
-    onBlur: (e) => 
-      @local.focused = false
-      @local.text = sldr.poles?[pole_idx] or @props.text or '+'
-      save @local 
-      save sldr
-
-    dangerouslySetInnerHTML: if @local.text?.length > 0 then {__html: (if emojione? then emojione.unicodeToImage(@local.text) else @local.text)}
-
-
-
-dom.STATIC_SLIDER_LABEL = ->
-
-  sldr = fetch @props.sldr
-  pole_idx = @props.pole_idx
-  pole_idx ?= 1
-
-  if !@local.text? or @props.text != @local.text
-    @local.text = @props.text or sldr.poles?[pole_idx] or '+'
-
-  if @local.text == 'undefined'
-    @local.text = ''
-
-  # noneditable
-  DIV
-    style: defaults {}, (@props.style or {}),
-      #width: if @local.focused then 300 else 'auto'
-      minHeight: 24 # firefox made short boxes when empty
-      minWidth: "2ch"
-      whiteSpace: 'nowrap'
-
-    dangerouslySetInnerHTML: if @local.text?.length > 0 then {__html: (if emojione? then emojione.unicodeToImage(@local.text) else @local.text)}
-      
-
-
-#######
-# Creates a slidergram
-# args:
-#    anchor: the thing against which this slidergram is reacting
-#    poles: the endpoints
-window.create_slidergram = (args) -> 
-  anchor = args.anchor 
-  if anchor && !anchor.key
-    anchor = fetch anchor
-
-  slidergram =  
-    key: new_key('slider')
-    anchor: if anchor then anchor.key
-    poles: args.poles or ['', '']
-    values: []
-
-  save slidergram
-
-  if anchor
-    anchor.sliders ?= []
-    anchor.sliders.push slidergram.key 
-    save anchor
-  slidergram
-
-
-
 
 
 #########
@@ -472,10 +254,6 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
       saw_thing(sldr)
       stop_slider_dragging(sldr)
     else if slide_type == 'tracking'
-      # automatically start editing label if no one else is on the slider
-      if local.is_new && sldr.poles?[1] == ''
-        local.editing_label = true 
-        save local      
       saw_thing(sldr)
       stop_slider_mouse_tracking(sldr)
 
@@ -508,8 +286,8 @@ stop_slider_mouse_tracking = (sldr, skip_save) ->
   # Need to transfer from local_sldr to sldr 
   if !skip_save && local_sldr.tracking_mouse == 'activated'
     sldr.values.push local_sldr.values[0]
-    save sldr 
-    local_sldr.dirty_opinions = true 
+    save sldr
+    local_sldr.dirty_opinions = true
 
   local_sldr.tracking_mouse = null
   save local_sldr
@@ -517,35 +295,33 @@ stop_slider_mouse_tracking = (sldr, skip_save) ->
 
 # Extend a React component's props with implements_slide_draggable in order to make it 
 # act like a slider handle
-implements_slide_draggable = (sldr, width, props) -> 
-  extend props, 
+implements_slide_draggable = (sldr, width, props) ->
+  extend props,
     onMouseDown: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging')
     onTouchStart: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging')
   props
-
-
-
-
 
 
 ##
 # SliderHandle
 #
 # A little feedback on the slider that shows where you're dragging
-dom.SLIDER_FEEDBACK = -> 
+dom.SLIDER_FEEDBACK = ->
   handle_height = @props.handle_height or 2
   handle_width = @props.handle_width or 1
 
-  local_sldr = fetch shared_local_key(@props.sldr)  
+  local_sldr = fetch shared_local_key(@props.sldr)
 
   val = if local_sldr.tracking_mouse
           local_sldr.values[0].value
+        else if @props.target?
+          get_target_slide(@props.sldr, @props.target)?.value or 0
         else #if local_sldr.dragging
           get_your_slide(@props.sldr)?.value or 0
 
   return SPAN null if val < 0 || val > 1.0
 
-  DIV 
+  DIV
     style: defaults @props.style,
       width: handle_width
       height: handle_height
@@ -556,34 +332,6 @@ dom.SLIDER_FEEDBACK = ->
       left: 0
       width: @props.width * val
       backgroundColor: @props.color or feedback_orange #focus_blue #'#666'
-
-
-    if @props.show_handle
-      @props.draw_handle?() or SVG defaults (@props.handle_attrs or {}),
-        style: 
-          position: 'relative'
-          left: @props.width * val - 14 / 2
-        className: 'grab_cursor'
-        width: 14
-        height: 15
-        viewBox: "0 0 14 15" 
-        dangerouslySetInnerHTML: __html: """
-          <defs>
-            <path d="M986,1295 L1000,1295 L1000,1303 L986,1303 L986,1295 Z M993,1309 L986,1303 L1000,1303 L993,1309 Z" id="path-1"></path>
-            <filter x="-3.6%" y="-10.7%" width="107.1%" height="114.3%" filterUnits="objectBoundingBox" id="filter-2">
-                <feOffset dx="0" dy="-1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
-                <feColorMatrix values="0 0 0 0 0.641528486   0 0 0 0 0.236649693   0 0 0 0 0.29099584  0 0 0 1 0" type="matrix" in="shadowOffsetOuter1"></feColorMatrix>
-            </filter>
-          </defs>
-          <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-              <g id="Desktop-HD-Copy-23" transform="translate(-986.000000, -1295.000000)">
-                  <g id="Rectangle-7" transform="translate(993.000000, 1302.000000) scale(1, -1) translate(-993.000000, -1302.000000) ">
-                      <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
-                      <use fill="#F45F73" fill-rule="evenodd" xlink:href="#path-1"></use>
-                  </g>
-              </g>
-          </g>
-        """
 
 
 ####

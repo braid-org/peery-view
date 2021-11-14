@@ -257,7 +257,7 @@
 
         # if we want to "suggest" users in the extended network that could be voted on, we should pull them from "weights" and include them here.
 
-        Object.assign multigram_aux, {values: votes_arr, poles: ["-1", "+1"]}
+        Object.assign multigram_aux, {values: votes_arr}
 
     bus('multigram').to_save = (val, t) ->
 
@@ -268,8 +268,6 @@
         #// The multigram can't add new values, so we just have to save the values in it to the server.
         #// Ie, the multigram has an array of values, each of which is an actual vote state.
         #// But, we only save these if the user is done dragging!
-
-        #// TODO: These sometimes just don't save...
         unless val.dragging
             val.values.forEach (v) ->
                 cop = Object.assign {}, v
@@ -287,8 +285,7 @@
 <!-- For slidergrams -->
 
 <script src="https://considerit.us:3006/client/shared.coffee"></script>
-<script src="https://considerit.us:3006/client/avatar.coffee"></script>
-
+<script src="/coffee/avatar.coffee" crossorigin=anonymous></script>
 <script src="/coffee/slidergrams.coffee" crossorigin=anonymous></script>
 <script src="/coffee/multigrams.coffee" crossorigin=anonymous></script>
 
