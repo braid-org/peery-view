@@ -23,7 +23,7 @@ sort_posts = (posts) ->
             # weighted sum of votes.
             # double check this part.
             sum_votes = votes
-                .map (v) -> v.value * (weights[unslash v.user] ? 0)
+                .map (v) -> (2 * v.value - 1) * (weights[unslash v.user] ? 0)
                 .reduce (a, b) -> a + b
 
         scores[p.key] = att * user_weight * sum_votes

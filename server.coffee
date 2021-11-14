@@ -64,7 +64,7 @@ bus('weights/*').to_fetch = (star) ->
     while queue.length
         [uid, base_weight] = queue.shift()
         weights[uid] = base_weight
-        if base_weight < MIN_WEIGHT
+        if Math.abs(base_weight) < MIN_WEIGHT
             continue
 
         # queue.push ...stuff
@@ -75,7 +75,7 @@ bus('weights/*').to_fetch = (star) ->
                         return false
                     slashes_wtf = unslash v.target
                     (slashes_wtf.startsWith "user") and (slashes_wtf not of weights)
-                .map (v) -> [(unslash v.target), v.value * base_weight * NETWORK_ATT]
+                .map (v) -> [(unslash v.target), (2 * v.value - 1) * base_weight * NETWORK_ATT]
             )
     weights
 
