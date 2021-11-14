@@ -1,5 +1,6 @@
 ######### Clientwise handlers ##########
 bus = require('statebus').serve
+    port: 1312
     client: (client, server) ->
         # Client cannot edit /votes_by/
         client('votes_by/*').to_save = (val, star, t) ->
