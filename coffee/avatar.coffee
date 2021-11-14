@@ -12,7 +12,7 @@ dom.AVATAR = ->
   add_initials = if !@props.add_initials? then true else @props.add_initials
 
   user = @props.user
-  if (typeof @props.user == 'string') or @props.user.key 
+  if (typeof @props.user == 'string') or @props.user.key
     user = fetch(@props.user)
   # else it is a connection possibly just with a name
 
@@ -20,13 +20,13 @@ dom.AVATAR = ->
   extend @props,
     'data-user': name
     'data-showtooltip': !@props.hide_tooltip
-    'data-color': @props.color 
+    'data-color': @props.color
 
   name = name.split(' ')
   if @props.hide_tooltip && !user.key == your_key()
     @props.title = name
 
-  if user.pic 
+  if user.pic
     @props.src ||= user.pic
 
     if @props.src.indexOf('/') == -1 && default_path
@@ -40,36 +40,36 @@ dom.AVATAR = ->
         name = '?'
       if name.length == 2
         name = "#{name[0][0]}#{name[1][0]}"
-      else 
+      else
         name = "#{name[0][0]}"
 
-    SPAN @props, 
+    SPAN @props,
 
       if add_initials
-        SPAN 
+        SPAN
           key: 'initials'
           className: 'initials'
-          style: 
+          style:
             fontSize: (@props.style?.width or 50) / 2
             padding: (@props.style?.width or 50) / 4
           name
 
       if @props.prompt_avatar && fetch('/current_user').user?.key == user.key
-        DIV 
-          style: 
+        DIV
+          style:
             position: 'absolute'
-            left: 0 
+            left: 0
             bottom: -30
 
           BUTTON
-            style: 
+            style:
               textDecoration: 'underline'
               color: considerit_salmon
               fontSize: 13
               backgroundColor: 'transparent'
-            onClick: => 
+            onClick: =>
               auth = fetch 'auth'
-              auth.form = 'upload_avatar' 
+              auth.form = 'upload_avatar'
               save auth
             'set your pic'
 
@@ -80,6 +80,7 @@ style.innerHTML =   """
   [data-widget='AVATAR'] {
     width: 50px;
     height: 50px;
+    object-fit: cover;
   } span[data-widget='AVATAR'] {
     background-color: #62B39D;
     text-align: center;

@@ -106,7 +106,7 @@ dom.SETTINGS = ->
             "Avatar URL"
         INPUT
             gridArea: "picfield"
-            value: c.user.photo
+            value: c.user.pic
             placeholder: "http://..."
             id: "pic-change"
 
@@ -124,11 +124,11 @@ dom.SETTINGS = ->
                 # Another option would be to live-update these.
                 name = document.getElementById("name-change").value
                 email = document.getElementById("email-change").value
-                photo = document.getElementById("pic-change").value ? ""
+                pic = document.getElementById("pic-change").value ? ""
 
                 c.user.name = name
                 c.user.email = email
-                c.user.photo = photo
+                c.user.pic = pic
 
                 save c.user
                 

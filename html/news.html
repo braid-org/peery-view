@@ -35,9 +35,6 @@
         # Subscribe to the post
         if post.key then fetch post
         author = fetch post.user
-        hashcolor = Array.from(author.key.substr("/user/".length, 3))
-            .map (c) -> (c.charCodeAt(0) % 16).toString(16)
-            .join ""
         # ugly, find a better way to format a time differential
         time = (Date.now() / 1000) - post.time
         suffix = "seconds"
@@ -60,17 +57,17 @@
             key: "post-#{post.key}"
             marginTop: "10px"
             display: "grid"
-            grid: '"icon details slider" 1.5em
+            grid: '"icon details slider" 25px
                    "title title slider" auto
                   / 1.5em 2fr 1fr'
-            DIV
-                width: "1.4em"
-                height: "1.4em"
-                placeSelf: "center"
-                borderRadius: "1em"
-                gridArea: "icon"
-                # or a photo
-                background: "##{hashcolor}"
+            AVATAR
+                user: author
+                style:
+                    placeSelf: "center"
+                    width: 25
+                    height: 25
+                    gridArea: "icon"
+                    borderRadius: "50%"
             DIV
                 gridArea: "details"
                 color: "#444"
@@ -132,11 +129,15 @@
                     display: "flex"
                     flexDirection: "row"
                     alignItems: "center"
-                    DIV
-                        width: "2em"
-                        height: "2em"
-                        borderRadius: "2em"
-                        backgroundColor: "#aaa"
+
+                    AVATAR
+                        user: c.user
+                        style:
+                            placeSelf: "center"
+                            width: 30
+                            height: 30
+                            gridArea: "icon"
+                            borderRadius: "50%"
                     H3
                         marginLeft: "5px"
                         c.user.name
