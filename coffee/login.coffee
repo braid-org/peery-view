@@ -1,18 +1,17 @@
 # Login Form
-dom.LOGIN = (c) ->
+dom.LOGIN = ->
+    c = fetch "/current_user"
     button_style =
         justifySelf: "center"
         minWidth: "80%"
         paddingLeft: "5px"
         paddingRight: "5px"
-    
 
     DIV
-        width: "min(400px, 75%)"
+        width: 200
+        paddingRight: "10px"
         display: "grid"
         # Maybe use flex instead here?
-        marginLeft: "auto"
-        marginRight: "auto"
         grid: '"error error" auto
                "name name" 32px
                "pw pw" 32px
@@ -23,7 +22,8 @@ dom.LOGIN = (c) ->
         DIV
             gridArea: "error"
             display: "none" unless c.error
-            borderBottom: "2px solid red"
+            fontSize: "12px"
+            color: "red"
             c.error
         INPUT
             id: "login-name"
@@ -35,7 +35,7 @@ dom.LOGIN = (c) ->
             gridArea: "pw"
         INPUT
             id: "login-email"
-            placeholder: "Email, if registering"
+            placeholder: "Email"
             gridArea: "email"
 
         BUTTON {
@@ -63,6 +63,10 @@ dom.LOGIN = (c) ->
                     name: name
                     pass: pw
                 save c
+
+                s = fetch "show_settings"
+                s.show = false
+                save s
             },
             "Login"
 
@@ -71,13 +75,10 @@ dom.SETTINGS = ->
     unless c.logged_in
         return
     DIV
-        width: "min(400px, 75%)"
+        width: "250"
         display: "grid"
         # Maybe use flex instead here?
-        marginLeft: "auto"
-        marginRight: "auto"
         alignContent: "center"
-        padding: "0 15px 15px 15px"
         grid: '"nametag namefield namefield" 32px
                "emailtag emailfield emailfield" 32px
                "pictag picfield picfield" 32px
@@ -87,6 +88,8 @@ dom.SETTINGS = ->
         
         DIV
             gridArea: "nametag"
+            color: "#333"
+            fontSize: "12px"
             "Name"
         INPUT
             gridArea: "namefield"
@@ -95,6 +98,8 @@ dom.SETTINGS = ->
 
         DIV
             gridArea: "emailtag"
+            color: "#333"
+            fontSize: "12px"
             "Email"
         INPUT
             gridArea: "emailfield"
@@ -103,6 +108,8 @@ dom.SETTINGS = ->
 
         DIV
             gridArea: "pictag"
+            color: "#333"
+            fontSize: "12px"
             "Avatar URL"
         INPUT
             gridArea: "picfield"

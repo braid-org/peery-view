@@ -14,17 +14,26 @@
 
 </style>
 <script type="statebus">
+    body_width = 750
+    margin_left = 32
+    post_width = 550
+
     document.title = 'Braid News'
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
 
     dom.BODY = ->
         DIV
-            maxWidth: "800px"
+            width: body_width
             margin: "auto"
 
-            H1 "Braid News"
-
+            H1
+                marginLeft: margin_left
+                fontSize: "50px"
+                "Braid"
+            
             USER()
+            BIG_MULTIGRAM()
+            SUBMIT_POST()
             POSTS()
 
     dom.POSTS = ->
@@ -46,215 +55,180 @@
         if post.key then fetch post
         author = fetch post.user
 
-        hover = fetch "hover#{post.key}" 
-        hover.hover ?= false
-
         c = fetch '/current_user'
 
-        clickable = c.logged_in and \
-            (c.user.key != author.key) and \
-            not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
+        # Compute the domain
+        pretty_url = post.url
+        functional_url = post.url
+
         DIV
             key: "post-#{post.key}"
             marginTop: "10px"
             marginBottom: "10px"
-            display: "flex"
+            display: "grid"
+            grid: "\"icon title slider .\" auto
+                   \". domain slider . \" 16px
+                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
             alignItems: "center"
-
-            SPAN
-                width: 30
-                height: 30
-                lineHeight: "30px"
-                textAlign: "center"
-                opacity: if clickable and hover.hover then 0.54 else 0
-                fontWeight: "bold"
-                fontSize: 24
-                userSelect: "none"
-                "+"
 
             AVATAR
                 user: author
+                gridArea: "icon"
                 style:
-                    width: 30
-                    height: 30
+                    width: margin_left - 10
+                    height: margin_left - 10
                     borderRadius: "50%"
-                    cursor: if clickable then "pointer"
-
-                onClick: if clickable then (e) ->
-                    add_user_weight author.key
-                    hover.hover = false
-                    save hover
-
-                onMouseOver: (e) ->
-                    hover.hover = true
-                    save hover
-
-                onMouseOut: (e) ->
-                    hover.hover = false
-                    save hover
+                    alignSelf: "start"
 
             DIV
-                display: "inline-flex"
-                flexDirection: "row"
-                overflowX: "hidden"
-                alignItems: "center"
-                marginLeft: "10px"
-                flexGrow: 1
+                gridArea: "title"
+                fontSize: "18px"
+                paddingRight: "10px"
+                lineHeight: "#{margin_left - 10}px"
+                justifySelf: "stretch"
                 cursor: if post.url.length then "pointer"
-
-                onClick: (e) ->
-                    if post.url.length
-                        window.location.assign post.url
-
-                SPAN
-                    marginRight: "10px"
-                    fontSize: "1.3em"
-                    "#{post.title}"
-                SPAN
-                    fontSize: "1em"
-                    color: "#444"
-                    overflowX: "hidden"
-                    "#{post.url}"
+                onClick: if post.url.length then (e) ->
+                    window.location.assign functional_url
+                "#{post.title}"
+            SPAN
+                gridArea: "domain"
+                fontSize: "12px"
+                color: "#999"
+                "#{pretty_url}"
 
             DIV
                 gridArea: "slider"
+                alignSelf: "start"
+                height: margin_left - 10
                 SLIDERGRAM
                     sldr: "/votes_on#{post.key}"
-                    width: 200
-                    height: 35
-                    max_avatar_radius: 15
+                    width: body_width - 2*margin_left - post_width - 10
+                    height: margin_left - 10
+                    max_avatar_radius: (margin_left - 10) / 2
                     read_only: !c.logged_in
 
 
     # Information about the current user:
     # Login/Out/Register
-    # Vote on other users
-    # Submit a new link
     dom.USER = ->
         c = fetch '/current_user'
-        if c.logged_in
-            # My Personal Rankings
-            s = fetch "show_settings"
-            s.show ?= false
-            DIV
-                width: "100\%"
-                # User Settings Bar
-                DIV
-                    width: "min(400px, 75%)"
-                    marginLeft: "auto"
-                    marginRight: "auto"
-                    display: "flex"
-                    flexDirection: "row"
-                    alignItems: "center"
+        s = fetch "show_settings"
+        s.show ?= false
+        DIV
+            position: "absolute"
+            top: 15
+            right: 30
 
-                    AVATAR
-                        user: c.user
-                        style:
-                            placeSelf: "center"
-                            width: 30
-                            height: 30
-                            gridArea: "icon"
-                            borderRadius: "50%"
+            DIV {},
+                if c.logged_in
+                    DIV
+                        display: "flex"
+                        flexDirection: "row"
+                        alignItems: "center"
+                        justifyContent: "end"
+                        marginBottom: "5px"
 
-                    H3
-                        marginLeft: "6px"
-                        flexGrow: 1
-                        c.user.name
+                        AVATAR
+                            user: c.user
+                            style:
+                                placeSelf: "center"
+                                width: 20
+                                height: 20
+                                borderRadius: "50%"
 
-                    SPAN
-                        className: "material-icons md-dark"
-                        fontSize: "20px"
-                        cursor: "pointer"
-                        marginRight: "5px"
+                        DIV
+                            marginLeft: "6px"
+                            marginRight: "6px"
+                            c.user.name
+
+                        SPAN
+                            className: "material-icons md-dark"
+                            fontSize: "20px"
+                            cursor: "pointer"
+                            marginRight: "5px"
+                            onClick: (e) ->
+                                s.show = !s.show ? true
+                                save s
+                            "settings"
+                        SPAN
+                            className: "material-icons md-dark"
+                            fontSize: "20px"
+                            cursor: "pointer"
+                            onClick: (e) ->
+                                c.logout = true
+                                save c
+                            "logout"
+                else if !s.show
+                    DIV
                         onClick: (e) ->
                             s.show = !s.show ? true
                             save s
-                        "settings"
-                    SPAN
-                        className: "material-icons md-dark"
-                        fontSize: "20px"
+                        fontSize: "14px"
+                        color: "#666"
                         cursor: "pointer"
-                        onClick: (e) ->
-                            c.logout = true
-                            save c
-                        "logout"
-                # Slidegram and web-of-trust, or account settings
-                if s.show then SETTINGS() else NETWORK()
-                # Submit Box
-                DIV
-                    width: "min(600px, 90%)"
-                    marginLeft: "auto"
-                    marginRight: "auto"
-                    display: "flex"
-                    flexDirection: "row"
-                    justifyContent: "center"
-                    DIV
-                        fontWeight: "bold"
-                        marginRight: "15px"
-                        "New Post:"
-                    INPUT
-                        id: "post-title"
-                        placeholder: "Title"
-                        flexGrow: "3"
-                    INPUT
-                        id: "post-url"
-                        type: "url"
-                        placeholder: "URL"
-                        flexGrow: "2"
-                        marginLeft: "5px"
-                        marginRight: "15px"
-                    SPAN
-                        className: "material-icons md-dark"
-                        onClick: (e) ->
-                            title = document.getElementById("post-title")
-                            link = document.getElementById("post-url")
-                            if title.value.length > 1
-                                make_post title.value, link.value, c.user.key
-                                title.value = ""
-                                link.value = ""
-                        cursor: "pointer"
-                        "post_add"
-        else
-            LOGIN
-                c: c
+                        "Not Logged In"
+            DIV {},
+                display: unless s.show then "none"
+                if c.logged_in
+                    SETTINGS()
+                else
+                    LOGIN()
 
-    dom.NETWORK = ->
-        # // My IDE doesn't know that this isn't javascript
-        # // Two things go here:
-        # // The users slidergram (allowing you to change the vote you've previously made)
-        # // A box to create a new vote
+
+    dom.SUBMIT_POST = ->
+
+        has_typed = fetch "submit_open"
+        has_typed.typed ?= false
+
         DIV
-            width: "min(700px, 95%)"
-            marginLeft: "auto"
-            marginRight: "auto"
-            padding: "0 15px 15px 15px"
-            display: "flex"
-            alignItems: "center"
-            flexDirection: "column"
+            width: post_width
+            marginLeft: margin_left
+            INPUT
+                id: "post-title"
+                style:
+                    width: post_width
+                    height: "28px"
+                placeholder: "Say something..."
+                onInput: (e) ->
+                    has_typed.typed = e.target.value.length > 0
+                    save has_typed
+
+            DIV
+                display: if has_typed.typed then "flex" else "none"
+                flexDirection: "row"
+                marginTop: "5px"
+                INPUT
+                    id: "post-url"
+                    type: "url"
+                    placeholder: "URL"
+                    flexGrow: "1"
+                    marginRight: "5px"
+                    style:
+                        height: "28px"
+                SPAN
+                    alignSelf: "center"
+                    className: "material-icons md-dark"
+                    fontSize: "24px"
+                    onClick: (e) ->
+                        title = document.getElementById("post-title")
+                        link = document.getElementById("post-url")
+                        if title.value.length > 1
+                            make_post title.value, link.value, c.user.key
+                            title.value = ""
+                            link.value = ""
+                    cursor: "pointer"
+                    "post_add"
+
+    dom.BIG_MULTIGRAM = ->
+        DIV
+            width: body_width
+            padding: "0 #{margin_left}px 15px #{margin_left}px"
 
             MULTIGRAM
                 sldr: 'multigram'
-                width: 500
-                height: 40
-                max_avatar_radius: 15
-            # Does this thing need to have suggestions?
-            DIV 
-                display: "flex"
-                alignItems: "center"
-                INPUT
-                    placeholder: "user/someone"
-                    id: "add-follow"
-                    height: 16
-                SPAN
-                    className: "material-icons md-dark"
-                    marginLeft: "7px"
-                    onClick: (e) ->
-                        box = document.getElementById("add-follow")
-                        if add_user_weight box.value
-                            box.value = ""
-                    fontSize: 24
-                    cursor: "pointer"
-                    "person_add"
+                width: body_width - 2 * margin_left 
+                height: 60
+                max_avatar_radius: 30
 
     # Attempt to add a neutral vote on the specified user.
     # The return value is whether or not *such a vote exists*.
@@ -291,7 +265,7 @@
     bus('multigram').to_fetch = () ->
         c = fetch "/current_user"
         unless c.logged_in
-            return {key: 'muligram'}
+            return {key: 'multigram'}
 
         votes_arr = Object.values(fetch "/votes_by#{c.user.key}")
             .filter (v) ->
