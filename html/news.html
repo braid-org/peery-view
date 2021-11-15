@@ -179,6 +179,9 @@
 
         has_typed = fetch "submit_open"
         has_typed.typed ?= false
+        c = fetch "/current_user"
+        unless c.logged_in
+            return
 
         DIV
             width: post_width
