@@ -61,6 +61,10 @@
         pretty_url = post.url
         functional_url = post.url
 
+        clickable = c.logged_in and \
+            (c.user.key != author.key) and \
+            not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
+
         DIV
             key: "post-#{post.key}"
             marginTop: "10px"
@@ -79,6 +83,9 @@
                     height: margin_left - 10
                     borderRadius: "50%"
                     alignSelf: "start"
+                    cursor: if clickable then "pointer"
+                onClick: if clickable then (e) ->
+                    add_user_weight author.key
 
             DIV
                 gridArea: "title"
@@ -118,6 +125,7 @@
             position: "absolute"
             top: 15
             right: 30
+            zIndex: 5
 
             DIV {},
                 if c.logged_in
