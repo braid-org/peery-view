@@ -89,6 +89,7 @@ bus('weights/*').to_save = (star, t) ->
 ###### Sending static content over HTTP ##############
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
 
+bus.http.use(free_the_cors)
 bus.http.get('/', send_file '/html/news.html')
 # Coffee Compilation
 coffee_cache = {}
@@ -112,3 +113,39 @@ dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
 unslash = (t) -> if t?.startsWith("/") then t.substr(1) else t
+
+
+old_bodify = bus.to_http_body
+bus.to_http_body = (o) ->
+    if o.key == 'posts'
+        JSON.stringify(o.all)
+    else
+        old_bodify(o)
+
+
+`
+// Free the CORS!
+function free_the_cors (req, res, next) {
+    console.log('free the cors!', req.method, req.url)
+
+    // Hey... these headers aren't about CORS!  Let's move them into the braid
+    // libraries:
+    res.setHeader('Range-Request-Allow-Methods', 'PATCH, PUT')
+    res.setHeader('Range-Request-Allow-Units', 'json')
+    res.setHeader("Patches", "OK")
+    // ^^ Actually, it looks like we're going to delete these soon.
+
+    var free_the_cors = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "OPTIONS, HEAD, GET, PUT, UNSUBSCRIBE",
+        "Access-Control-Allow-Headers": "subscribe, peer, version, parents, merge-type, content-type, patches, cache-control"
+    }
+    Object.entries(free_the_cors).forEach(x => res.setHeader(x[0], x[1]))
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200)
+        res.end()
+    } else
+        next()
+}
+`
+
