@@ -230,6 +230,7 @@ dom.MULTIHISTOGRAM = ->
     # by the physics sim
     for opinion in sldr.values
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
+        continue if opinion.type == "me"
 
         key = md5([@props.width, @props.height, opinion_weights])
         size = opinion.size?[key]
@@ -246,8 +247,8 @@ dom.MULTIHISTOGRAM = ->
                 height: size?.width or 50
                 left: size?.left or 0
                 top: size?.top or 0
-                opacity: if focus_on_dragging and (local_sldr.target != opinion.target) then 0.4
-                filter: if focus_on_dragging and (local_sldr.target != opinion.target) then 'grayscale(80%)'
+                opacity: if (focus_on_dragging or opinion.type?) and (local_sldr.target != opinion.target) then 0.4
+                filter: if (focus_on_dragging or opinion.type?) and (local_sldr.target != opinion.target) then 'grayscale(80%)'
                 cursor: "pointer"
 
         props = implements_slide_target sldr, opinion.target, @props.width, props
