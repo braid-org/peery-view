@@ -4,6 +4,7 @@ bus = require('statebus').serve
     client: (client, server) ->
         # Client cannot edit /votes_by/
         client('votes_by/*').to_save = (val, star, t) ->
+            console.log "Tried to save votes_by"
             t.abort()
 
         # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
@@ -14,8 +15,10 @@ bus = require('statebus').serve
         # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
         client('votes_on/*').to_save = (val, old, star, t) ->
             # since we're going to set properties directly on votes_by we have to prevent injection
-            if star is "key" or star is "_dirty"
+            if star is "key"
                 return t.abort()
+
+            console.log "Saving votes_on"
 
             c = client.fetch "current_user"
             userkey = c.user?.key
@@ -31,8 +34,7 @@ bus = require('statebus').serve
             bus.save val
             # now any new votes will have a url.
             
-            # This thing doesn't really work:
-            # the problem is that votes_by won't get dirtied if we changed just *the values* of votes.
+            # Explicit fetching?
             if userkey?
                 # If there is a vote by the client, put it in votes_by if it isn't already there.
                 votes_by = bus.fetch "votes_by/#{userkey}"
@@ -49,6 +51,32 @@ bus = require('statebus').serve
                     bus.save votes_by
             # finally, tell the client that we accept their value
             t.done val
+
+        # If an individual vote is saved, put it in the arrays if necessary.
+        client('votes/*').to_save = (val, old, star, t) ->
+            # Sanity check: make sure the star is of the form _user_target
+            if star != "_#{unslash val.user}_#{unslash val.target}_"
+                return t.abort()
+            # Is this a new vote?
+            unless old.value?
+                # Put this vote into the necessary arrays.
+                votes_by = bus.fetch "votes_by/#{unslash val.user}"
+                votes_by[unslash val.target] ?= val
+                bus.save votes_by
+
+                votes_on = bus.fetch "votes_on/#{unslash val.target}"
+                votes_on.values ?= []
+                votes_on.values.push(val)
+                bus.save votes_on
+
+                # Is the simultaneous of this substate in two arrays going to cause issues? 
+            
+            bus.save val
+            t.done val
+
+        # Clients may also get a list of all users
+        client('all_users').to_fetch = ->
+            { all: for user in bus.fetch('users').all then user.key }
 
         client.shadows bus
 
@@ -71,6 +99,8 @@ bus('weights/*').to_fetch = (star) ->
         # queue.push ...stuff
         queue.push.apply(queue,
             Object.values(bus.fetch "votes_by/#{uid}")
+                # Prioritize votes that express a stronger opinion.
+                .sort (a, b) -> Math.abs(b.value - 0.5) - Math.abs(a.value - 0.5)
                 .filter (v) ->
                     unless v.target?
                         return false
@@ -111,4 +141,5 @@ bus.http.get('/coffee/*', (req, res) ->
 dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
 
-unslash = (t) -> if t?.startsWith("/") then t.substr(1) else t
+unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
+slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
