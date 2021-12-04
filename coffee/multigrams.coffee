@@ -210,8 +210,6 @@ dom.MULTIHISTOGRAM = ->
   sldr.values ||= []
   local_sldr = fetch shared_local_key sldr
 
-  opinion_weights = fetch('opinion').weights
-
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
   focus_on_dragging = local_sldr.dragging
@@ -232,7 +230,7 @@ dom.MULTIHISTOGRAM = ->
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.type == "me"
 
-        key = md5([@props.width, @props.height, opinion_weights])
+        key = md5([@props.width, @props.height])
         size = opinion.size?[key]
 
         props =
@@ -260,9 +258,8 @@ dom.MULTIHISTOGRAM.refresh = ->
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
 
-  opinion_weights = fetch('opinion').weights
 
-  key = md5([@props.width, @props.height, opinion_weights])
+  key = md5([@props.width, @props.height])
   cache_key = ( Math.round(o.value * 100) / 100 for o in (sldr.values or []) ).join(' ')
   cache_key += key
 
@@ -270,25 +267,31 @@ dom.MULTIHISTOGRAM.refresh = ->
     local_sldr.dirty_opinions = false
     save local_sldr
 
-    
-    if opinion_weights
-      radii = {}
-      avatars = (o for o in sldr.values when o.user of opinion_weights)
-      avatar_radius = @calcRadius(@props.width, @props.height, avatars, @props.max_avatar_radius)
-      for u, weight of opinion_weights
-        radii[u] = weight * avatar_radius
-    else
-      radii = null
-      avatar_radius = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
+    vals_weight = sldr.values.map (v) ->
+        if v.type == "remote"
+            v.weight = 0.3
+        else
+            factor = Math.abs(v.value - 0.5) + 0.5
+            if v.type == "network"
+                factor /= 2
+            v.weight = factor
+        v
 
+    packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
+
+    radii = {}
+    sldr.values.forEach (vote) ->
+        radii[vote.target] = vote.weight * packing_radius
 
     positionAvatars
       positions: sldr
       width: @props.width
       height: @props.height
-      default_radius: avatar_radius
+      default_radius: packing_radius
       key: key
       radii: radii
+      vote_key: "target"
+      live: sldr.dragging
     @last_cache = cache_key
 
     

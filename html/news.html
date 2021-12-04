@@ -245,7 +245,7 @@
                 sldr: 'multigram'
                 width: body_width - 2 * margin_left 
                 height: 130
-                max_avatar_radius: 30
+                max_avatar_radius: 60
 
     multigram_aux = {}
 
@@ -257,7 +257,7 @@
             multigram_aux = {}
             return {key: 'multigram'}
 
-        # Use this to put (potentially stale?) sizes on the virtual votes
+        # Use this to put (potentially stale?) sizes on the votes
         aux_sizes = {}
         (multigram_aux.values ? []).forEach (v) ->
             aux_sizes[v.target] = v.size
@@ -275,6 +275,7 @@
                 # Now make a copy of it that isnt tied to the real state url
                 t = Object.assign {}, v
                 delete t.key
+                t.size = aux_sizes[slash t.target]
                 users[slash t.target] = t
 
         # Users in our network
@@ -314,9 +315,7 @@
 
     bus('multigram').to_save = (val, t) ->
 
-        #// The multigram can't add new values, so we just have to save the values in it to the server.
-        #// Ie, the multigram has an array of values, each of which is an actual vote state.
-        #// But, we only save these if the user is done dragging!
+        #// Once done dragging, save whichever one was changed.
         unless val.dragging
             val.values.forEach (v) ->
                 if v.target == val.target
@@ -324,6 +323,8 @@
                         delete v.type
                     cop = Object.assign {}, v
                     cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"
+                    #// Only store computed positions locally
+                    delete cop.size
                     save cop
                        
         #// We don't actually want to save thing like mouse state to the server, but we need to keep a copy of it.

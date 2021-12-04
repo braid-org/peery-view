@@ -443,6 +443,7 @@ dom.HISTOGRAM.refresh = ->
       default_radius: avatar_radius
       key: key
       radii: radii
+      vote_key: "user"
     @last_cache = cache_key
 
 style = document.createElement "style"
@@ -471,13 +472,15 @@ document.head.appendChild style
 #    - positions.values has each of the avatars with their targeted x location
 #    - client positions are saved on each avatar at .size
 
-positionAvatars = (args) -> 
+positionAvatars = (args) ->
   positions = args.positions
   width = args.width
   height = args.height
   r = args.default_radius
   key = args.key
   radii = args.radii
+  vote_key = args.vote_key
+  live = args.live ? false
 
   # One iteration of the simulation
   tick = (alpha) ->
@@ -488,7 +491,7 @@ positionAvatars = (args) ->
     # A quadtree helps efficiently detect collisions
     q = quadtree(nodes)
 
-    for n in nodes 
+    for n in nodes
       q.visit collide(n, alpha)
 
     ####
@@ -537,7 +540,7 @@ positionAvatars = (args) ->
         # Transpose two points in the same neighborhood if it would reduce 
         # energy of system
         if energy_reduced_by_swap(p1, p2) > 0
-          swap_position(p1, p2)          
+          swap_position(p1, p2)
 
         # repel both points equally in opposite directions if they overlap
         if dist < combined_r
@@ -545,17 +548,17 @@ positionAvatars = (args) ->
           offset_x = (combined_r - dx) * separate_by
           offset_y = (combined_r - dy) * separate_by
 
-          if p1.x < p2.x 
+          if p1.x < p2.x
             p1.x -= offset_x / 2
             p2.x += offset_x / 2
-          else 
+          else
             p2.x -= offset_x / 2
             p1.x += offset_x / 2
 
-          if p1.y < p2.y           
+          if p1.y < p2.y
             p1.y -= offset_y / 2
             p2.y += offset_y / 2
-          else 
+          else
             p2.y -= offset_y / 2
             p1.y += offset_y / 2
 
@@ -566,7 +569,7 @@ positionAvatars = (args) ->
       ny1 = p1.y - neighborhood_radius
       ny2 = p1.y + neighborhood_radius
 
-      return x1 > nx2 || 
+      return x1 > nx2 ||
               x2 < nx1 ||
               y1 > ny2 ||
               y2 < ny1
@@ -579,14 +582,14 @@ positionAvatars = (args) ->
     p1_jealousy = (p1.x - p1.x_target) * (p1.x - p1.x_target) - \
                   (p2.x - p1.x_target) * (p2.x - p1.x_target)
     p2_jealousy = (p2.x - p2.x_target) * (p2.x - p2.x_target) - \
-                  (p1.x - p2.x_target) * (p1.x - p2.x_target) 
+                  (p1.x - p2.x_target) * (p1.x - p2.x_target)
     p1_jealousy + p2_jealousy
 
   # Swaps the positions of two avatars
   swap_position = (p1, p2) ->
     swap_x = p1.x; swap_y = p1.y
     p1.x = p2.x; p1.y = p2.y
-    p2.x = swap_x; p2.y = swap_y 
+    p2.x = swap_x; p2.y = swap_y
 
 
 
@@ -594,31 +597,34 @@ positionAvatars = (args) ->
   # Initialize positions of each node
   targets = {}
   avatars = positions.values or positions.opinions
-  if radii 
-    avatars = (o for o in avatars when o.user of radii)
+  if radii
+    avatars = (o for o in avatars when o[vote_key] of radii)
 
   n = avatars.length
 
-  init = calculateInitialLayout width, height, r, avatars  
+  #init = calculateInitialLayout width, height, r, avatars, vote_key
 
   nodes = avatars.map (o, i) ->
+
+    rad = radii?[o[vote_key]] or o.r or r
+
     x_target = o.value * width
-
-    # if targets[x_target]
-    #   if x_target > .99
-    #     x_target -= .01 * Math.random() 
-    #   else 
-    #     x_target += .01 * Math.random() 
-
+    # If there's already someone else trying to go there...
     if targets[x_target]
-      if x_target > .98
-        x_target -= .1 * Math.random() 
-      else if x_target < .02
-        x_target += .1 * Math.random() 
+        # Generate a random number in (-1, 1) seeded by the vote key.
+        pseudorand = parseInt(md5(o[vote_key]).substr(0, 10), 16) / Math.pow(16, 10)
+        offset = (pseudorand * 2) - 1
+      
+        # If we're near one of the edges, move towards the center
+        if o.value > .98
+            offset = -Math.abs(offset)
+        else if o.value < .02
+            offset = Math.abs(offset)
+        # Move up to 50% of avatar width.
+        x_target += offset * rad
 
     targets[x_target] = 1
 
-    rad = radii?[o.user] or o.r or r
     # Travis: I'm finding that different initial conditions work 
     # better at different scales.
     #   - Give large numbers of avatars some good initial spacing
@@ -629,7 +635,7 @@ positionAvatars = (args) ->
     #     else 
     #       x_target
     x = x_target
-    y = height - init[o.user] - rad #rad
+    y = height - rad#init[o[vote_key]] - rad #rad
 
     return {
       index: i
@@ -641,92 +647,61 @@ positionAvatars = (args) ->
 
   ###########
   # run the simulation
-  # stable = false
-  # alpha = .25
-  # x_force_mult = 2
-  # y_force_mult = 10
 
   stable = false
-  alpha = .8
-  decay = .8
+  alpha = .9
+  decay = if live then 0.8 else 0.95
   min_alpha = 0.0000001
   x_force_mult = 2
-  y_force_mult = 6
+  y_force_mult = 2 * (width / height)
 
-  total_ticks = 0
-  ticks_per_timeout = 20
+  while not stable
+    stable = tick alpha
+    alpha *= decay
 
-  next = -> 
-    setTimeout -> 
-      ticks = 0
-      while ticks % ticks_per_timeout != ticks_per_timeout - 1
-
-        num_unstable = 0
-        stable = tick alpha
-        alpha *= decay
-
-        ticks += 1
-        total_ticks += 1
-
-        stable ||= alpha <= min_alpha
-        break if stable 
-
-      if stable
-        done()
-      else 
-        next()
-
-    , 1
-
-  # while alpha > 0 && !stable
-  #   stable = tick(alpha)
-  #   alpha -= .001
-
-  done = -> 
-    ##############
-    # cache the final locations on positions
-    for avatar,i in avatars
-      rad = nodes[i].radius
-
-      avatar.size ||= {}
-
-      avatar.size[key] = 
-        left: nodes[i].x - rad
-        top: nodes[i].y - rad
-        width: 2 * rad
-
-    save positions 
-
-  next()
+    stable ||= alpha <= min_alpha
 
 
+  ##############
+  # cache the final locations on positions
+  for avatar,i in avatars
+    rad = nodes[i].radius
 
-calculateInitialLayout = (w, h, r, avatars) -> 
+    avatar.size ||= {}
+
+    avatar.size[key] =
+      left: nodes[i].x - rad
+      top: nodes[i].y - rad
+      width: 2 * rad
+
+  save positions
+
+calculateInitialLayout = (w, h, r, avatars, key) ->
   assignments = {}
   grid = {}
 
   r = 2 * r
   rows = Math.floor h / r
 
-  for o in avatars 
+  for o in avatars
 
     col = Math.floor o.value * w / r
     if !grid[col]?
       grid[col] = (0 for row in [0..rows])
 
-    least_crowded_cell = null 
+    least_crowded_cell = null
     least_crowded_cnt = Infinity
     for num,row in grid[col]
-      if num == 0 
+      if num == 0
         # assign immediately
         least_crowded_cell = row
-        break 
+        break
       else if num < least_crowded_cnt
-        least_crowded_cnt = num 
-        least_crowded_cell = row 
+        least_crowded_cnt = num
+        least_crowded_cell = row
 
     grid[col][least_crowded_cell] += 1
-    assignments[o.user] = least_crowded_cell * r
+    assignments[o[key]] = least_crowded_cell * r
 
   assignments
 
@@ -737,7 +712,7 @@ calculateInitialLayout = (w, h, r, avatars) ->
 # area (based on a moving average of # of opinions, mapped across the
 # width and height)
 
-calculateAvatarRadius = (width, height, opinions, max_avatar_radius) -> 
+calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
   max_avatar_radius ?= Infinity
 
   opinions.sort (a,b) -> a.value - b.value
@@ -761,8 +736,9 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
         idx = o
       else if opinions[o].value > stance + window_size
         break
-      else 
-        cnt += 1
+      else
+        w = opinions[o].weight ? 1
+        cnt += w*w
 
       o += 1
 
@@ -787,7 +763,7 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
 
     if reset && current_region.length > 0
       dense_regions.push [current_region[0] * avg_inc - window_size , \
-                    idx * avg_inc + window_size ]      
+                    idx * avg_inc + window_size ]
       current_region = []
 
   max_region = null
@@ -796,8 +772,9 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
     cnt = 0
     for o in opinions
       if o.value >= region[0] && \
-         o.value <= region[1] 
-        cnt += 1
+         o.value <= region[1]
+        w = o.weight ? 1
+        cnt += w * w
     if cnt > max_opinions
       max_opinions = cnt
       max_region = region
@@ -808,9 +785,9 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
   if max_opinions > 1
     effective_width = width * Math.abs(max_region[0] - max_region[1]) / 2
     area_per_avatar = ratio_filled * effective_width * height / max_opinions
-    r = Math.sqrt(area_per_avatar) / 2
-  else 
-    r = Math.sqrt(width * height / opinions.length * ratio_filled) / 2
+    r = Math.sqrt(area_per_avatar / Math.PI)
+  else
+    r = Math.sqrt(ratio_filled * width * height / (opinions.length * Math.PI))
 
   r = Math.min(r, width / 2, height / 2, max_avatar_radius)
 
