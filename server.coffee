@@ -180,3 +180,11 @@ function free_the_cors (req, res, next) {
 }
 `
 
+restore_pass = (name, newpass) ->
+  user = bus.fetch("user/#{name}")
+  console.log('############# Restoring pass for ', name)
+  user.pass = require('bcrypt-nodejs').hashSync(newpass)
+  console.log('############# Now user is ', user)
+  bus.save(user)
+  console.log('############# Saved!!!!!!! ')
+
