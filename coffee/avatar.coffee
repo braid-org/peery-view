@@ -99,10 +99,6 @@ document.head.appendChild style
 
 
 ##########
-# Tooltips for avatars
-#
-# Requires tooltip.coffee
-#
 # Performance hack.
 # Was seeing major slowdown on pages with lots of avatars simply because we
 # were attaching a mouseover and mouseout event on each and every Avatar for
@@ -111,11 +107,11 @@ document.addEventListener "mouseover", (e) ->
   return if !create_tooltip?
   if e.target.getAttribute?('data-user') && e.target.getAttribute?('data-showtooltip') == 'true'
     name = e.target.getAttribute('data-user')
-    color = e.target.getAttribute('data-color') or '#414141'
     create_tooltip name, e.target, 
-      backgroundColor: color
-      color: 'white'
-      fontSize: 12
+      backgroundColor: "white"
+      color: '#444'
+      opacity: 0.9
+      fontSize: 14
       padding: '2px 4px'
       maxWidth: 200
       whiteSpace: 'nowrap'
@@ -124,4 +120,24 @@ document.addEventListener "mouseout", (e) ->
   return if !clear_tooltip?
   if e.target.getAttribute?('data-user') && e.target.getAttribute('data-showtooltip') == 'true'
     clear_tooltip()
+
+create_tooltip = (text, target, style) ->
+
+    tooltip = fetch "tooltip"
+
+    tooltip.hidden = false
+    tooltip.style = style ? {}
+    tooltip.text = text
+
+    # Compute the position of the tooltip
+    bbox = target.getBoundingClientRect()
+    tooltip.x = bbox.x + bbox.width/2 + window.scrollX
+    tooltip.y = bbox.bottom + window.scrollY
+
+    save tooltip
+
+clear_tooltip = ->
+    tooltip = fetch "tooltip"
+    tooltip.hidden = true
+    save tooltip
 
