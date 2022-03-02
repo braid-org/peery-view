@@ -36,7 +36,6 @@
             BIG_MULTIGRAM()
             SUBMIT_POST()
             POSTS()
-            TOOLTIP()
 
     dom.POSTS = ->
 
@@ -253,22 +252,6 @@
                     onClick: form_submit
                     cursor: "pointer"
                     "post_add"
-
-    dom.TOOLTIP = ->
-        tooltip = fetch "tooltip"
-        tooltip.hidden ?= true
-        save tooltip
-
-        DIV
-            key: "tooltip"
-            position: "absolute"
-            zIndex: 5
-            display: if tooltip.hidden then "none" else "block"
-            style: tooltip.style
-            left: tooltip.x
-            top: tooltip.y
-            transform: "translate(-50%, 2px)"
-            tooltip.text
 
     dom.BIG_MULTIGRAM = ->
         DIV

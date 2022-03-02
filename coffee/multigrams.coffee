@@ -212,7 +212,7 @@ dom.MULTIHISTOGRAM = ->
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
-  focus_on_dragging = local_sldr.dragging
+  dragging = local_sldr.dragging
 
   DIV extend( props,
     ref: 'histo'
@@ -232,24 +232,27 @@ dom.MULTIHISTOGRAM = ->
 
         key = md5([@props.width, @props.height])
         size = opinion.size?[key]
-
+        
+        dragged = local_sldr.target == opinion.target
         props =
             key: "histo-avatar-#{opinion.target}"
             user: opinion.target
             className: "grab_cursor"
             vote_target: opinion.target
-            hide_tooltip: focus_on_dragging
+            hide_tooltip: dragging and !dragged
+            "data-selected": dragging and dragged
             style:
                 # cached width/height/left/top
                 width: size?.width or 50
                 height: size?.width or 50
                 left: size?.left or 0
                 top: size?.top or 0
-                opacity: if (focus_on_dragging or opinion.type?) and (local_sldr.target != opinion.target) then 0.4
-                filter: if (focus_on_dragging or opinion.type?) and (local_sldr.target != opinion.target) then 'grayscale(80%)'
+                opacity: if (dragging or opinion.type?) and !dragged then 0.4
+                filter: if (dragging or opinion.type?) and !dragged then 'grayscale(80%)'
                 cursor: "pointer"
 
         props = implements_slide_target sldr, opinion.target, @props.width, props
+
         AVATAR props
 
 
@@ -292,6 +295,7 @@ dom.MULTIHISTOGRAM.refresh = ->
       radii: radii
       vote_key: "target"
       live: sldr.dragging
+
     @last_cache = cache_key
 
     

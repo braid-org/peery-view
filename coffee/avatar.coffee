@@ -15,13 +15,14 @@ dom.AVATAR = ->
   if (typeof @props.user == 'string') or @props.user.key
     user = fetch(@props.user)
   # else it is a connection possibly just with a name
-
-  name = user.name or user.invisible_name or 'Anonymous'
+    
+  name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2)) ? 'Anonymous'
   extend @props,
     'data-user': name
     'data-showtooltip': !@props.hide_tooltip
     'data-color': @props.color
     'draggable': 'false'
+  @props.style["--label"] = "\"#{name}\""
 
   name = name.split(' ')
   if @props.hide_tooltip && !user.key == your_key()
@@ -82,40 +83,52 @@ style.innerHTML =   """
     width: 50px;
     height: 50px;
     object-fit: cover;
-  } span[data-widget='AVATAR'] {
+  }
+  span[data-widget='AVATAR'] {
     background-color: #62B39D;
     text-align: center;
     display: inline-block;
-  } span[data-widget='AVATAR'] .initials {
+  }
+  span[data-widget='AVATAR'] .initials {
     color: white;
     pointer-events: none;
     display: block;
     position: relative;
     font-family: monaco,Consolas,"Lucida Console",monospace;
   }
+  [data-widget='AVATAR']::after {
+    content: var(--label);
+    font-size: var(--label-size);
+    background-color: white;
+    opacity: 0.8;
+    color: #444;
+    z-index: 5;
+    display: none;
+    text-align: center;
+    position: relative;
+    left: 50%;
+    top: 1px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+
+    width: -moz-fit-content;
+    width: -webkit-fit-content;
+    width: fit-content;
+
+    padding: 1px 4px;
+  }
+
+  [data-widget='AVATAR'][data-showtooltip='true']:hover::after,
+  [data-widget='AVATAR'][data-selected='true']::after{
+    display: block;
+  }
+
+
 """
 
 document.head.appendChild style
 
-
-##########
-# Performance hack.
-# Was seeing major slowdown on pages with lots of avatars simply because we
-# were attaching a mouseover and mouseout event on each and every Avatar for
-# the purpose of showing a tooltip name. So we use event delegation instead. 
-document.addEventListener "mouseover", (e) ->
-  return if !create_tooltip?
-  if e.target.getAttribute?('data-user') && e.target.getAttribute?('data-showtooltip') == 'true'
-    name = e.target.getAttribute('data-user')
-    create_tooltip name, e.target 
-
-document.addEventListener "mouseout", (e) ->
-  return if !clear_tooltip?
-  if e.target.getAttribute?('data-user') && e.target.getAttribute('data-showtooltip') == 'true'
-    clear_tooltip()
-
 create_tooltip = (text, target, style) ->
-
     tooltip = fetch "tooltip"
 
     tooltip.hidden = false
@@ -138,9 +151,4 @@ create_tooltip = (text, target, style) ->
     tooltip.y = bbox.bottom + window.scrollY
 
     save tooltip
-
-clear_tooltip = ->
-    tooltip = fetch "tooltip"
-    tooltip.hidden = true
-    save tooltip
-
+    requestAnimationFrame(() => create_tooltip text, target, style)
