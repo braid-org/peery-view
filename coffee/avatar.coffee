@@ -107,14 +107,7 @@ document.addEventListener "mouseover", (e) ->
   return if !create_tooltip?
   if e.target.getAttribute?('data-user') && e.target.getAttribute?('data-showtooltip') == 'true'
     name = e.target.getAttribute('data-user')
-    create_tooltip name, e.target, 
-      backgroundColor: "white"
-      color: '#444'
-      opacity: 0.9
-      fontSize: 14
-      padding: '2px 4px'
-      maxWidth: 200
-      whiteSpace: 'nowrap'
+    create_tooltip name, e.target 
 
 document.addEventListener "mouseout", (e) ->
   return if !clear_tooltip?
@@ -126,7 +119,17 @@ create_tooltip = (text, target, style) ->
     tooltip = fetch "tooltip"
 
     tooltip.hidden = false
-    tooltip.style = style ? {}
+    computedStyle = {
+      backgroundColor: "white"
+      color: '#444'
+      opacity: 0.9
+      fontSize: 14
+      padding: '2px 4px'
+      maxWidth: 200
+      whiteSpace: 'nowrap'
+    }
+
+    tooltip.style = Object.assign(computedStyle, style ? {})
     tooltip.text = text
 
     # Compute the position of the tooltip

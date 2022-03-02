@@ -36,6 +36,7 @@
             BIG_MULTIGRAM()
             SUBMIT_POST()
             POSTS()
+            TOOLTIP()
 
     dom.POSTS = ->
 
@@ -58,14 +59,25 @@
 
         c = fetch '/current_user'
 
-        # Compute the domain
-        pretty_url = post.url
-        functional_url = post.url
+        # Compute the pretty-url
+        prefixes = ["https://", "http://", "braid:"]
+        url = if post.url.startsWith "javascript:" then "" else post.url
 
-        clickable = c.logged_in and \
+        pretty_url = url
+        functional_url = url
+        if url.startsWith "https://"
+            pretty_url = url.substr(8)
+            functional_url = url
+        else if url.startsWith "http://"
+            pretty_url = url.substr(7)
+            functional_url = "https://#{pretty_url}"
+        else if not url.startsWith "braid:" and url.length
+            functional_url = "https://#{url}"
+
+        user_clickable = c.logged_in and \
             (c.user.key != author.key) and \
             not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
-        clickable = false
+        user_clickable = false
 
         DIV
             key: "post-#{post.key}"
@@ -85,20 +97,21 @@
                     height: margin_left - 10
                     borderRadius: "50%"
                     alignSelf: "start"
-                    cursor: if clickable then "pointer"
-                onClick: if clickable then (e) ->
+                    cursor: if user_clickable then "pointer"
+                onClick: if user_clickable then (e) ->
                     console.log "Clicking on a user does nothing, pending a $1M UX focus group."
 
-            DIV
+            A
                 gridArea: "title"
                 fontSize: "18px"
                 paddingRight: "10px"
                 lineHeight: "#{margin_left - 10}px"
                 justifySelf: "stretch"
-                cursor: if post.url.length then "pointer"
-                onClick: if post.url.length then (e) ->
-                    window.location.assign functional_url
+                textDecoration: "none"
+                color: "black"
+                href: if post.url.length then functional_url
                 "#{post.title}"
+
             SPAN
                 gridArea: "domain"
                 fontSize: "12px"
@@ -189,13 +202,20 @@
 
         has_typed = fetch "submit_open"
         has_typed.typed ?= false
+
         c = fetch "/current_user"
         unless c.logged_in
             return
 
-        c = fetch "/current_user"
-        if !c.logged_in
-            return
+        form_submit = ->
+            title = document.getElementById("post-title")
+            link = document.getElementById("post-url")
+            if title.value.length > 1
+                make_post title.value, link.value, c.user.key
+                title.value = ""
+                link.value = ""
+                has_typed.typed = false
+                save has_typed
 
         DIV
             width: post_width
@@ -222,19 +242,33 @@
                     marginRight: "5px"
                     style:
                         height: "28px"
+                    onKeyDown: (e) ->
+                        if e.keyCode == 13
+                            form_submit()
+
                 SPAN
                     alignSelf: "center"
                     className: "material-icons md-dark"
                     fontSize: "24px"
-                    onClick: (e) ->
-                        title = document.getElementById("post-title")
-                        link = document.getElementById("post-url")
-                        if title.value.length > 1
-                            make_post title.value, link.value, c.user.key
-                            title.value = ""
-                            link.value = ""
+                    onClick: form_submit
                     cursor: "pointer"
                     "post_add"
+
+    dom.TOOLTIP = ->
+        tooltip = fetch "tooltip"
+        tooltip.hidden ?= true
+        save tooltip
+
+        DIV
+            key: "tooltip"
+            position: "absolute"
+            zIndex: 5
+            display: if tooltip.hidden then "none" else "block"
+            style: tooltip.style
+            left: tooltip.x
+            top: tooltip.y
+            transform: "translate(-50%, 2px)"
+            tooltip.text
 
     dom.BIG_MULTIGRAM = ->
         DIV

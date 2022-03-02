@@ -18,7 +18,6 @@ bus = require('statebus').serve
             if star is "key"
                 return t.abort()
 
-            console.log "Saving votes_on"
 
             c = client.fetch "current_user"
             userkey = c.user?.key
