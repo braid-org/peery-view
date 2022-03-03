@@ -109,7 +109,7 @@ bus('weights/*').to_fetch = (star) ->
     # w(x, y) :=
     #    let l = minimum length of all paths x -> y
     #    let P = { p : path x -> y | length(p) = l }
-    #    return 0.95^l * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
+    #    return (0.95^l / |P|) * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
     # Then W(x) = { (y, w(x, y)) | w(x, y) > 0.05 }
     weights = {}
     queue_cur = {}
@@ -118,7 +118,7 @@ bus('weights/*').to_fetch = (star) ->
     while Object.keys(queue_cur).length
         # Do something here?
         for y, P of queue_cur
-            w = P.reduce (a, b) -> a+b
+            w = (P.reduce (a, b) -> a+b) / P.length
             weights[y] = w
             if Math.abs(w) <= MIN_WEIGHT
                 continue
