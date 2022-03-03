@@ -339,6 +339,8 @@
                 if v.target == val.target
                     if v.type?
                         delete v.type
+                    if v.weight?
+                        delete v.weight
                     cop = Object.assign {}, v
                     cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"
                     #// Only store computed positions locally
