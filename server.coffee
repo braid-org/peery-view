@@ -7,27 +7,6 @@ bus = require('statebus').serve
         client('votes_by/*').to_save = (val, star, t) ->
             t.abort()
 
-        client('votes/*').to_save = (val, star, t) ->
-            c = client.fetch "current_user"
-            split = star.split "_"
-            # Check that key is correct
-            unless split.length == 4
-                return t.abort()
-            voter = split[1]
-            target = split[2]
-            # Check that user has the right to change the key
-            unless c.logged_in and c.user.key == voter
-                return t.abort()
-            # Check that the key matches the contents
-            unless voter == val.user and target == val.target
-                return t.abort()
-            # Check that the vote has an associated value between 0 and 1
-            unless 0 <= val.value and val.value <= 1
-                return t.abort()
-            # Alright, looks good.
-            bus.save val
-            t.done val
-
 
         # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
         # We add a (redundant here) 'target', which is just star.
@@ -74,9 +53,27 @@ bus = require('statebus').serve
 
         # If an individual vote is saved, put it in the arrays if necessary.
         client('votes/*').to_save = (val, old, star, t) ->
-            # Sanity check: make sure the star is of the form _user_target
-            if star != "_#{unslash val.user}_#{unslash val.target}_"
+            # Permission and integrity checking
+            c = client.fetch "current_user"
+            split = star.split "_"
+            # Check that key is correct
+            unless split.length == 4
+                console.log("Got a bad key")
                 return t.abort()
+            voter = split[1]
+            target = split[2]
+            # Check that user has the right to change the key
+            unless c.logged_in and c.user.key == voter
+                return t.abort()
+            # Check that the key matches the contents
+            unless voter == (unslash val.user) and target == (unslash val.target)
+                return t.abort()
+            # Check that the vote has an associated value between 0 and 1
+            unless 0 <= val.value and val.value <= 1
+                return t.abort()
+            # Alright, looks good.
+            
+
             # Is this a new vote?
             unless old.value?
                 # Put this vote into the necessary arrays.
@@ -108,30 +105,41 @@ bus = require('statebus').serve
 MIN_WEIGHT = 0.05
 NETWORK_ATT = 0.95
 bus('weights/*').to_fetch = (star) ->
+    # This functions implements the following computation:
+    # w(x, y) :=
+    #    let l = minimum length of all paths x -> y
+    #    let P = { p : path x -> y | length(p) = l }
+    #    return 0.95^l * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
+    # Then W(x) = { (y, w(x, y)) | w(x, y) > 0.05 }
     weights = {}
-    queue = [[star, 1.0]]
-    while queue.length
-        [uid, base_weight] = queue.shift()
-        weights[uid] = base_weight
-        if Math.abs(base_weight) < MIN_WEIGHT
-            continue
+    queue_cur = {}
+    queue_cur[star] = [1.0]
+    queue_next = {}
+    while Object.keys(queue_cur).length
+        # Do something here?
+        for y, P of queue_cur
+            w = P.reduce (a, b) -> a+b
+            weights[y] = w
+            if Math.abs(w) <= MIN_WEIGHT
+                continue
 
-        # queue.push ...stuff
-        queue.push.apply(queue,
-            Object.values(bus.fetch "votes_by/#{uid}")
-                # Prioritize votes that express a stronger opinion.
-                .sort (a, b) -> Math.abs(b.value - 0.5) - Math.abs(a.value - 0.5)
-                .filter (v) ->
+            Object.values(bus.fetch "votes_by/#{y}")
+                .forEach (v) ->
                     unless v.target?
                         return false
-                    slashes_wtf = unslash v.target
-                    (slashes_wtf.startsWith "user") and (slashes_wtf not of weights)
-                .map (v) ->
-                    # Causes a subscription on each individual vote
-                    bus.fetch v
-                    [(unslash v.target), (2 * v.value - 1) * base_weight * NETWORK_ATT]
-            )
+                    t = unslash v.target
+                    unless (t.startsWith "user") and (t not of weights) and (t not of queue_cur)
+                        return false
+                    # Put a subscription on the individual vote
+                    if t not of queue_next
+                        queue_next[t] = []
+                        bus.fetch v
+                    queue_next[t].push (2 * v.value - 1) * w * NETWORK_ATT
+        # We've processed all nodes at depth n. Now we'll swap our buffers and process the next depth.
+        queue_cur = queue_next
+        queue_next = {}
     weights
+
 
 bus('weights/*').to_save = (star, t) ->
     t.abort()
