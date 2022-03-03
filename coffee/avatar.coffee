@@ -29,51 +29,50 @@ dom.AVATAR = ->
     @props.title = name
 
   if user.pic
-    @props.src ||= user.pic
+    src = user.pic
 
-    if @props.src.indexOf('/') == -1 && default_path
-      @props.src = "#{default_path}/#{@props.src}"
+    if src.indexOf('/') == -1 && default_path
+      src = "#{default_path}/#{src}"
+    @props.style["background-image"] = "url(\"#{src}\")"
 
-    IMG @props
-  else
+  if add_initials
+    if name == 'Anonymous'
+      name = '?'
+    if name.length == 2
+      name = "#{name[0][0]}#{name[1][0]}"
+    else
+      name = "#{name[0][0]}"
 
-    if add_initials
-      if name == 'Anonymous'
-        name = '?'
-      if name.length == 2
-        name = "#{name[0][0]}#{name[1][0]}"
-      else
-        name = "#{name[0][0]}"
+  SPAN @props,
+    
+    SPAN
+      key: 'initials'
+      className: 'initials'
+      style:
+        fontSize: (@props.style?.width or 50) / 2
+        lineHeight: 2
+        display: "block"
+        opacity: if user.pic then 0
+      name
 
-    SPAN @props,
+    if @props.prompt_avatar && fetch('/current_user').user?.key == user.key
+      DIV
+        style:
+          position: 'absolute'
+          left: 0
+          bottom: -30
 
-      if add_initials
-        SPAN
-          key: 'initials'
-          className: 'initials'
+        BUTTON
           style:
-            fontSize: (@props.style?.width or 50) / 2
-            lineHeight: 2
-          name
-
-      if @props.prompt_avatar && fetch('/current_user').user?.key == user.key
-        DIV
-          style:
-            position: 'absolute'
-            left: 0
-            bottom: -30
-
-          BUTTON
-            style:
-              textDecoration: 'underline'
-              color: considerit_salmon
-              fontSize: 13
-              backgroundColor: 'transparent'
-            onClick: =>
-              auth = fetch 'auth'
-              auth.form = 'upload_avatar'
-              save auth
-            'set your pic'
+            textDecoration: 'underline'
+            color: considerit_salmon
+            fontSize: 13
+            backgroundColor: 'transparent'
+          onClick: =>
+            auth = fetch 'auth'
+            auth.form = 'upload_avatar'
+            save auth
+          'set your pic'
 
 
 style = document.createElement "style"
@@ -88,6 +87,8 @@ style.innerHTML =   """
     background-color: #62B39D;
     text-align: center;
     display: inline-block;
+    background-size: cover;
+    background-position: center;
   }
   span[data-widget='AVATAR'] .initials {
     color: white;
@@ -109,7 +110,6 @@ style.innerHTML =   """
     left: 50%;
     top: 1px;
     transform: translateX(-50%);
-    white-space: nowrap;
 
     width: -moz-fit-content;
     width: -webkit-fit-content;
