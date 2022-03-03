@@ -2,10 +2,32 @@
 bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
+
         # Client cannot edit /votes_by/
         client('votes_by/*').to_save = (val, star, t) ->
-            console.log "Tried to save votes_by"
             t.abort()
+
+        client('votes/*').to_save = (val, star, t) ->
+            c = client.fetch "current_user"
+            split = star.split "_"
+            # Check that key is correct
+            unless split.length == 4
+                return t.abort()
+            voter = split[1]
+            target = split[2]
+            # Check that user has the right to change the key
+            unless c.logged_in and c.user.key == voter
+                return t.abort()
+            # Check that the key matches the contents
+            unless voter == val.user and target == val.target
+                return t.abort()
+            # Check that the vote has an associated value between 0 and 1
+            unless 0 <= val.value and val.value <= 1
+                return t.abort()
+            # Alright, looks good.
+            bus.save val
+            t.done val
+
 
         # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
         # We add a (redundant here) 'target', which is just star.
@@ -17,7 +39,6 @@ bus = require('statebus').serve
             # since we're going to set properties directly on votes_by we have to prevent injection
             if star is "key"
                 return t.abort()
-
 
             c = client.fetch "current_user"
             userkey = c.user?.key
