@@ -33,7 +33,7 @@ dom.AVATAR = ->
 
     if src.indexOf('/') == -1 && default_path
       src = "#{default_path}/#{src}"
-    @props.style["background-image"] = "url(\"#{src}\")"
+    @props.style["backgroundImage"] = "url(\"#{src}\")"
 
   if add_initials
     if name == 'Anonymous'

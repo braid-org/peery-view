@@ -271,19 +271,20 @@ dom.MULTIHISTOGRAM.refresh = ->
     save local_sldr
 
     vals_weight = sldr.values.map (v) ->
-        if v.type == "remote"
-            v.weight = 0.3
+        vv = Object.assign({}, v)
+        if vv.type == "remote"
+            vv.weight = 0.3
         else
-            factor = Math.abs(v.value - 0.5) + 0.5
-            if v.type == "network"
+            factor = Math.abs(vv.value - 0.5) + 0.5
+            if vv.type == "network"
                 factor /= 2
-            v.weight = factor
-        v
+            vv.weight = factor
+        vv
 
     packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
     radii = {}
-    sldr.values.forEach (vote) ->
+    vals_weight.forEach (vote) ->
         radii[vote.target] = vote.weight * packing_radius
 
     positionAvatars
