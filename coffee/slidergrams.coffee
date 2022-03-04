@@ -652,8 +652,8 @@ positionAvatars = (args) ->
 
   stable = false
   alpha = .9
-  decay = 0.8
-  min_alpha = 0.0000001
+  decay = 0.9
+  min_alpha = 1e-3
   x_force_mult = 2
   y_force_mult = 2 * (width / height)
 
