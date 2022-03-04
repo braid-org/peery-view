@@ -118,8 +118,12 @@ style.innerHTML =   """
     padding: 1px 4px;
   }
 
+  [data-widget='AVATAR'][data-showtooltip='true']:hover,
+  [data-widget='AVATAR'][data-selected='true'] {
+    opacity: 1 !important;
+  }
   [data-widget='AVATAR'][data-showtooltip='true']:hover::after,
-  [data-widget='AVATAR'][data-selected='true']::after{
+  [data-widget='AVATAR'][data-selected='true']::after {
     display: block;
   }
 
