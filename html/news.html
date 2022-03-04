@@ -340,8 +340,6 @@
                     if v.type?
                         #// This is a NEW vote that didn't exist before.
                         delete v.type
-                        #// After we save this vote, we need to force the multigram to refresh...
-                        val.dirty_opinions = true
 
                     cop = Object.assign {}, v
                     cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"

@@ -260,10 +260,11 @@ dom.MULTIHISTOGRAM.refresh = ->
 
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
+  dragging = local_sldr.dragging
 
 
   key = md5([@props.width, @props.height])
-  cache_key = ( Math.round(o.value * 100) / 100 for o in (sldr.values or []) ).join(' ')
+  cache_key = ( (o.type ? "") + (Math.round(o.value * 100) / 100) for o in (sldr.values or []) ).join(' ')
   cache_key += key
 
   if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
@@ -296,6 +297,7 @@ dom.MULTIHISTOGRAM.refresh = ->
       radii: radii
       vote_key: "target"
       live: sldr.dragging
+      target: local_sldr.target
 
     @last_cache = cache_key
 
