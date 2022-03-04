@@ -3,6 +3,9 @@ bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
 
+        client('posts').to_save = (val, t) ->
+            t.abort()
+
         client('post/*').to_save = (val, old, star, t) ->
             c = client.fetch "current_user"
             all_posts = bus.fetch "posts"
