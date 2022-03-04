@@ -481,6 +481,7 @@ positionAvatars = (args) ->
   radii = args.radii
   vote_key = args.vote_key
   live = args.live ? false
+  ignore = args.ignore ? {}
 
   # One iteration of the simulation
   tick = (alpha) ->
@@ -599,6 +600,7 @@ positionAvatars = (args) ->
   avatars = positions.values or positions.opinions
   if radii
     avatars = (o for o in avatars when o[vote_key] of radii)
+  avatars = avatars.filter (o) -> !ignore[o[vote_key]]
 
   n = avatars.length
 
@@ -650,7 +652,7 @@ positionAvatars = (args) ->
 
   stable = false
   alpha = .9
-  decay = if live then 0.8 else 0.95
+  decay = 0.8
   min_alpha = 0.0000001
   x_force_mult = 2
   y_force_mult = 2 * (width / height)

@@ -123,6 +123,16 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
     local.x_adjustment = val * slidergram_width - local.mouse_positions[0].x
 
     save local
+    key = md5([slidergram_width, local.height])
+
+    # Do an initial save of the target_slider to get it to hover
+    target_slide = get_target_slide target_sldr, target
+    target_slide.size[key] = 
+        left: (val * slidergram_width) - 35
+        top: (local.height - 70)/2
+        width: 70
+
+    save target_sldr
 
     # Mouse MOVE events
     mousemove = (e) ->
@@ -135,7 +145,7 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
 
         dx = local.mouse_positions[i].x - local.mouse_positions[i-1].x
 
-        if dx != 0
+        if dx != 0 
             # Update position
             x = x + local.x_adjustment
             x = if x < 0
@@ -149,6 +159,7 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
                 target_slide =
                     target: target
                     explanation: ''
+                    size: {}
 
                 target_sldr.values.push target_slide
 
@@ -156,10 +167,14 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
             target_slide.value = x / slidergram_width
             target_slide.value = Math.round(target_slide.value * 10000) / 10000
             target_slide.updated = (new Date()).getTime()
+            target_slide.size ?= {}
+            target_slide.size[key] =
+                left: x - 35
+                top: (local.height - 70)/2
+                width: 70
 
-            # console.log('DRAGGED TO ', your_slide.value)
-            if local.tracking_mouse != 'tracking'
-                local.dirty_opinions = true
+            #if local.tracking_mouse != 'tracking'
+            #    local.dirty_opinions = true
 
             save target_sldr
             save local
@@ -209,6 +224,10 @@ dom.MULTIHISTOGRAM = ->
   sldr = fetch @props.sldr
   sldr.values ||= []
   local_sldr = fetch shared_local_key sldr
+  
+  # Put the height on so that start_slide_target can properly position the elements
+  local_sldr.height = @props.height
+  save local_sldr
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -247,8 +266,13 @@ dom.MULTIHISTOGRAM = ->
                 height: size?.width or 50
                 left: size?.left or 0
                 top: size?.top or 0
+                zIndex: if dragged then 5
+                filter: if dragged then 
                 opacity: if (dragging or opinion.type?) and !dragged then 0.4
                 filter: if (dragging or opinion.type?) and !dragged then 'grayscale(80%)'
+                border: "2px solid"
+                boxSizing: "border-box"
+                borderColor: if (dragging and dragged) then "rgba(0, 80, 130, 0.2)" else "rgba(0, 0, 0, 0)"
                 cursor: "pointer"
 
         props = implements_slide_target sldr, opinion.target, @props.width, props
@@ -264,29 +288,38 @@ dom.MULTIHISTOGRAM.refresh = ->
 
 
   key = md5([@props.width, @props.height])
-  cache_key = ( (o.type ? "") + (Math.round(o.value * 100) / 100) for o in (sldr.values or []) ).join(' ')
+  key_or_null = (o) => if (dragging and o.target == local_sldr.target) then "" else (o.type ? "") + (Math.round(o.value * 100) / 100)
+  cache_key = ( key_or_null o for o in (sldr.values or []) ).join(' ')
+  if dragging then cache_key += local_sldr.target
   cache_key += key
 
   if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
     local_sldr.dirty_opinions = false
     save local_sldr
 
-    vals_weight = sldr.values.map (v) ->
-        vv = Object.assign({}, v)
-        if vv.type == "remote"
-            vv.weight = 0.3
-        else
-            factor = Math.abs(vv.value - 0.5) + 0.5
-            if vv.type == "network"
-                factor /= 2
-            vv.weight = factor
-        vv
+    vals_weight = sldr.values
+        .map (v) ->
+            vv = Object.assign({}, v)
+            if vv.type == "remote"
+                vv.weight = 0.3
+            else
+                factor = Math.abs(vv.value - 0.5) + 0.5
+                if vv.type == "network"
+                    factor /= 2
+                vv.weight = factor
+            vv
+        .filter (v) -> !(dragging and v.target == local_sldr.target)
+            
 
     packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
     radii = {}
     vals_weight.forEach (vote) ->
         radii[vote.target] = vote.weight * packing_radius
+
+    # Tell positionavatars to ignore the currently-dragged avatar
+    ignore = {}
+    ignore[local_sldr.target ? ""] = true
 
     positionAvatars
       positions: sldr
@@ -296,8 +329,7 @@ dom.MULTIHISTOGRAM.refresh = ->
       key: key
       radii: radii
       vote_key: "target"
-      live: sldr.dragging
-      target: local_sldr.target
+      ignore: if dragging then ignore
 
     @last_cache = cache_key
 
