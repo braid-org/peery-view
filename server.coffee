@@ -3,6 +3,69 @@ bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
 
+        client('post/*').to_save = (val, old, star, t) ->
+            c = client.fetch "current_user"
+            all_posts = bus.fetch "posts"
+            # So there's a few cases here. 
+            # 1. A client is making a new post
+            # 2. A client is deleting an existing post.
+            # 3. A client is editing an existing post: this is not allowed!
+
+            # New post
+            unless old.user?
+                # Is the user logged in and making a post under their own name?
+                unless c.logged_in and (c.user.key == unslash val.user)
+                    return t.abort()
+                # Does the post contain all the required fields?
+                unless val.user and val.title and val.url and val.time \
+                    and typeof(val.title) == "string" and typeof(val.url) == "string" and typeof(val.time) == "number"
+                    return t.abort()
+                
+                # Ok, put it into the posts list
+                all_posts.all ?= []
+                all_posts.all.push val
+                bus.save all_posts
+                return t.done val
+           
+            # Deleting post
+            unless val.user?
+                unless c.logged_in and (c.user.key == unslash old.user)
+                    return t.abort()
+                # Everything looks good. So we need to do four things.
+                # 1. Remove the post from `posts`
+                # 2. Delete `votes_on/post/<id>`
+                # 3. Delete every vote on the post
+                #   a. Remove the vote from votes_by
+                #   b. Delete the vote itself
+                # 4. Delete the actual post.
+                
+                # TODO: Make sure there are no like, race conditions here???
+                
+                # Fetch the votes and make a static copy
+                votes = JSON.parse(JSON.stringify(bus.fetch "votes_on/post/#{star}")).values ? []
+
+                # Remove the post from `posts`
+                all_posts.all = all_posts.all.filter (p) -> p.key != val.key
+                bus.save all_posts
+
+                # Delete `votes_on`
+                bus.save {key: "votes_on/post/#{star}"}
+                
+                # Remove from `votes_by/` and delete the vote key itself
+                votes.forEach (v) ->
+                    votes_by = bus.fetch "votes_by/#{unslash v.user}"
+                    delete votes_by[unslash val.key]
+                    bus.save votes_by
+                    bus.save {key: v.key}
+                                
+                # Finally delete the actual post
+                val = {key: val.key}
+                bus.save val
+                return t.done val
+
+            t.abort()
+
+
         # Client cannot edit /votes_by/
         client('votes_by/*').to_save = (val, star, t) ->
             t.abort()

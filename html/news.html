@@ -54,6 +54,10 @@
     dom.RENDER_POST = (post) ->
         # Subscribe to the post
         if post.key then fetch post
+        unless post.user?
+            # The post has actually just been deleted.
+            return
+
         author = fetch post.user
 
         c = fetch '/current_user'
@@ -83,7 +87,7 @@
             marginTop: "10px"
             marginBottom: "10px"
             display: "grid"
-            grid: "\"icon title slider .\" auto
+            grid: "\"icon title slider del\" auto
                    \". domain slider . \" 16px
                     / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
             alignItems: "center"
@@ -127,6 +131,16 @@
                     height: margin_left - 10
                     max_avatar_radius: (margin_left - 10) / 2
                     read_only: !c.logged_in
+
+            if c.logged_in and c.user.key == author.key then SPAN
+                color: "#999"
+                className: "material-icons md-dark"
+                fontSize: "#{margin_left - 10}px"
+                cursor: "pointer"
+                textAlign: "end"
+                onClick: (e) ->
+                    delete_post(post)
+                "delete"
 
 
     # Information about the current user:

@@ -67,16 +67,10 @@ make_post = (title, url, userkey) ->
         url: url
         time: Math.floor (Date.now() / 1000)
 
-    all_posts = fetch "/posts"
-    all_posts.all ?= []
-    all_posts.all.push post
-    save all_posts
+    save post
 
-    # Do we need to forget the things we fetched?
 
 delete_post = (key_or_post) ->
     key = key_or_post?.key ? key_or_post
-    post = fetch key
-    c = fetch "/current_user"
-    unless c.logged_in and c.user.key == post.user
-        return False
+    # Deletion is serverside, so no need to check perms here.
+    save {key: key}
