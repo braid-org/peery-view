@@ -353,6 +353,7 @@ dom.HISTOGRAM = ->
       size = opinion.size?[key]
       is_you = opinion.user == you
 
+      transform = "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
       props =
         key: "histo-avatar-#{opinion.user}"
         user: opinion.user
@@ -360,9 +361,9 @@ dom.HISTOGRAM = ->
         style:
           # cached width/height/left/top
           width: size?.width or 50
-          height: size?.width or 50
-          left: size?.left or 0
-          top: size?.top or 0
+          height: size?. width or 50
+          transform: transform
+          transformOrigin: "top left"
           opacity: if focus_on_dragging && !is_you then .4
           filter: if  focus_on_dragging && !is_you then 'grayscale(80%)'
 
@@ -655,7 +656,7 @@ positionAvatars = (args) ->
   decay = 0.9
   min_alpha = 1e-3
   x_force_mult = 2
-  y_force_mult = 2 * (width / height)
+  y_force_mult = 5 * (width / height)
 
   while not stable
     stable = tick alpha

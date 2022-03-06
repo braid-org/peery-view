@@ -253,6 +253,7 @@ dom.MULTIHISTOGRAM = ->
         size = opinion.size?[key]
         
         dragged = local_sldr.target == opinion.target
+        transform = "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
         props =
             key: "histo-avatar-#{opinion.target}"
             user: opinion.target
@@ -264,8 +265,8 @@ dom.MULTIHISTOGRAM = ->
                 # cached width/height/left/top
                 width: size?.width or 50
                 height: size?.width or 50
-                left: size?.left or 0
-                top: size?.top or 0
+                transform: transform
+                transformOrigin: "top left"
                 zIndex: if dragged then 5
                 filter: if dragged then 
                 opacity: if (dragging or opinion.type?) and !dragged then 0.4
