@@ -206,6 +206,24 @@ bus('weights/*').to_fetch = (star) ->
         queue_next = {}
     weights
 
+bus('votes_by/*').to_fetch = (star, t) ->
+    key = "votes_by/#{star}"
+    cur = bus.cache[key]
+    if cur?
+        return cur
+    # Put a vote on the default user
+    cur = {
+        key: key
+        "user/default": {
+            key: "votes/_#{star}_user/default_"
+            updated: 0
+            user: "/#{star}"
+            target: "/user/default"
+            value: 1.0
+        }
+    }
+    bus.save.sync cur
+    return cur
 
 bus('weights/*').to_save = (star, t) ->
     t.abort()
