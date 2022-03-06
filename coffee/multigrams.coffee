@@ -267,6 +267,7 @@ dom.MULTIHISTOGRAM = ->
                 height: size?.width or 50
                 transform: transform
                 transformOrigin: "top left"
+                transition: unless (dragging and dragged) then "transform 0.3s cubic-bezier(0.32, 0, 0.67, 0)"
                 zIndex: if dragged then 5
                 filter: if dragged then 
                 opacity: if (dragging or opinion.type?) and !dragged then 0.4
