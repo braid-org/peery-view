@@ -132,27 +132,3 @@ style.innerHTML =   """
 
 document.head.appendChild style
 
-create_tooltip = (text, target, style) ->
-    tooltip = fetch "tooltip"
-
-    tooltip.hidden = false
-    computedStyle = {
-      backgroundColor: "white"
-      color: '#444'
-      opacity: 0.9
-      fontSize: 14
-      padding: '2px 4px'
-      maxWidth: 200
-      whiteSpace: 'nowrap'
-    }
-
-    tooltip.style = Object.assign(computedStyle, style ? {})
-    tooltip.text = text
-
-    # Compute the position of the tooltip
-    bbox = target.getBoundingClientRect()
-    tooltip.x = bbox.x + bbox.width/2 + window.scrollX
-    tooltip.y = bbox.bottom + window.scrollY
-
-    save tooltip
-    requestAnimationFrame(() => create_tooltip text, target, style)

@@ -229,18 +229,25 @@ bus('weights/*').to_save = (star, t) ->
     t.abort()
 
 ###### Sending static content over HTTP ##############
+express = require 'express'
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
+bus.http.use free_the_cors
+bus.http.get '/', send_file '/static/news.html'
+bus.http.use '/static', express.static('static')
 
-bus.http.use(free_the_cors)
-bus.http.get('/', send_file '/html/news.html')
+
 # Coffee Compilation
+fs = require 'fs'
+minify = (require 'terser').minify
 coffee_cache = {}
 bus.http.get('/coffee/*', (req, res) ->
   filename = req.path.substr('/coffee/'.length)
   if filename not of coffee_cache
-    source = require('fs').readFileSync "coffee/#{filename}", 'utf-8'
+    source = fs.readFileSync "coffee/#{filename}", 'utf-8'
+    big = bus.compile_coffee source, filename
+    small = (await minify big, {mangle: false}).code
     coffee_cache[filename] = {
-      body: bus.compile_coffee source, filename
+      body: small
       etag: Math.random() + ''
     }
 
@@ -250,9 +257,27 @@ bus.http.get('/coffee/*', (req, res) ->
   res.setHeader 'Content-Type', 'application/javascript'
   res.send coffee_cache[filename].body
 )
-
 dirty_coffee = (event, path) -> coffee_cache = {}
 require('chokidar').watch('./coffee').on('all', dirty_coffee)
+
+# Pack clientjs
+clientjs = ""
+bus.http.get '/client.js', (req, res) ->
+    # If the clientjs hasn't been assembled yet
+    unless clientjs.length
+        files =
+            ['extras/coffee.js', 'extras/sockjs.js', 'extras/react.js', 'statebus.js', 'client.js']
+                .map( (f) => fs.readFileSync('node_modules/statebus/' + f) )
+        if bus.options.braid_mode
+            files.unshift fs.readFileSync 'node_modules/braidify/braidify-client.js' 
+        clientjs = files.join ';\n'
+        clientjs = (await minify clientjs, {mangle: false}).code
+
+
+    # Since we're using raw send, should set content-type
+    res.setHeader 'Content-Type', 'application/javascript'
+    res.send clientjs
+
 
 unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
 slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"

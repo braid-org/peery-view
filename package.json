@@ -4,6 +4,7 @@
     "braidify": "^0.1.17",
     "chokidar": "^3.5.2",
     "coffeescript": "^2.6.1",
-    "statebus": "^6.1.5"
+    "statebus": "^6.1.5",
+    "terser": "^5.12.0"
   }
 }
