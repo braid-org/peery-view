@@ -37,13 +37,19 @@ dom.MULTIGRAM = ->
       alignItems: 'flex-end'
       paddingBottom: 32/2
 
-    # on option-click, delete self (or slidergram as whole if already empty)
-    onMouseEnter: (e) =>
-      @local.hover = true
-      save @local
-    onMouseLeave: (e) =>
-      @local.hover = false
-      save @local
+    onMouseOver: (e) =>
+        if e.target.getAttribute?('data-target')
+            target = e.target.getAttribute?('data-target')
+            local_sldr.hover_target = target
+            local_sldr.hover = true
+        else
+            local_sldr.hover = false
+        save local_sldr
+
+    onMouseOut: (e) =>
+        local_sldr.hover = false
+        save local_sldr
+
 
     DIV
       key: 'opinion_area'
@@ -93,9 +99,9 @@ dom.MULTIGRAM = ->
           SLIDER_FEEDBACK
             sldr: sldr
             width: @props.width
-            target: local_sldr.target
+            target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
             style:
-              display: if !(local_sldr.dragging) then 'none'
+                opacity: unless local_sldr.dragging or local_sldr.hover then 0
 
 #########
 # start_slide_target
@@ -261,6 +267,7 @@ dom.MULTIHISTOGRAM = ->
             vote_target: opinion.target
             hide_tooltip: dragging and !dragged
             "data-selected": dragging and dragged
+            "data-target": opinion.target
             style:
                 # cached width/height/left/top
                 width: size?.width or 50
