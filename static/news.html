@@ -17,6 +17,16 @@
     .material-icons.md-light { color: rgba(255, 255, 255, 1); }
     .material-icons.md-light.md-inactive { color: rgba(255, 255, 255, 0.3); }
 
+    .post-title:link {
+        color: black;
+    }
+    .post-title:visited {
+        color: #444;
+    }
+    .post-title:hover {
+        color: #111;
+    }
+
 </style>
 <script type=coffee>
     body_width = 750
@@ -115,13 +125,13 @@
 
             A
                 key: "title"
+                className: "post-title"
                 gridArea: "title"
                 fontSize: "18px"
                 paddingRight: "10px"
                 lineHeight: "#{margin_left - 10}px"
                 justifySelf: "stretch"
                 textDecoration: "none"
-                color: "black"
                 href: if post.url.length then functional_url
                 "#{post.title}"
 
