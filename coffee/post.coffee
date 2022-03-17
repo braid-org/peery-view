@@ -1,11 +1,17 @@
 att_curve = (delta) ->
     xs = delta / (60*60*24*3)
-    1 / (xs*xs + 1)
+    Math.max(1 / (xs*xs + 1), 0.1)
+
+compute_score = (p) ->
+    att = if p.score > 0 then att_curve p.age else 1
+    (p.score * att) + ((p.me ? 0) + p.author) * Math.sqrt(att)
+    
 
 sort_posts = (posts) ->
 
     c = fetch "/current_user"
     me = if c.logged_in then c.user.key else "/user/default"
+    min_weight = fetch( c?.user )?.filter ? -0.2
     weights = fetch "/weights#{me}"
 
     now = Date.now() / 1000
@@ -14,42 +20,52 @@ sort_posts = (posts) ->
     posts.forEach (p) ->
         # Subscribe to the post
         fetch p
-        # time-based attenuation
-        att = att_curve (now - p.time)
-        # author weight
-        # Naively multiplying by the author weight causes problems:
-        # Negative author weight times negative votes = ... positive score ???
-        # Also, if a post by an unknown user is rated very highly in your network, you won't see it at all.
-        
-        # We consider the author to have an implicit vote on their own post.
-        # We'll just add this one to the votes.
-        author_vote = weights[unslash p.user]?.weight ? 0.0
-        # As for the multiplicative factor, we compute it as follows
-        author_weight = Math.sqrt((author_vote + 1) / 2)
-
-        sum_votes = 0.05
-
+        # Subscribe to the post's votes
         votes = (fetch "/votes_on#{p.key}").values ? []
+        authorname = unslash p.user
+
+        my_vote = null
+        sum_votes = 0
+
         if votes.length
             # weighted sum of votes.
-            # double check this part.
             sum_votes = votes
                 .map (v) ->
                     # first subscribe to the vote
                     if v.key then fetch v
-                    (2 * v.value - 1) * (weights[unslash v.user] ? 0)
+
+                    # The following might seem to not handle the case where we made this post. 
+                    # But choosing to consider such a vote as "our vote" instead of "the author's vote" allows the user some control over the order they see their own posts in.
+
+                    # Exclude our own vote on the post.
+                    # The scoring function has separate access to this.
+                    voter = unslash v.user
+                    if voter == unslash me
+                        my_vote = 2 * v.value - 1
+                        0
+                    # Completely ignore the author's vote on their own post
+                    else if voter == authorname
+                        0
+                    else
+                        (2 * v.value - 1) * (weights[voter] ? 0)
                 .reduce (a, b) -> a + b
 
-        scores[p.key] = att * author_weight * (sum_votes + author_vote)
+        # Our network-weight on the author
+        author_weight = weights[authorname]?.weight ? 0
+
+        scores[p.key] = compute_score
+            age: now - p.time
+            author: author_weight
+            score: sum_votes
+            # Maybe we should have sum_weights instead??
+            votes: votes.length
+            me: my_vote
 
     # Should we save scores and weights to the local state?
 
     posts.sort (a, b) -> scores[b.key] - scores[a.key]
-    posts
-
-MIN_WEIGHT = 0.05
-NETWORK_ATT = 0.95
-
+    posts.filter (v) ->
+        scores[v.key] > min_weight
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)

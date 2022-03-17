@@ -1,3 +1,8 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=UTF-8>
+<title>Braid News</title>
 <style>
     body {
         margin: min(4vw, 25px);
@@ -24,10 +29,12 @@
 
     dom.BODY = ->
         DIV
+            key: "body"
             width: body_width
             margin: "auto"
 
             H1
+                key: "page-title"
                 marginLeft: margin_left
                 fontSize: "50px"
                 "Braid"
@@ -51,7 +58,8 @@
                     post: post
 
     # The layout for a single post, including slidergram and such
-    dom.RENDER_POST = (post) ->
+    dom.RENDER_POST = ->
+        post = @props.post
         # Subscribe to the post
         if post.key then fetch post
         unless post.user?
@@ -82,8 +90,8 @@
             not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
         user_clickable = false
 
+
         DIV
-            key: "post-#{post.key}"
             marginTop: "10px"
             marginBottom: "10px"
             display: "grid"
@@ -93,6 +101,7 @@
             alignItems: "center"
 
             AVATAR
+                key: "avatar"
                 user: author
                 gridArea: "icon"
                 style:
@@ -105,6 +114,7 @@
                     console.log "Clicking on a user does nothing, pending a $1M UX focus group."
 
             A
+                key: "title"
                 gridArea: "title"
                 fontSize: "18px"
                 paddingRight: "10px"
@@ -116,12 +126,14 @@
                 "#{post.title}"
 
             SPAN
+                key: "url"
                 gridArea: "domain"
                 fontSize: "12px"
                 color: "#999"
                 "#{pretty_url}"
 
             DIV
+                key: "post-votes-slider"
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
@@ -133,6 +145,7 @@
                     read_only: !c.logged_in
 
             if c.logged_in and c.user.key == author.key then SPAN
+                key: "delete-btn"
                 color: "#999"
                 className: "material-icons md-dark"
                 fontSize: "#{margin_left - 10}px"
@@ -149,13 +162,15 @@
         c = fetch '/current_user'
         s = fetch "show_settings"
         s.show ?= false
+
         DIV
             position: "absolute"
             top: 15
             right: 30
             zIndex: 5
 
-            DIV {},
+            DIV 
+                key: "user-header"
                 if c.logged_in
                     DIV
                         display: "flex"
@@ -165,6 +180,7 @@
                         marginBottom: "5px"
 
                         AVATAR
+                            key: "user-avatar"
                             user: c.user
                             hide_tooltip: true
                             style:
@@ -174,11 +190,13 @@
                                 borderRadius: "50%"
 
                         DIV
+                            key: "user-name"
                             marginLeft: "6px"
                             marginRight: "6px"
                             c.user.name
 
                         SPAN
+                            key: "user-settings-btn"
                             className: "material-icons md-dark"
                             fontSize: "20px"
                             cursor: "pointer"
@@ -188,6 +206,7 @@
                                 save s
                             "settings"
                         SPAN
+                            key: "user-logout-btn"
                             className: "material-icons md-dark"
                             fontSize: "20px"
                             cursor: "pointer"
@@ -204,7 +223,8 @@
                         color: "#666"
                         cursor: "pointer"
                         "Not Logged In"
-            DIV {},
+            DIV
+                key: "user-modal"
                 display: unless s.show then "none"
                 if c.logged_in
                     SETTINGS()
@@ -232,9 +252,11 @@
                 save has_typed
 
         DIV
+            key: "submit-container"
             width: post_width
             marginLeft: margin_left
             INPUT
+                key: "submit-title"
                 id: "post-title"
                 style:
                     width: post_width
@@ -245,10 +267,12 @@
                     save has_typed
 
             DIV
+                key: "submit-modal"
                 display: if has_typed.typed then "flex" else "none"
                 flexDirection: "row"
                 marginTop: "5px"
                 INPUT
+                    key: "submit-url"
                     id: "post-url"
                     type: "url"
                     placeholder: "URL"
@@ -261,6 +285,7 @@
                             form_submit()
 
                 SPAN
+                    key: "submit-btn"
                     alignSelf: "center"
                     className: "material-icons md-dark"
                     fontSize: "24px"
@@ -270,6 +295,7 @@
 
     dom.BIG_MULTIGRAM = ->
         DIV
+            key: "multigram-wrapper"
             width: body_width
             padding: "0 #{margin_left}px 15px #{margin_left}px"
 
@@ -396,3 +422,5 @@
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" sizes="any">
+</head>
+</html>

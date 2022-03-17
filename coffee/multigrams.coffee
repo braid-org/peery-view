@@ -240,7 +240,7 @@ dom.MULTIHISTOGRAM = ->
   dragging = local_sldr.dragging
 
   DIV extend( props,
-    ref: 'histo'
+    key: 'histo'
     className: 'histogram'
     style:
       width: @props.width

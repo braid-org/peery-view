@@ -82,6 +82,7 @@ dom.SETTINGS = ->
         grid: '"nametag namefield namefield" 32px
                "emailtag emailfield emailfield" 32px
                "pictag picfield picfield" 32px
+               "filtertag filterfield filterfield" 32px
                ". cancel save" 24px
                 / auto auto auto'
         gap: "5px"
@@ -116,6 +117,17 @@ dom.SETTINGS = ->
             value: c.user.pic
             placeholder: "http://..."
             id: "pic-change"
+        DIV
+            gridArea: "filtertag"
+            color: "#333"
+            fontSize: "12px"
+            "Min post score"
+        INPUT
+            gridArea: "filterfield"
+            value: c.user.filter
+            placeholder: "-0.2"
+            id: "filter-change"
+
 
         BUTTON
             gridArea: "cancel"
@@ -132,10 +144,12 @@ dom.SETTINGS = ->
                 name = document.getElementById("name-change").value
                 email = document.getElementById("email-change").value
                 pic = document.getElementById("pic-change").value ? ""
+                filter = document.getElementById("filter-change").value ? -0.2
 
                 c.user.name = name
                 c.user.email = email
                 c.user.pic = pic
+                c.user.filter = Number.parseFloat(filter)
 
                 save c.user
                 
