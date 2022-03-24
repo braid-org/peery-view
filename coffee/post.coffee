@@ -65,7 +65,7 @@ sort_posts = (posts) ->
 
     posts.sort (a, b) -> scores[b.key] - scores[a.key]
     posts.filter (v) ->
-        scores[v.key] > min_weight or slash v.user == me
+        scores[v.key] > min_weight or slash(v.user) == me
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)

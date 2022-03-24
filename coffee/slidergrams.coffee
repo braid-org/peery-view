@@ -192,10 +192,6 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
       value = x / slidergram_width
       local.live_pos = Math.round(value * 10000) / 10000
 
-      # console.log('DRAGGED TO ', your_slide.value)
-      if local.tracking_mouse != 'tracking'
-        local.dirty_opinions = true
-
       # console.log 'SAVING slide', your_slide.value
       save local
 
