@@ -11,7 +11,7 @@ sort_posts = (posts) ->
 
     c = fetch "/current_user"
     me = if c.logged_in then c.user.key else "/user/default"
-    min_weight = fetch( c?.user )?.filter ? -0.2
+    min_weight = if c.logged_in then ((fetch c.user)?.filter ? -0.2) else -0.2
     weights = fetch "/weights#{me}"
 
     now = Date.now() / 1000
