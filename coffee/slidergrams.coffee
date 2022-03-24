@@ -190,7 +190,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
 
       # normalize position of handle into slider value
       value = x / slidergram_width
-      local.live_pos = value = Math.round(value * 10000) / 10000
+      local.live_pos = Math.round(value * 10000) / 10000
 
       # console.log('DRAGGED TO ', your_slide.value)
       if local.tracking_mouse != 'tracking'
@@ -270,7 +270,7 @@ dom.SLIDER_FEEDBACK = ->
 
   local_sldr = fetch shared_local_key(@props.sldr)
 
-  val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos
+  val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
           local_sldr.live_pos
         else if @props.target?
           get_target_slide(@props.sldr, @props.target)?.value or 0
@@ -350,7 +350,7 @@ dom.HISTOGRAM = ->
     if @props.show_ghosted_user or your_vote
 
       r = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
-      val = if local_sldr.live_pos
+      val = if local_sldr.live_pos?
               local_sldr.live_pos
             else if your_vote?.value
                 your_vote.value
