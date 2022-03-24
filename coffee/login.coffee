@@ -33,10 +33,12 @@ dom.LOGIN = ->
             id: "login-pw"
             placeholder: "Password"
             gridArea: "pw"
+            type: "password"
         INPUT
             id: "login-email"
             placeholder: "Email"
             gridArea: "email"
+            type: "email"
 
         BUTTON {
             gridArea: "register"
@@ -106,6 +108,7 @@ dom.SETTINGS = ->
             gridArea: "emailfield"
             value: c.user.email
             id: "email-change"
+            type: "email"
 
         DIV
             gridArea: "pictag"
@@ -127,12 +130,15 @@ dom.SETTINGS = ->
             value: c.user.filter
             placeholder: "-0.2"
             id: "filter-change"
+            type: "number"
+            step: 0.1
 
 
         BUTTON
             gridArea: "cancel"
             onClick: (e) ->
                 s = fetch "show_settings"
+                # Should reset values of INPUTs here
                 s.show = false
                 save s
             "Cancel"

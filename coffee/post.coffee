@@ -1,10 +1,10 @@
 att_curve = (delta) ->
-    xs = delta / (60*60*24*3)
+    xs = delta / (60*60*24*5)
     Math.max(1 / (xs*xs + 1), 0.1)
 
 compute_score = (p) ->
-    att = if p.score > 0 then att_curve p.age else 1
-    (p.score * att) + ((p.me ? 0) + p.author) * Math.sqrt(att)
+    att = if p.score >= 0 then att_curve p.age else 1
+    (p.score * att) + ((p.me ? 0) + p.author) * 3 * att * Math.sqrt(att)
     
 
 sort_posts = (posts) ->
@@ -51,7 +51,7 @@ sort_posts = (posts) ->
                 .reduce (a, b) -> a + b
 
         # Our network-weight on the author
-        author_weight = weights[authorname]?.weight ? 0
+        author_weight = weights[authorname] ? 0
 
         scores[p.key] = compute_score
             age: now - p.time
@@ -65,7 +65,7 @@ sort_posts = (posts) ->
 
     posts.sort (a, b) -> scores[b.key] - scores[a.key]
     posts.filter (v) ->
-        scores[v.key] > min_weight
+        scores[v.key] > min_weight or slash v.user == me
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)

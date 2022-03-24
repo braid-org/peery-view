@@ -247,22 +247,21 @@
 
     dom.SUBMIT_POST = ->
 
-        has_typed = fetch "submit_open"
-        has_typed.typed ?= false
+        @local.typed ?= false
 
         c = fetch "/current_user"
         unless c.logged_in
             return
 
-        form_submit = ->
+        form_submit = =>
             title = document.getElementById("post-title")
             link = document.getElementById("post-url")
             if title.value.length > 1
                 make_post title.value, link.value, c.user.key
                 title.value = ""
                 link.value = ""
-                has_typed.typed = false
-                save has_typed
+                @local.typed = false
+                save @local
 
         DIV
             key: "submit-container"
@@ -275,13 +274,13 @@
                     width: post_width
                     height: "28px"
                 placeholder: "Say something..."
-                onInput: (e) ->
-                    has_typed.typed = e.target.value.length > 0
-                    save has_typed
+                onInput: (e) =>
+                    @local.typed = e.target.value.length > 0
+                    save @local
 
             DIV
                 key: "submit-modal"
-                display: if has_typed.typed then "flex" else "none"
+                display: if @local.typed then "flex" else "none"
                 flexDirection: "row"
                 marginTop: "5px"
                 INPUT
@@ -293,7 +292,7 @@
                     marginRight: "5px"
                     style:
                         height: "28px"
-                    onKeyDown: (e) ->
+                    onKeyDown: (e) =>
                         if e.keyCode == 13
                             form_submit()
 

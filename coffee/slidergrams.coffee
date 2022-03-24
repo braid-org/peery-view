@@ -49,8 +49,6 @@ dom.SLIDERGRAM = ->
   slidergram_width = @props.width
   svg_sides = slidergram_width / 2
 
-  # console.log 'RENDERING value', get_your_slide(sldr)?.value
-    
 
   DIV
     key: 'opinion_area'
@@ -125,9 +123,7 @@ dom.SLIDERGRAM = ->
           sldr: sldr
           width: @props.width
           style:
-            display: if !(@local.hover_opinion_area || \
-                        local_sldr.dragging || local_sldr.tracking_mouse == 'activated') \
-                      then 'none'
+            display: 'none' unless local_sldr.tracking_mouse or @props.force_ghosting or has_opined
 
 
 #########
@@ -141,32 +137,21 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
   sldr = fetch(sldr)
   local = fetch shared_local_key(sldr)
 
-  return if !your_key()
+  you = your_key()
+  return if !you
+
+  val = args?.initial_val
 
   if slide_type == 'dragging'
     your_slide = get_your_slide(sldr)
     val = if your_slide then your_slide.value else DEFAULT_SLIDER_VAL
-    # How do I not do this part?
-    target_sldr = sldr # save changes immediately to server  
-    #target_sldr = local
-    extend local,
-      values: [{
-        user: your_key(),
-        value: val
-      }]
-
     local.dragging = true
 
   else if slide_type == 'tracking'
-    val = args.initial_val
-    extend local,
-      tracking_mouse: 'tracking'
-      values: [{
-        user: your_key(),
-        value: val
-      }]
-    target_sldr = local  # don't propagate to server immediately
-
+    val = args.initial_val ? DEFAULT_SLIDER_VAL
+    local.tracking_mouse = 'tracking'
+  
+  local.live_pos = val
   local.mouse_positions = [{x: mouseX, y: mouseY}]
   # adjust for starting location - offset
   local.x_adjustment = val * slidergram_width - local.mouse_positions[0].x
@@ -203,27 +188,16 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
           else
             x
 
-      your_slide = get_your_slide(target_sldr)
-      if !your_slide
-        your_slide =
-          user: your_key()
-          explanation: ''
-
-        target_sldr.values.push your_slide
-
       # normalize position of handle into slider value
-      your_slide.value = x / slidergram_width
-      your_slide.value = Math.round(your_slide.value * 10000) / 10000
-      your_slide.updated = (new Date()).getTime()
+      value = x / slidergram_width
+      local.live_pos = value = Math.round(value * 10000) / 10000
 
       # console.log('DRAGGED TO ', your_slide.value)
       if local.tracking_mouse != 'tracking'
         local.dirty_opinions = true
 
       # console.log 'SAVING slide', your_slide.value
-      save target_sldr
       save local
-      saw_thing target_sldr
 
   register_window_event "slide-#{local.key}", 'mousemove', mousemove
   register_window_event "slide-#{local.key}", 'touchmove', mousemove
@@ -231,11 +205,25 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
   # Mouse UP events
   mouseup = (e) ->
     if slide_type == 'dragging'
+      local.dragging = false
       saw_thing(sldr)
       stop_slider_dragging(sldr)
     else if slide_type == 'tracking'
       saw_thing(sldr)
       stop_slider_mouse_tracking(sldr)
+
+    # Update the value in the server
+    your_vote = get_your_slide(sldr)
+    if !your_vote
+        your_vote = 
+            user: you
+        sldr.values.push your_vote
+    your_vote.updated = (new Date()).getTime()
+    your_vote.value = local.live_pos
+
+    save sldr
+    local.dirty_opinions = true
+    save local
 
   register_window_event "slide-#{local.key}", 'mouseup', mouseup
   register_window_event "slide-#{local.key}", 'touchend', mouseup
@@ -257,18 +245,8 @@ stop_slider_dragging = (sldr) ->
   save local
 
 stop_slider_mouse_tracking = (sldr, skip_save) -> 
-  sldr = fetch(sldr)
   local_sldr = fetch(shared_local_key(sldr))
   unregister_window_event "slide-#{local_sldr.key}"
-  return if !local_sldr.tracking_mouse
-
-  # Well, the user has added themself to the slidergram!
-  # Need to transfer from local_sldr to sldr 
-  if !skip_save && local_sldr.tracking_mouse == 'activated'
-    sldr.values.push local_sldr.values[0]
-    save sldr
-    local_sldr.dirty_opinions = true
-
   local_sldr.tracking_mouse = null
   save local_sldr
 
@@ -292,8 +270,8 @@ dom.SLIDER_FEEDBACK = ->
 
   local_sldr = fetch shared_local_key(@props.sldr)
 
-  val = if local_sldr.tracking_mouse
-          local_sldr.values[0].value
+  val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos
+          local_sldr.live_pos
         else if @props.target?
           get_target_slide(@props.sldr, @props.target)?.value or 0
         else #if local_sldr.dragging
@@ -347,11 +325,10 @@ dom.HISTOGRAM = ->
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
     for opinion in sldr.values
-      continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
+      continue if !opinion.user or (opinion_weights and opinion.user not of opinion_weights ) or opinion.user == you
 
       key = md5([@props.width, @props.height, opinion_weights])
       size = opinion.size?[key]
-      is_you = opinion.user == you
 
       props =
         key: "histo-avatar-#{opinion.user}"
@@ -363,56 +340,49 @@ dom.HISTOGRAM = ->
           height: size?.width or 50
           top: size?.top or 0
           left: size?.left or 0
-          opacity: if focus_on_dragging && !is_you then .4
-          filter: if  focus_on_dragging && !is_you then 'grayscale(80%)'
-
-
-      if is_you && !@props.read_only
-        # console.log "  RE-RENDERING @ #{opinion.value}"
-        extend props,
-          className: 'you grab_cursor'
-          hide_tooltip: true
-
-        props = implements_slide_draggable sldr, @props.width, props
-
+          opacity: if focus_on_dragging then .4
+          filter: if  focus_on_dragging then 'grayscale(80%)'
 
       AVATAR props
 
 
-    if @props.show_ghosted_user
+    your_vote = get_your_slide(sldr)
+    if @props.show_ghosted_user or your_vote
 
       r = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
-      val = if local_sldr.values?[0]?
-              local_sldr.values[0].value
+      val = if local_sldr.live_pos
+              local_sldr.live_pos
+            else if your_vote?.value
+                your_vote.value
             else
               DEFAULT_SLIDER_VAL
       opaque = local_sldr.tracking_mouse == 'activated'
 
-      left = within val * @props.width - r, 0, @props.width - 2 * r
-      style =
-        position: 'absolute'
-        left: left
-        top: @props.height - r * 2
-        width: r * 2
-        height: r * 2
-        backgroundColor: '#f1f1f1'
-        borderRadius: '50%'
-        zIndex: if !opaque then -1
-        opacity: .5 if !opaque
-        cursor: if !opaque then 'pointer'
-        className: if opaque then 'grab_cursor'
+      props =
+          key: "histo-avatar-me"
+          user: you
+          hide_tooltip: true
+          className: 'grab_cursor you'
+          style:
+              left: within val * @props.width - r, 0, @props.width - 2 * r
+              top: @props.height - r
+              width: r*2
+              height: r*2
+              zIndex: 3
+              opacity: 0.6 if (@props.show_ghosted_user and !opaque)
+              filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3))" if focus_on_dragging
 
-      AVATAR
-        className: 'you'
-        user: you
-        style: style
-        hide_tooltip: true
+      if your_vote
+        props = implements_slide_draggable sldr, @props.width, props
+
+      AVATAR props
 
 
 dom.HISTOGRAM.refresh = ->
 
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
+  you = your_key?()
 
   opinion_weights = fetch('opinion').weights
 
@@ -436,6 +406,10 @@ dom.HISTOGRAM.refresh = ->
       avatar_radius = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
 
 
+    # Ignore the user's own vote
+    ignore = {}
+    ignore[you] = true
+
     positionAvatars
       positions: sldr
       width: @props.width
@@ -444,6 +418,8 @@ dom.HISTOGRAM.refresh = ->
       key: key
       radii: radii
       vote_key: "user"
+      ignore: ignore
+
     @last_cache = cache_key
 
 style = document.createElement "style"
@@ -502,7 +478,7 @@ positionAvatars = (args) ->
       o.py = o.y
 
       # Push node toward its desired x-position
-      o.x += alpha * (x_force_mult * width  * .001) * (o.x_target - o.x)
+      o.x += alpha * x_force_mult * (o.x_target - o.x)
 
       # Push node downwards
       #o.y += alpha * y_force_mult * ( Math.max(1, 4 * o.radius * 2 / height + .5 ))
@@ -580,10 +556,10 @@ positionAvatars = (args) ->
   # for one vs small differences for the pair.
   energy_reduced_by_swap = (p1, p2) ->
     # how much does each point covet the other's location, over their own?
-    p1_jealousy = (p1.x - p1.x_target) * (p1.x - p1.x_target) - \
-                  (p2.x - p1.x_target) * (p2.x - p1.x_target)
-    p2_jealousy = (p2.x - p2.x_target) * (p2.x - p2.x_target) - \
-                  (p1.x - p2.x_target) * (p1.x - p2.x_target)
+    p1_jealousy = (p1.x - p1.x_target) ** 2 - \
+                  (p2.x - p1.x_target) ** 2
+    p2_jealousy = (p2.x - p2.x_target) ** 2 - \
+                  (p1.x - p2.x_target) ** 2
     p1_jealousy + p2_jealousy
 
   # Swaps the positions of two avatars
@@ -636,8 +612,11 @@ positionAvatars = (args) ->
     #       rad + (width - 2 * rad) * (i / n) 
     #     else 
     #       x_target
-    x = x_target
-    y = height - rad#init[o[vote_key]] - rad #rad
+    x = o.size?[key]?.left + rad
+    y = o.size?[key]?.top + rad
+    if isNaN(x) or isNaN(y)
+        x = x_target
+        y = height - rad
 
     return {
       index: i
@@ -651,10 +630,10 @@ positionAvatars = (args) ->
   # run the simulation
 
   stable = false
-  alpha = .9
+  alpha = 1
   decay = 0.9
   min_alpha = 1e-3
-  x_force_mult = 2
+  x_force_mult = 1
   y_force_mult = 5 * (width / height)
 
   while not stable
@@ -662,8 +641,6 @@ positionAvatars = (args) ->
     alpha *= decay
 
     stable ||= alpha <= min_alpha
-
-
   ##############
   # cache the final locations on positions
   for avatar,i in avatars
