@@ -31,7 +31,7 @@
 <script type=coffee>
     body_width = 750
     margin_left = 32
-    post_width = 550
+    post_width = 525
 
     document.title = 'Braid News'
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
@@ -156,6 +156,7 @@
                     height: margin_left - 10
                     max_avatar_radius: (margin_left - 10) / 2
                     read_only: !c.logged_in
+                    vote_key: "user"
 
             if c.logged_in and c.user.key == author.key then SPAN
                 key: "delete-btn"

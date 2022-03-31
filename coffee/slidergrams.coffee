@@ -76,7 +76,6 @@ dom.SLIDERGRAM = ->
       if local_sldr.tracking_mouse == 'tracking'
         e.preventDefault()
         stop_slider_mouse_tracking(sldr)
-    
 
 
     HISTOGRAM
@@ -86,6 +85,7 @@ dom.SLIDERGRAM = ->
       show_ghosted_user: !has_opined && (local_sldr.tracking_mouse || @props.force_ghosting)
       read_only: read_only
       max_avatar_radius: @props.max_avatar_radius
+      vote_key: @props.vote_key
 
     DIV # slider base
       style :
@@ -237,13 +237,13 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
 stop_slider_dragging = (sldr) ->
   local = fetch shared_local_key(sldr)
   unregister_window_event("slide-#{local.key}")
-  local.x_adjustment = local.mouse_positions = local.dragging = null 
+  local.x_adjustment = local.mouse_positions = local.dragging = local_sldr.live = null 
   save local
 
 stop_slider_mouse_tracking = (sldr, skip_save) -> 
   local_sldr = fetch(shared_local_key(sldr))
   unregister_window_event "slide-#{local_sldr.key}"
-  local_sldr.tracking_mouse = null
+  local_sldr.tracking_mouse = local_sldr.live_pos = null
   save local_sldr
 
 
@@ -298,11 +298,12 @@ dom.SLIDER_FEEDBACK = ->
 
 dom.HISTOGRAM = ->
   sldr = fetch @props.sldr
-  sldr.values ||= []
+  sldr.values ?= []
   local_sldr = fetch(shared_local_key(sldr))
+  local_sldr.layout ?= {}
 
   you = your_key?()
-  opinion_weights = fetch('opinion').weights
+  opinion_weights = fetch "/weights#{you ? '/user/default'}"
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -321,13 +322,11 @@ dom.HISTOGRAM = ->
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
     for opinion in sldr.values
-      continue if !opinion.user or (opinion_weights and opinion.user not of opinion_weights ) or opinion.user == you
-
-      key = md5([@props.width, @props.height, opinion_weights])
-      size = opinion.size?[key]
+      continue if (opinion_weights and (unslash opinion.user) not of opinion_weights ) or (opinion.user == you) or !opinion[@props.vote_key]
+      size = local_sldr.layout[opinion[@props.vote_key]]
 
       props =
-        key: "histo-avatar-#{opinion.user}"
+        key: "histo-avatar-#{opinion[@props.vote_key]}"
         user: opinion.user
         hide_tooltip: focus_on_dragging
         style:
@@ -376,47 +375,47 @@ dom.HISTOGRAM = ->
 
 dom.HISTOGRAM.refresh = ->
 
-  sldr = fetch @props.sldr
-  local_sldr = fetch(shared_local_key(sldr))
-  you = your_key?()
+    sldr = fetch @props.sldr
+    local_sldr = fetch shared_local_key sldr
+    you = your_key?()
 
-  opinion_weights = fetch('opinion').weights
+    opinion_weights = fetch "/weights#{you ? '/user/default'}"
 
-  key = md5([@props.width, @props.height, opinion_weights])
-  cache_key = ( Math.round(o.value * 100) / 100 for o in (sldr.values or []) ).join(' ')
-  cache_key += key
+    hash = (opinion_weights[unslash v.user] * v.value for v in sldr.values when (unslash v.user) of opinion_weights)
+    cache_key = md5([@props.width, @props.height, hash])
 
-  if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
-    local_sldr.dirty_opinions = false
-    save local_sldr
+    if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
+        local_sldr.dirty_opinions = false
+        save local_sldr
 
-    
-    if opinion_weights
-      radii = {}
-      avatars = (o for o in sldr.values when o.user of opinion_weights)
-      avatar_radius = @calcRadius(@props.width, @props.height, avatars, @props.max_avatar_radius)
-      for u, weight of opinion_weights
-        radii[u] = weight * avatar_radius
-    else
-      radii = null
-      avatar_radius = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
+        vals_weight = sldr.values
+            .filter (v) -> (v.user != you) and (unslash(v.user) of opinion_weights)
+            .map (v) ->
+                # Can't modify the actual object!
+                vv = Object.assign { weight: Math.abs(opinion_weights[unslash v.user] * 0.9) + 0.1 }, v
+                vv
 
+        packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
-    # Ignore the user's own vote
-    ignore = {}
-    ignore[you] = true
+        radii = {}
+        vals_weight.forEach (vote) ->
+            radii[vote.user] = Math.sqrt(vote.weight) * packing_radius
 
-    positionAvatars
-      positions: sldr
-      width: @props.width
-      height: @props.height
-      default_radius: avatar_radius
-      key: key
-      radii: radii
-      vote_key: "user"
-      ignore: ignore
+        # Ignore the user's own vote
+        ignore = {}
+        ignore[you] = true
 
-    @last_cache = cache_key
+        positionAvatars
+          sldr: sldr
+          width: @props.width
+          height: @props.height
+          default_radius: packing_radius
+          radii: radii
+          vote_key: @props.vote_key
+          ignore: ignore
+
+        @last_cache = cache_key
+        
 
 style = document.createElement "style"
 style.id = "histogram-styles"
@@ -442,18 +441,17 @@ document.head.appendChild style
 #
 # positions is a keyed-object: 
 #    - positions.values has each of the avatars with their targeted x location
-#    - client positions are saved on each avatar at .size
+#    - client positions are saved in local_sldr.layout
 
 positionAvatars = (args) ->
-  positions = args.positions
+  positions = args.sldr
   width = args.width
   height = args.height
   r = args.default_radius
-  key = args.key
   radii = args.radii
   vote_key = args.vote_key
-  live = args.live ? false
   ignore = args.ignore ? {}
+  local_sldr = fetch shared_local_key positions
 
   # One iteration of the simulation
   tick = (alpha) ->
@@ -569,7 +567,7 @@ positionAvatars = (args) ->
   ##############
   # Initialize positions of each node
   targets = {}
-  avatars = positions.values or positions.opinions
+  avatars = positions.values
   if radii
     avatars = (o for o in avatars when o[vote_key] of radii)
   avatars = avatars.filter (o) -> !ignore[o[vote_key]]
@@ -608,8 +606,8 @@ positionAvatars = (args) ->
     #       rad + (width - 2 * rad) * (i / n) 
     #     else 
     #       x_target
-    x = o.size?[key]?.left + rad
-    y = o.size?[key]?.top + rad
+    x = local_sldr.layout[o[vote_key]]?.left + rad
+    y = local_sldr.layout[o[vote_key]]?.top + rad
     if isNaN(x) or isNaN(y)
         x = x_target
         y = height - rad
@@ -642,14 +640,12 @@ positionAvatars = (args) ->
   for avatar,i in avatars
     rad = nodes[i].radius
 
-    avatar.size ||= {}
-
-    avatar.size[key] =
+    local_sldr.layout[avatar[vote_key]] = 
       left: nodes[i].x - rad
       top: nodes[i].y - rad
       width: 2 * rad
 
-  save positions
+  save local_sldr
 
 calculateInitialLayout = (w, h, r, avatars, key) ->
   assignments = {}
@@ -713,7 +709,8 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
         break
       else
         w = opinions[o].weight ? 1
-        cnt += w*w
+        # weight is proportional to area
+        cnt += w
 
       o += 1
 
@@ -749,7 +746,7 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
       if o.value >= region[0] && \
          o.value <= region[1]
         w = o.weight ? 1
-        cnt += w * w
+        cnt += w
     if cnt > max_opinions
       max_opinions = cnt
       max_region = region

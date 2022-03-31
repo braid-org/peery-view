@@ -133,7 +133,7 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
 
     # Do an initial save of the target_slider to get it to hover
     target_slide = get_target_slide target_sldr, target
-    target_slide.size[key] = 
+    local.layout[target] =
         left: (val * slidergram_width) - 35
         top: (local.height - 70)/2
         width: 70
@@ -173,8 +173,8 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
             target_slide.value = x / slidergram_width
             target_slide.value = Math.round(target_slide.value * 10000) / 10000
             target_slide.updated = (new Date()).getTime()
-            target_slide.size ?= {}
-            target_slide.size[key] =
+
+            local.layout[target]  =
                 left: x - 35
                 top: (local.height - 70)/2
                 width: 70
@@ -182,8 +182,8 @@ start_slide_target = (sldr, slidergram_width, target, args) ->
             #if local.tracking_mouse != 'tracking'
             #    local.dirty_opinions = true
 
-            save target_sldr
             save local
+            save target_sldr
             saw_thing target_sldr
 
     register_window_event "slide-#{local.key}", 'mousemove', mousemove
@@ -230,6 +230,7 @@ dom.MULTIHISTOGRAM = ->
   sldr = fetch @props.sldr
   sldr.values ||= []
   local_sldr = fetch shared_local_key sldr
+  local_sldr.layout ?= {}
   
   # Put the height on so that start_slide_target can properly position the elements
   local_sldr.height = @props.height
@@ -255,11 +256,9 @@ dom.MULTIHISTOGRAM = ->
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.type == "me"
 
-        key = md5([@props.width, @props.height])
-        size = opinion.size?[key]
+        size = local_sldr.layout[opinion.target]
         
         dragged = local_sldr.target == opinion.target
-        transform = "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
         props =
             key: "histo-avatar-#{opinion.target}"
             user: opinion.target
@@ -272,11 +271,10 @@ dom.MULTIHISTOGRAM = ->
                 # cached width/height/left/top
                 width: size?.width or 50
                 height: size?.width or 50
-                transform: transform
+                transform: "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
                 transformOrigin: "top left"
                 transition: unless (dragging and dragged) then "transform 0.3s cubic-bezier(0.32, 0, 0.67, 0)"
                 zIndex: if dragged then 5
-                filter: if dragged then 
                 opacity: if (dragging or opinion.type?) and !dragged then 0.4
                 filter: if (dragging or opinion.type?) and !dragged then 'grayscale(80%)'
                 border: "2px solid"
@@ -293,14 +291,10 @@ dom.MULTIHISTOGRAM.refresh = ->
 
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
+  c = fetch "/current_user"
   dragging = local_sldr.dragging
 
-
-  key = md5([@props.width, @props.height])
-  key_or_null = (o) => if (dragging and o.target == local_sldr.target) then "" else (o.type ? "") + (Math.round(o.value * 100) / 100)
-  cache_key = ( key_or_null o for o in (sldr.values or []) ).join(' ')
-  if dragging then cache_key += local_sldr.target
-  cache_key += key
+  cache_key = md5([@props.width, @props.height, sldr.values, sldr.dragging ? 0, sldr.target ? 0, c.user?.key ? 0])
 
   if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
     local_sldr.dirty_opinions = false
@@ -310,32 +304,30 @@ dom.MULTIHISTOGRAM.refresh = ->
         .map (v) ->
             vv = Object.assign({}, v)
             if vv.type == "remote"
-                vv.weight = 0.3
+                vv.weight = 0.1
             else
-                factor = Math.abs(vv.value - 0.5) + 0.5
+                factor = Math.abs(vv.value - 0.5) * 1.8 + 0.1
                 if vv.type == "network"
                     factor /= 2
                 vv.weight = factor
             vv
         .filter (v) -> !(dragging and v.target == local_sldr.target)
-            
 
     packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
     radii = {}
     vals_weight.forEach (vote) ->
-        radii[vote.target] = vote.weight * packing_radius
+        radii[vote.target] = Math.sqrt(vote.weight) * packing_radius
 
     # Tell positionavatars to ignore the currently-dragged avatar
     ignore = {}
     ignore[local_sldr.target ? ""] = true
 
     positionAvatars
-      positions: sldr
+      sldr: sldr
       width: @props.width
       height: @props.height
       default_radius: packing_radius
-      key: key
       radii: radii
       vote_key: "target"
       ignore: if dragging then ignore
