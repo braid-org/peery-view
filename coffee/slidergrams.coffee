@@ -190,7 +190,7 @@ start_slide = (sldr, slidergram_width, slide_type, args) ->
 
       # normalize position of handle into slider value
       value = x / slidergram_width
-      local.live_pos = Math.round(value * 10000) / 10000
+      local.live_pos = Math.round(value * 1000) / 1000
 
       # console.log 'SAVING slide', your_slide.value
       save local
@@ -345,7 +345,7 @@ dom.HISTOGRAM = ->
     if @props.show_ghosted_user or your_vote
 
       r = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
-      val = if local_sldr.live_pos?
+      val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
               local_sldr.live_pos
             else if your_vote?.value
                 your_vote.value
@@ -382,7 +382,7 @@ dom.HISTOGRAM.refresh = ->
     opinion_weights = fetch "/weights#{you ? '/user/default'}"
 
     hash = (opinion_weights[unslash v.user] * v.value for v in sldr.values when (unslash v.user) of opinion_weights)
-    cache_key = md5([@props.width, @props.height, hash])
+    cache_key = md5([@props.width, @props.height, hash, you])
 
     if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
         local_sldr.dirty_opinions = false
