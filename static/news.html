@@ -88,7 +88,7 @@
         unless url.startsWith("https://") or url.startsWith("http://")
             functional_url = "https://" + functional_url
         try
-            the_url = new Url functional_url
+            the_url = new URL functional_url
             the_url.protocol = "https://"
             functional_url = the_url.toString()
             pretty_url = the_url.host
@@ -144,7 +144,7 @@
                 lineHeight: "#{margin_left - 10}px"
                 justifySelf: "stretch"
                 textDecoration: "none"
-                href: if post.url.length then functional_url
+                href: if functional_url.length then functional_url
                 "#{post.title}"
 
             SPAN
