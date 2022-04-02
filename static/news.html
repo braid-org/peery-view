@@ -29,9 +29,9 @@
 
 </style>
 <script type=coffee>
-    body_width = 750
+    body_width = 800
     margin_left = 32
-    post_width = 525
+    post_width = 575
 
     document.title = 'Braid News'
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
@@ -81,19 +81,31 @@
         c = fetch '/current_user'
 
         # Compute the pretty-url
-        prefixes = ["https://", "http://", "braid:"]
         url = if post.url.startsWith "javascript:" then "" else post.url
 
         pretty_url = url
         functional_url = url
-        if url.startsWith "https://"
-            pretty_url = url.substr(8)
-            functional_url = url
-        else if url.startsWith "http://"
-            pretty_url = url.substr(7)
-            functional_url = "https://#{pretty_url}"
-        else if not url.startsWith "braid:" and url.length
-            functional_url = "https://#{url}"
+        unless url.startsWith("https://") or url.startsWith("http://")
+            functional_url = "https://" + functional_url
+        try
+            the_url = new Url functional_url
+            the_url.protocol = "https://"
+            functional_url = the_url.toString()
+            pretty_url = the_url.host
+        catch e 
+            functional_url = ""
+        
+        time_string = ""
+        delta = Date.now() / 1000 - post.time
+        if delta > 60 * 60 * 24
+            time_string = "#{Math.floor(delta / (60 * 60 * 24))} days"
+        else if delta > 60 * 60
+            time_string = "#{Math.floor(delta / (60 * 60))} hours"
+        else if delta > 60
+            time_string = "#{Math.floor(delta / 60)} minutes"
+        else
+            time_string = "#{Math.floor(delta)} seconds"
+
 
         user_clickable = c.logged_in and \
             (c.user.key != author.key) and \
@@ -106,7 +118,7 @@
             marginBottom: "10px"
             display: "grid"
             grid: "\"icon title slider del\" auto
-                   \". domain slider . \" 16px
+                   \". domain_time slider . \" 16px
                     / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
             alignItems: "center"
 
@@ -136,15 +148,15 @@
                 "#{post.title}"
 
             SPAN
-                key: "url"
-                gridArea: "domain"
+                key: "url_time"
+                gridArea: "domain_time"
                 fontSize: "12px"
                 color: "#999"
                 whiteSpace: "nowrap"
                 overflowX: "hidden"
                 textOverflow: "ellipsis"
-                "#{pretty_url}"
-
+                "#{pretty_url} · #{time_string} ago"
+            
             DIV
                 key: "post-votes-slider"
                 gridArea: "slider"

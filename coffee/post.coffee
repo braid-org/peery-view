@@ -19,7 +19,7 @@ sort_posts = (posts) ->
     scores = {}
     posts.forEach (p) ->
         # Subscribe to the post
-        fetch p
+        p = fetch p
         # Subscribe to the post's votes
         votes = (fetch "/votes_on#{p.key}").values ? []
         authorname = unslash p.user
