@@ -95,13 +95,11 @@ dom.MULTIGRAM = ->
               points: "-4,5 0,0 4,5"
 
 
-        if !@props.no_feedback
+        if !@props.no_feedback and (local_sldr.dragging or local_sldr.hover)
           SLIDER_FEEDBACK
             sldr: sldr
             width: @props.width
             target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
-            style:
-                opacity: unless local_sldr.dragging or local_sldr.hover then 0
 
 #########
 # start_slide_target

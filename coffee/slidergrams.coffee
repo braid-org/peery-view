@@ -87,15 +87,12 @@ dom.SLIDERGRAM = ->
       max_avatar_radius: @props.max_avatar_radius
       vote_key: @props.vote_key
 
-    DIV # slider base
+    DIV
       style :
         width: slidergram_width
         position: 'relative'
-        borderTop: "1.5px solid #{@props.slider_color or SLIDER_COLOR}"
-        textAlign: 'left' # prevent inherited centering from happening
 
-
-      # arrowtip
+      # arrowtip and base
       SVG
         style:
           position: 'absolute'
@@ -117,13 +114,17 @@ dom.SLIDERGRAM = ->
           POLYGON
             points: "-4,5 0,0 4,5"
 
+          POLYLINE
+            points: "#{-svg_sides},5 #{svg_sides},5"
+            stroke: @props.slider_color or SLIDER_COLOR
+            strokeWidth: 5
 
-      if !@props.no_feedback
+
+      if !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
         SLIDER_FEEDBACK
           sldr: sldr
           width: @props.width
-          style:
-            display: 'none' unless local_sldr.tracking_mouse or @props.force_ghosting or has_opined
+          handleoffset: 10
 
 
 #########
@@ -261,31 +262,41 @@ implements_slide_draggable = (sldr, width, props) ->
 #
 # A little feedback on the slider that shows where you're dragging
 dom.SLIDER_FEEDBACK = ->
-  handle_height = @props.handle_height or 2
-  handle_width = @props.handle_width or 1
+    local_sldr = fetch shared_local_key(@props.sldr)
 
-  local_sldr = fetch shared_local_key(@props.sldr)
-
-  val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
-          local_sldr.live_pos
+    val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
+            local_sldr.live_pos
         else if @props.target?
-          get_target_slide(@props.sldr, @props.target)?.value or 0
+            get_target_slide(@props.sldr, @props.target)?.value or 0
         else #if local_sldr.dragging
-          get_your_slide(@props.sldr)?.value or 0
+            get_your_slide(@props.sldr)?.value or 0
 
-  return SPAN null if val < 0 || val > 1.0
+    color = if val >= 0.5 then color_positive else color_negative
+    return SVG null if val < 0 || val > 1.0
 
-  DIV
-    style: defaults @props.style,
-      width: handle_width
-      height: handle_height
-      top: -2
-      position: 'absolute'
-      #marginLeft: -handle_width / 2
-      zIndex: 1
-      left: @props.width * Math.min val, 0.5
-      width: @props.width * Math.abs(val - 0.5)
-      backgroundColor: @props.color ? (if val >= 0.5 then color_positive else color_negative)
+    width = @props.width
+    lwidth = @props.linewidth ? 3
+    offset = @props.handleoffset ? 2
+    SVG
+        style:
+            position: 'absolute'
+            left: 0
+            top: -lwidth/2
+            zIndex: 2
+        width: width
+        height: 10 + offset
+        viewBox: "0 0 #{width} #{10 + offset}"
+
+        G
+
+            POLYLINE
+                points: "#{@props.width * Math.min val, 0.5},0 #{@props.width * Math.max val, 0.5},0"
+                stroke: @props.color ? color 
+                strokeWidth: 3
+
+            POLYGON
+                points: "#{@props.width * val},#{offset} #{@props.width * val + 4},#{offset+7} #{@props.width * val - 4},#{offset+7}"
+                fill: @props.color ? color
 
 
 ####
