@@ -15,91 +15,44 @@ get_target_slide = (sldr, target) ->
 
 
 dom.MULTIGRAM = ->
-  sldr = fetch @props.sldr
-  local_sldr = fetch(shared_local_key(sldr))
-
-  you = your_key()
-
-  read_only = @props.read_only
-
-  slidergram_width = @props.width
-  svg_sides = slidergram_width / 2
-
-  # console.log 'RENDERING value', get_your_slide(sldr)?.value
-    
-  DIV
-    style:
-      #width: slidergram_width
-      position: 'relative'
-      zIndex: 1
-      display: 'flex'
-      flexDirection: 'row'
-      alignItems: 'flex-end'
-      paddingBottom: 32/2
-
-    onMouseOver: (e) =>
-        if e.target.getAttribute?('data-target')
-            target = e.target.getAttribute?('data-target')
-            local_sldr.hover_target = target
-            local_sldr.hover = true
-        else
-            local_sldr.hover = false
-        save local_sldr
-
-    onMouseOut: (e) =>
-        local_sldr.hover = false
-        save local_sldr
-
+    sldr = fetch @props.sldr
+    local_sldr = fetch shared_local_key sldr
 
     DIV
-      key: 'opinion_area'
-      ref: 'opinion_area'
-      style:
-        flex: 2
+        display: 'flex'
+        flexDirection: 'column'
+        marginBottom: 16
 
-      MULTIHISTOGRAM
-        width: slidergram_width
-        height: @props.height
-        sldr: sldr
-        read_only: read_only
-        max_avatar_radius: @props.max_avatar_radius
+        onMouseOver: (e) =>
+            if e.target.getAttribute?('data-target')
+                target = e.target.getAttribute?('data-target')
+                local_sldr.hover_target = target
+                local_sldr.hover = true
+            else
+                local_sldr.hover = false
+            save local_sldr
 
-      DIV # slider base
-        style :
-          width: slidergram_width
-          position: 'relative'
-          borderTop: "1.5px solid #{@props.slider_color or SLIDER_COLOR}"
-          textAlign: 'left' # prevent inherited centering from happening
+        onMouseOut: (e) =>
+            local_sldr.hover = false
+            save local_sldr
 
 
-        # arrowtip
-        SVG
-          style:
-            position: 'absolute'
-            left: 0
-            bottom: 0
-          width: slidergram_width
-          height: 5
-          viewBox: "-#{svg_sides} 0 #{slidergram_width} 3"
+        MULTIHISTOGRAM
+            width: @props.width
+            height: @props.height
+            sldr: sldr
+            read_only: @props.read_only
+            max_avatar_radius: @props.max_avatar_radius
 
-          G
-            fill: @props.slider_color or SLIDER_COLOR
-            
-            POLYGON
-              points: "#{-svg_sides},0 #{-svg_sides},5 #{8 - svg_sides},5"
-
-            POLYGON
-              points: "#{svg_sides},0 #{svg_sides},5 #{svg_sides - 8},5"
-
-            POLYGON
-              points: "-4,5 0,0 4,5"
-
-
-        if !@props.no_feedback and (local_sldr.dragging or local_sldr.hover)
-          SLIDER_FEEDBACK
+        SLIDER_BOTTOM
             sldr: sldr
             width: @props.width
+            linewidth: 3
             target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
+            feedback: !@props.no_feedback and (local_sldr.dragging or local_sldr.hover)
+            handleheight: Math.min((@props.height ? 100) / 4, 20)
+            handleoffset: 3
+                
 
 #########
 # start_slide_target

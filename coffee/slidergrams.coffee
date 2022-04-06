@@ -45,16 +45,13 @@ dom.SLIDERGRAM = ->
   has_opined = you in (o.user for o in (sldr.values or []))
 
   read_only = @props.read_only
-
   slidergram_width = @props.width
-  svg_sides = slidergram_width / 2
-
 
   DIV
     key: 'opinion_area'
     ref: 'opinion_area'
-    style:
-      flex: 2
+    display: 'flex'
+    flexDirection: 'column'
 
     onMouseEnter: if !read_only then (e) =>
       @local.hover_opinion_area = true
@@ -87,45 +84,12 @@ dom.SLIDERGRAM = ->
       max_avatar_radius: @props.max_avatar_radius
       vote_key: @props.vote_key
 
-    DIV
-      style :
-        width: slidergram_width
-        position: 'relative'
-
-      # arrowtip and base
-      SVG
-        style:
-          position: 'absolute'
-          left: 0
-          bottom: 0
-        width: slidergram_width
-        height: 5
-        viewBox: "-#{svg_sides} 0 #{slidergram_width} 3"
-
-        G
-          fill: @props.slider_color or SLIDER_COLOR
-          
-          POLYGON
-            points: "#{-svg_sides},0 #{-svg_sides},5 #{8 - svg_sides},5"
-
-          POLYGON
-            points: "#{svg_sides},0 #{svg_sides},5 #{svg_sides - 8},5"
-
-          POLYGON
-            points: "-4,5 0,0 4,5"
-
-          POLYLINE
-            points: "#{-svg_sides},5 #{svg_sides},5"
-            stroke: @props.slider_color or SLIDER_COLOR
-            strokeWidth: 5
-
-
-      if !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
-        SLIDER_FEEDBACK
-          sldr: sldr
-          width: @props.width
-          handleoffset: 10
-
+    SLIDER_BOTTOM
+        sldr: sldr
+        width: @props.width
+        linewidth: 1.75
+        feedback: !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
+        handleoffset: @props.height/3
 
 #########
 # start_slide
@@ -258,44 +222,67 @@ implements_slide_draggable = (sldr, width, props) ->
 
 
 ##
-# SliderHandle
-#
 # A little feedback on the slider that shows where you're dragging
-dom.SLIDER_FEEDBACK = ->
-    local_sldr = fetch shared_local_key(@props.sldr)
+dom.SLIDER_BOTTOM = ->
+    if @props.feedback
+        local_sldr = fetch shared_local_key(@props.sldr)
 
-    val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
-            local_sldr.live_pos
-        else if @props.target?
-            get_target_slide(@props.sldr, @props.target)?.value or 0
-        else #if local_sldr.dragging
-            get_your_slide(@props.sldr)?.value or 0
+        val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
+                local_sldr.live_pos
+            else if @props.target?
+                get_target_slide(@props.sldr, @props.target)?.value or 0
+            else #if local_sldr.dragging
+                get_your_slide(@props.sldr)?.value or 0
 
-    color = if val >= 0.5 then color_positive else color_negative
-    return SVG null if val < 0 || val > 1.0
+        val = 2 * val - 1
+        color = if val >= 0 then color_positive else color_negative
 
     width = @props.width
+    side = width/2
     lwidth = @props.linewidth ? 3
+    hwidth = @props.handlewidth ? lwidth * 3
     offset = @props.handleoffset ? 2
+
+    hheight = hwidth * 1.5
+    htop = 5 + lwidth/2 + offset
+
     SVG
-        style:
-            position: 'absolute'
-            left: 0
-            top: -lwidth/2
-            zIndex: 2
+        transform: "translateY(#{lwidth/2 - 5}px)"
         width: width
-        height: 10 + offset
-        viewBox: "0 0 #{width} #{10 + offset}"
+        height: htop + hheight
+        viewBox: "#{-side} 0 #{width} #{htop + hheight}"
 
         G
-
-            POLYLINE
-                points: "#{@props.width * Math.min val, 0.5},0 #{@props.width * Math.max val, 0.5},0"
-                stroke: @props.color ? color 
-                strokeWidth: 3
+            fill: @props.slider_color or SLIDER_COLOR
+          
+            POLYGON
+                points: "#{-side},0 #{-side},5 #{8 - side},5"
 
             POLYGON
-                points: "#{@props.width * val},#{offset} #{@props.width * val + 4},#{offset+7} #{@props.width * val - 4},#{offset+7}"
+                points: "#{side},0 #{side},5 #{side - 8},5"
+
+            POLYGON
+                points: "-4,5 0,0 4,5"
+
+        POLYLINE
+            points: "#{-side},5 #{side},5"
+            stroke: @props.slider_color or SLIDER_COLOR
+            strokeWidth: lwidth
+
+        G
+            opacity: 0 unless val?
+            POLYLINE
+                points: "#{side * Math.min val, 0},5 #{side * Math.max val, 0},5"
+                stroke: @props.color ? color 
+                strokeWidth: lwidth
+
+            POLYGON
+                transform: "translate(#{side * val}px, #{htop}px)"
+                points: "0,0
+                         #{hwidth/2},#{hheight/2}
+                         #{hwidth/2},#{hheight}
+                         #{-hwidth/2},#{hheight}
+                         #{-hwidth/2},#{hheight/2}"
                 fill: @props.color ? color
 
 
@@ -310,7 +297,7 @@ dom.SLIDER_FEEDBACK = ->
 dom.HISTOGRAM = ->
   sldr = fetch @props.sldr
   sldr.values ?= []
-  local_sldr = fetch(shared_local_key(sldr))
+  local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
 
   you = your_key?()
@@ -355,7 +342,7 @@ dom.HISTOGRAM = ->
     your_vote = get_your_slide(sldr)
     if @props.show_ghosted_user or your_vote
 
-      r = @calcRadius(@props.width, @props.height, sldr.values, @props.max_avatar_radius)
+      r = @props.height / 3
       val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
               local_sldr.live_pos
             else if your_vote?.value
@@ -370,12 +357,14 @@ dom.HISTOGRAM = ->
           hide_tooltip: true
           className: 'grab_cursor you'
           style:
-              left: within val * @props.width - r, 0, @props.width - 2 * r
-              top: @props.height - r
+              left: within val * @props.width - r - 1, 0, @props.width - 2 * r
+              top: @props.height - r - 1
               width: r*2
               height: r*2
               zIndex: 3
               opacity: 0.6 if (@props.show_ghosted_user and !opaque)
+              border: "1px solid"
+              borderColor: if val >= 0.5 then color_positive else color_negative
               filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3))" if focus_on_dragging
 
       if your_vote

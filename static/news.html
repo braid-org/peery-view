@@ -30,7 +30,7 @@
 </style>
 <script type=coffee>
     body_width = 800
-    margin_left = 32
+    margin_left = 40
     post_width = 575
 
     document.title = 'Braid News'
@@ -118,7 +118,7 @@
             marginBottom: "10px"
             display: "grid"
             grid: "\"icon title slider del\" auto
-                   \". domain_time slider . \" 16px
+                   \"icon domain_time slider del\" 16px
                     / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
             alignItems: "center"
 
@@ -130,7 +130,7 @@
                     width: margin_left - 10
                     height: margin_left - 10
                     borderRadius: "50%"
-                    alignSelf: "start"
+                    alignSelf: "center"
                     cursor: if user_clickable then "pointer"
                 onClick: if user_clickable then (e) ->
                     console.log "Clicking on a user does nothing, pending a $1M UX focus group."
@@ -165,8 +165,8 @@
                 SLIDERGRAM
                     sldr: "/votes_on#{post.key}"
                     width: body_width - 2*margin_left - post_width - 10
-                    height: margin_left - 10
-                    max_avatar_radius: (margin_left - 10) / 2
+                    height: margin_left - 5
+                    max_avatar_radius: (margin_left - 5) / 2
                     read_only: !c.logged_in
                     vote_key: "user"
 
@@ -174,9 +174,10 @@
                 key: "delete-btn"
                 color: "#999"
                 className: "material-icons md-dark"
-                fontSize: "#{margin_left - 10}px"
+                fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "end"
+                gridArea: "del"
                 onClick: (e) ->
                     delete_post(post)
                 "delete"
