@@ -1,17 +1,17 @@
 att_curve = (delta) ->
-    xs = delta / (60*60*24*5)
+    xs = delta / (60*60*24*30)
     Math.max(1 / (xs*xs + 1), 0.1)
 
 compute_score = (p) ->
-    att = if p.score >= 0 then att_curve p.age else 1
-    (p.score * att) + ((p.me ? 0) + p.author) * 3 * att * Math.sqrt(att)
+    sqsc = (Math.sqrt Math.abs p.score) * (if p.score > 0 then 1 else -1)
+    att = att_curve p.age
+    sqsc + att + att * (sqsc + p.author)
     
 
 sort_posts = (posts) ->
-
     c = fetch "/current_user"
     me = if c.logged_in then c.user.key else "/user/default"
-    min_weight = if c.logged_in then ((fetch c.user)?.filter ? -0.2) else -0.2
+    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     weights = fetch "/weights#{me}"
 
     now = Date.now() / 1000
@@ -20,46 +20,28 @@ sort_posts = (posts) ->
     posts.forEach (p) ->
         # Subscribe to the post
         p = fetch p
+
+        sum_votes = 0
+        sum_weights = 0
+
         # Subscribe to the post's votes
         votes = (fetch "/votes_on#{p.key}").values ? []
-        authorname = unslash p.user
-
-        my_vote = null
-        sum_votes = 0
-
-        if votes.length
-            # weighted sum of votes.
-            sum_votes = votes
-                .map (v) ->
-                    # first subscribe to the vote
-                    if v.key then fetch v
-
-                    # The following might seem to not handle the case where we made this post. 
-                    # But choosing to consider such a vote as "our vote" instead of "the author's vote" allows the user some control over the order they see their own posts in.
-
-                    # Exclude our own vote on the post.
-                    # The scoring function has separate access to this.
-                    voter = unslash v.user
-                    if voter == unslash me
-                        my_vote = 2 * v.value - 1
-                        0
-                    # Completely ignore the author's vote on their own post
-                    else if voter == authorname
-                        0
-                    else
-                        (2 * v.value - 1) * (weights[voter] ? 0)
-                .reduce (a, b) -> a + b
+        votes.forEach (v) ->
+            # first subscribe to the vote
+            if v.key then fetch v
+            voter = unslash v.user
+            # Keep track of the total weight of votes, and of the weighted sum of votes.
+            sum_weights += Math.abs(weights[voter] ? 0)
+            sum_votes   += (2 * v.value - 1) * (weights[voter] ? 0)
 
         # Our network-weight on the author
-        author_weight = weights[authorname] ? 0
+        author_weight = weights[unslash p.user] ? 0
 
         scores[p.key] = compute_score
             age: now - p.time
             author: author_weight
             score: sum_votes
-            # Maybe we should have sum_weights instead??
-            votes: votes.length
-            me: my_vote
+            volume: sum_weights
 
     # Should we save scores and weights to the local state?
 

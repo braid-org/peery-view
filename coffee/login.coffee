@@ -128,7 +128,7 @@ dom.SETTINGS = ->
         INPUT
             gridArea: "filterfield"
             value: c.user.filter
-            placeholder: "-0.2"
+            placeholder: -0.2
             id: "filter-change"
             type: "number"
             step: 0.1

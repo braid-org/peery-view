@@ -345,7 +345,7 @@ dom.HISTOGRAM = ->
       r = @props.height / 3
       val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
               local_sldr.live_pos
-            else if your_vote?.value
+            else if your_vote?.value?
                 your_vote.value
             else
               DEFAULT_SLIDER_VAL
