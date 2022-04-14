@@ -5,6 +5,15 @@ considerit_salmon = '#F45F73'
 color_positive = '#5fb4f4'
 color_negative = '#f46444'
 
+get_target_slide = (sldr, target_key, target) ->
+    sldr = fetch sldr
+    res = null
+    for v in (sldr.values or [])
+        if v[target_key] == target
+            res = v
+            break
+    res
+
 # Remove current user from this slider, if they're on it
 window.remove_self_from_slider = (sldr) ->
   sldr = fetch sldr
@@ -59,7 +68,7 @@ dom.SLIDERGRAM = ->
       save @local
       if !has_opined && !local_sldr.tracking_mouse
         x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-        start_slide sldr, @props.width, 'tracking',
+        start_slide sldr, @props.width, 'tracking', "user", you,
           initial_val: x_entry / slidergram_width
           slidergram_width: slidergram_width
 
@@ -90,6 +99,8 @@ dom.SLIDERGRAM = ->
         linewidth: 1.75
         feedback: !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
         handleoffset: @props.height/3
+        target_key: "user"
+        target: you
 
 #########
 # start_slide
@@ -98,126 +109,109 @@ dom.SLIDERGRAM = ->
 # via mouse tracking or by dragging. 
 #
 # Supports movement by touch, mouse, and click events. 
-start_slide = (sldr, slidergram_width, slide_type, args) -> 
-  sldr = fetch(sldr)
-  local = fetch shared_local_key(sldr)
+start_slide = (sldr, slidergram_width, slide_type, target_key, target, args) -> 
+    sldr = fetch sldr
+    local = fetch shared_local_key sldr
 
-  you = your_key()
-  return if !you
+    # You must be logged in to slide
+    return if !your_key()
 
-  val = args?.initial_val
+    val = args?.initial_val
 
-  if slide_type == 'dragging'
-    your_slide = get_your_slide(sldr)
-    val = if your_slide then your_slide.value else DEFAULT_SLIDER_VAL
-    local.dragging = true
-
-  else if slide_type == 'tracking'
-    val = args.initial_val ? DEFAULT_SLIDER_VAL
-    local.tracking_mouse = 'tracking'
-  
-  local.live_pos = val
-  local.mouse_positions = [{x: mouseX, y: mouseY}]
-  # adjust for starting location - offset
-  local.x_adjustment = val * slidergram_width - local.mouse_positions[0].x
-  save local
-
-  # Mouse DOWN events (only for tracking)
-  if slide_type == 'tracking'
-    mousedown = (e) ->
-      e.preventDefault()
-      local.tracking_mouse = 'activated'
-      save local
-
-    register_window_event "slide-#{local.key}", 'mousedown', mousedown
-    register_window_event "slide-#{local.key}", 'touchstart', mousedown
-
-  # Mouse MOVE events
-  mousemove = (e) ->
-    e.preventDefault()
-    x = mouseX
-    y = mouseY
-    local.mouse_positions.push {x, y}
-
-    i = local.mouse_positions.length - 1
-
-    dx = local.mouse_positions[i].x - local.mouse_positions[i-1].x
-
-    if dx != 0
-      # Update position
-      x = x + local.x_adjustment
-      x = if x < 0
-            0
-          else if x > slidergram_width
-            slidergram_width
-          else
-            x
-
-      # normalize position of handle into slider value
-      value = x / slidergram_width
-      local.live_pos = Math.round(value * 1000) / 1000
-
-      # console.log 'SAVING slide', your_slide.value
-      save local
-
-  register_window_event "slide-#{local.key}", 'mousemove', mousemove
-  register_window_event "slide-#{local.key}", 'touchmove', mousemove
-
-  # Mouse UP events
-  mouseup = (e) ->
     if slide_type == 'dragging'
-      local.dragging = false
-      saw_thing(sldr)
-      stop_slider_dragging(sldr)
+        the_slide = get_target_slide sldr, target_key, target
+        val = if the_slide then the_slide.value else DEFAULT_SLIDER_VAL
+        local.dragging = true
+
     else if slide_type == 'tracking'
-      saw_thing(sldr)
-      stop_slider_mouse_tracking(sldr)
+        val = args.initial_val ? DEFAULT_SLIDER_VAL
+        local.tracking_mouse = 'tracking'
 
-    # Update the value in the server
-    your_vote = get_your_slide(sldr)
-    if !your_vote
-        your_vote = 
-            user: you
-        sldr.values.push your_vote
-    your_vote.updated = (new Date()).getTime()
-    your_vote.value = local.live_pos
-
-    save sldr
-    local.dirty_opinions = true
+    local.live = val
+    local.target = target
+  
+    # Save mouse info
+    local.mouse_positions = [{x: mouseX, y: mouseY}]
+    local.x_adjustment = val * slidergram_width - local.mouse_positions[0].x
     save local
 
-  register_window_event "slide-#{local.key}", 'mouseup', mouseup
-  register_window_event "slide-#{local.key}", 'touchend', mouseup
+    # Mouse DOWN events (only for tracking)
+    if slide_type == 'tracking'
+        mousedown = (e) ->
+            e.preventDefault()
+            local.tracking_mouse = 'activated'
+            save local
 
-  # Touch CANCEL events
-  if slide_type == 'dragging'
-    register_window_event "slide-#{local.key}", 'touchcancel', (e) -> 
-      e.preventDefault()
-      stop_slider_dragging(sldr)
-  else if slide_type == 'tracking'
-    register_window_event "slide-#{local.key}", 'touchcancel', (e) -> 
+        register_window_event "slide-#{local.key}", 'mousedown', mousedown
+        register_window_event "slide-#{local.key}", 'touchstart', mousedown
+
+    # Mouse MOVE events
+    mousemove = (e) ->
         e.preventDefault()
-        stop_slider_mouse_tracking(sldr, true)
+        x = mouseX
+        y = mouseY
+        local.mouse_positions.push {x, y}
 
-stop_slider_dragging = (sldr) ->
-  local = fetch shared_local_key(sldr)
-  unregister_window_event("slide-#{local.key}")
-  local.x_adjustment = local.mouse_positions = local.dragging = local_sldr.live = null 
-  save local
+        i = local.mouse_positions.length - 1
 
-stop_slider_mouse_tracking = (sldr, skip_save) -> 
-  local_sldr = fetch(shared_local_key(sldr))
-  unregister_window_event "slide-#{local_sldr.key}"
-  local_sldr.tracking_mouse = local_sldr.live_pos = null
-  save local_sldr
+        dx = local.mouse_positions[i].x - local.mouse_positions[i-1].x
 
+        if dx != 0
+            # Update position
+            x = x + local.x_adjustment
+            x = if x < 0
+                0
+              else if x > slidergram_width
+                slidergram_width
+              else
+                x
+
+            # normalize position of handle into slider value
+            value = x / slidergram_width
+            local.live = Math.round(value * 1000) / 1000
+
+            # if local.tracking_mouse != 'tracking'
+            #   local.dirty_opinions = true
+            
+            # console.log 'SAVING slide', your_slide.value
+            save local
+
+    register_window_event "slide-#{local.key}", 'mousemove', mousemove
+    register_window_event "slide-#{local.key}", 'touchmove', mousemove
+
+    finalize = (e) ->
+        sldr = fetch sldr
+        local = fetch shared_local_key sldr
+        # Update the value in the actual slider
+        the_vote = get_target_slide sldr, target_key, target
+        if !the_vote
+            the_vote = {}
+            sldr.values.push the_vote
+        the_vote.updated = (new Date()).getTime()
+        the_vote.value = local.live
+        the_vote[target_key] = target
+
+        save sldr
+        # Is this necessary?
+        local.dirty_opinions = true
+        # Delete a bunch of data from local
+        local.x_adjustment = local.mouse_positions = local.dragging = null
+        local.tracking_mouse = local.target = local.live = null
+        save local
+
+        unregister_window_event "slide-#{local.key}"
+
+    register_window_event "slide-#{local.key}", 'mouseup', finalize
+    register_window_event "slide-#{local.key}", 'touchend', finalize
+    # Technically, we should cancel the slide here, but we might as well just save it.
+    register_window_event "slide-#{local.key}", 'touchcancel', finalize
 
 # Extend a React component's props with implements_slide_draggable in order to make it 
 # act like a slider handle
-implements_slide_draggable = (sldr, width, props) ->
+implements_slide_draggable = (sldr, props, target_key, target, width) ->
   extend props,
-    onMouseDown: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging')
-    onTouchStart: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging')
+    onMouseDown: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging', target_key, target)
+    onTouchStart: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging', target_key, target)
   props
 
 
@@ -227,12 +221,10 @@ dom.SLIDER_BOTTOM = ->
     if @props.feedback
         local_sldr = fetch shared_local_key(@props.sldr)
 
-        val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
-                local_sldr.live_pos
-            else if @props.target?
-                get_target_slide(@props.sldr, @props.target)?.value or 0
-            else #if local_sldr.dragging
-                get_your_slide(@props.sldr)?.value or 0
+        val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live?
+                local_sldr.live
+            else
+                get_target_slide(@props.sldr, @props.target_key, @props.target)?.value or 0
 
         val = 2 * val - 1
         color = if val >= 0 then color_positive else color_negative
@@ -343,8 +335,8 @@ dom.HISTOGRAM = ->
     if @props.show_ghosted_user or your_vote
 
       r = @props.height / 3
-      val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live_pos?
-              local_sldr.live_pos
+      val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live?
+              local_sldr.live
             else if your_vote?.value?
                 your_vote.value
             else
@@ -368,7 +360,7 @@ dom.HISTOGRAM = ->
               filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3))" if focus_on_dragging
 
       if your_vote
-        props = implements_slide_draggable sldr, @props.width, props
+        props = implements_slide_draggable sldr, props, "user", you, @props.width
 
       AVATAR props
 
