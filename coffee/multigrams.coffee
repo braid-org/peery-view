@@ -98,6 +98,8 @@ dom.MULTIHISTOGRAM = ->
                 borderWidth: "2px"
                 borderStyle: if (dragging and dragged) then "dashed" else "solid"
                 borderColor: if (dragging and dragged) then "black" else "transparent"
+                backgroundColor: if (dragging and dragged) then "transparent"
+                color: if (dragging and dragged) then "black"
                 cursor: "pointer"
 
         props = implements_slide_draggable sldr, props, "target", opinion.target, @props.width
@@ -105,7 +107,7 @@ dom.MULTIHISTOGRAM = ->
         AVATAR props
 
     # Dragged avatar
-    if dragging and local_sldr.live
+    if dragging and local_sldr.live?
         val = local_sldr.live ? DEFAULT_SLIDER_VAL
         target = local_sldr.target
         

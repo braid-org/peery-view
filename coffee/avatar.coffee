@@ -23,6 +23,7 @@ dom.AVATAR = ->
     'data-color': @props.color
     'draggable': 'false'
   @props.style["--label"] = "\"#{name}\""
+  @props.style.color ?= "white"
 
   name = name.split(' ')
   if @props.hide_tooltip && !user.key == your_key()
@@ -91,7 +92,7 @@ style.innerHTML =   """
     background-position: center;
   }
   span[data-widget='AVATAR'] .initials {
-    color: white;
+    color: inherit;
     pointer-events: none;
     display: block;
     position: relative;
