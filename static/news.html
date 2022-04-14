@@ -348,6 +348,7 @@
 
 
     dom.BIG_MULTIGRAM = ->
+        c = fetch "/current_user"
         DIV
             key: "multigram-wrapper"
             width: body_width
@@ -358,16 +359,19 @@
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
+                read_only: !c.logged_in
 
     multigram_aux = {}
 
     bus('multigram').to_fetch = () ->
         c = fetch "/current_user"
+        username = c.user?.key
         unless c.logged_in
             # We clear the multigram_aux whenever the user is logged out.
             # Theres also a to_save handler on current_user that will clear it if the login state or our userkey changes.
             multigram_aux = {}
-            return {key: 'multigram'}
+            username = "/user/default"
+            
 
         # Use this to put (potentially stale?) sizes on the votes
         aux_sizes = {}
@@ -376,7 +380,7 @@
 
         users = {}
         # Add users that weve voted on
-        Object.values(fetch "/votes_by#{c.user.key}")
+        Object.values(fetch "/votes_by#{username}")
             .filter (v) ->
                 unless v.target?
                     return false
@@ -391,12 +395,12 @@
                 users[slash t.target] = t
 
         # Users in our network
-        Object.entries(fetch "/weights#{c.user.key}")
+        Object.entries(fetch "/weights#{username}")
             .filter ([k, v]) -> k != "key"
             .forEach ([k, v]) ->
                 kk = slash k
                 users[kk] ?= {
-                    user: c.user.key
+                    user: username
                     target: kk
                     type: "network"
                     # weights get computed between -1 and 1.
@@ -406,20 +410,21 @@
                 }
 
         # Users that we havent voted on
-        (fetch "/all_users").all
-            .forEach (v) ->
-                vv = slash v
-                users[vv] ?= {
-                    user: c.user.key
-                    target: vv
-                    type: "remote"
-                    value: 0.5
-                    size: aux_sizes[vv]
-                }
+        if c.logged_in
+            (fetch "/all_users").all
+                .forEach (v) ->
+                    vv = slash v
+                    users[vv] ?= {
+                        user: username
+                        target: vv
+                        type: "remote"
+                        value: 0.5
+                        size: aux_sizes[vv]
+                    }
 
         # We have to make sure not to put ourselves in the array.
-        if users.hasOwnProperty c.user.key
-            delete users[c.user.key]
+        if users.hasOwnProperty username
+            delete users[username]
 
         votes_arr = Object.values users
 

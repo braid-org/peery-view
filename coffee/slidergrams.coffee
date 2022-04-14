@@ -99,7 +99,7 @@ dom.SLIDERGRAM = ->
         sldr: sldr
         width: @props.width
         linewidth: 1.75
-        feedback: !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
+        feedback: !read_only and !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
         handleoffset: @props.height/3
         target_key: "user"
         target: you
@@ -198,7 +198,7 @@ start_slide = (sldr, slidergram_width, slide_type, target_key, target, args) ->
         local.dirty_opinions = true
         # Delete a bunch of data from local
         local.x_adjustment = local.mouse_positions = local.dragging = null
-        local.tracking_mouse = local.target = local.live = null
+        local.tracking_mouse = local.live = null
         save local
 
         unregister_window_event "slide-#{local.key}"

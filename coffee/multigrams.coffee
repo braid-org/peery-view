@@ -33,7 +33,7 @@ dom.MULTIGRAM = ->
             width: @props.width
             linewidth: 3
             target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
-            feedback: !@props.no_feedback and (local_sldr.dragging or local_sldr.hover)
+            feedback: !@props.no_feedback and !@props.read_only and (local_sldr.dragging or local_sldr.hover)
             handleheight: Math.min((@props.height ? 100) / 4, 20)
             handleoffset: 3
             target_key: "target"
@@ -82,7 +82,7 @@ dom.MULTIHISTOGRAM = ->
         props =
             key: "histo-avatar-#{opinion.target}"
             user: opinion.target
-            className: "grab_cursor"
+            className: "grab_cursor" unless @props.read_only
             vote_target: opinion.target
             hide_tooltip: dragging and !dragged
             "data-target": opinion.target
@@ -100,9 +100,10 @@ dom.MULTIHISTOGRAM = ->
                 borderColor: if (dragging and dragged) then "black" else "transparent"
                 backgroundColor: if (dragging and dragged) then "transparent"
                 color: if (dragging and dragged) then "black"
-                cursor: "pointer"
+                cursor: "pointer" unless @props.read_only
 
-        props = implements_slide_draggable sldr, props, "target", opinion.target, @props.width
+        unless @props.read_only
+            props = implements_slide_draggable sldr, props, "target", opinion.target, @props.width
 
         AVATAR props
 
