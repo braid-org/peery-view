@@ -268,62 +268,90 @@
             return
 
         form_submit = =>
-            title = document.getElementById("post-title")
-            link = document.getElementById("post-url")
-            if title.value.length > 1
+            title = document.getElementById "post-title"
+            link = document.getElementById "post-url"
+            if title.value.length > 1 and link.value.length > 1
                 make_post title.value, link.value, c.user.key
                 title.value = ""
                 link.value = ""
-                @local.typed = false
-                save @local
 
         DIV
             key: "submit-container"
-            width: post_width
-            marginLeft: margin_left
-            INPUT
-                key: "submit-title"
-                id: "post-title"
+            marginTop: "10px"
+            marginBottom: "25px"
+            display: "grid"
+            grid: "\"icon title slider .\" auto
+                   \"icon domain_time slider .\" 16px
+                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
+            alignItems: "center"
+
+            AVATAR
+                key: "avatar"
+                user: c.user
+                hide_tooltip: true
+                gridArea: "icon"
                 style:
-                    width: post_width
-                    height: "28px"
-                placeholder: "Say something..."
-                onInput: (e) =>
-                    @local.typed = e.target.value.length > 0
-                    save @local
-
-            DIV
-                key: "submit-modal"
-                display: if @local.typed then "flex" else "none"
-                flexDirection: "row"
-                marginTop: "5px"
-                INPUT
-                    key: "submit-url"
-                    id: "post-url"
-                    type: "url"
-                    placeholder: "URL"
-                    flexGrow: "1"
-                    marginRight: "5px"
-                    style:
-                        height: "28px"
-                    onKeyDown: (e) =>
-                        if e.keyCode == 13
-                            form_submit()
-
-                SPAN
-                    key: "submit-btn"
+                    width: margin_left - 10
+                    height: margin_left - 10
+                    borderRadius: "50%"
                     alignSelf: "center"
-                    className: "material-icons md-dark"
-                    fontSize: "24px"
-                    onClick: form_submit
-                    cursor: "pointer"
-                    "post_add"
+                    opacity: 0.5
+
+            INPUT
+                key: "title"
+                id: "post-title"
+                className: "post-title"
+                gridArea: "title"
+                fontSize: "18px"
+                paddingRight: "10px"
+                marginBottom: "2px"
+                border: "none"
+                lineHeight: "#{margin_left - 10}px"
+                justifySelf: "stretch"
+                placeholder: "Say something..."
+                onKeyDown: (e) =>
+                    if e.keyCode == 13
+                        form_submit()
+                    else if e.keyCode == 9
+                        e.preventDefault()
+                        link = document.getElementById "post-url"
+                        link.focus()
+
+
+            INPUT
+                key: "url"
+                id: "post-url"
+                gridArea: "domain_time"
+                fontSize: "12px"
+                color: "#999"
+                whiteSpace: "nowrap"
+                placeholder: "https://..."
+                border: "none"
+                onKeyDown: (e) =>
+                    if e.keyCode == 13
+                        form_submit()
+                    else if e.keyCode == 9
+                        e.preventDefault()
+            
+            SPAN
+                key: "submit-btn"
+                gridArea: "slider"
+                alignSelf: "start"
+                height: margin_left - 10
+                textAlign: "center"
+                alignSelf: "center"
+                className: "material-icons md-dark"
+                fontSize: "24px"
+                onClick: form_submit
+                cursor: "pointer"
+                "post_add"
+
 
     dom.BIG_MULTIGRAM = ->
         DIV
             key: "multigram-wrapper"
             width: body_width
-            padding: "0 #{margin_left}px 15px #{margin_left}px"
+            padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
                 sldr: 'multigram'

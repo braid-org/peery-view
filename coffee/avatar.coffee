@@ -103,7 +103,7 @@ style.innerHTML =   """
     background-color: white;
     opacity: 0.8;
     color: #444;
-    z-index: 5;
+    z-index: 10;
     display: none;
     text-align: center;
     position: relative;
