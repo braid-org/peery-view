@@ -81,7 +81,9 @@ dom.SLIDERGRAM = ->
       # only remove if we haven't added ourselves
       if local_sldr.tracking_mouse == 'tracking'
         e.preventDefault()
-        stop_slider_mouse_tracking(sldr)
+        unregister_window_event "slide-#{local_sldr.key}"
+        local_sldr.tracking_mouse = null
+        save local_sldr
 
 
     HISTOGRAM
