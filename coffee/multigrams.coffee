@@ -8,8 +8,14 @@ dom.MULTIGRAM = ->
         marginBottom: 16
 
         onMouseOver: (e) =>
+            # For some reason, trying to save the local_sldr while the element is loading throws errors in the console.
+            # It doesn't cause any issues with the component as far as I can tell, but this check prevents that.
+            if @loading()
+                return
+            # The AVATARS have data-target attributes set on them.
+            # Doing it this way allows us to reuse one hover handler for all of the multigram avatars.
             if e.target.getAttribute?('data-target')?
-                target = e.target.getAttribute?('data-target')
+                target = e.target.getAttribute('data-target')
                 local_sldr.hover_target = target
                 local_sldr.hover = true
             else
@@ -17,6 +23,8 @@ dom.MULTIGRAM = ->
             save local_sldr
 
         onMouseOut: (e) =>
+            if @loading()
+                return
             local_sldr.hover = false
             save local_sldr
 
@@ -31,12 +39,19 @@ dom.MULTIGRAM = ->
         SLIDER_BOTTOM
             sldr: sldr
             width: @props.width
-            linewidth: 3
-            target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
+            # Show the handle if we're dragging or hovering on an avatar
             feedback: !@props.no_feedback and !@props.read_only and (local_sldr.dragging or local_sldr.hover)
+            linewidth: 3
             handleheight: Math.min((@props.height ? 100) / 4, 20)
             handleoffset: 3
             target_key: "target"
+            target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
+
+        SLIDER_TOOLTIP
+            local: local_sldr
+            width: @props.width
+            height: @props.height
+            follows_live: true
                 
 ####
 # Histogram
@@ -80,34 +95,42 @@ dom.MULTIHISTOGRAM = ->
         
         dragged = local_sldr.target == opinion.target
         props =
+            # To hopefully avoid react issues
             key: "histo-avatar-#{opinion.target}"
+            # To tell the AVATAR whose pic/initials to display
             user: opinion.target
-            className: "grab_cursor" unless @props.read_only
-            vote_target: opinion.target
-            hide_tooltip: dragging and !dragged
+            # Hide the tooltip if we're dragging someone else
+            hide_tooltip: true
+            # To allow the multigram to check hovers properly
             "data-target": opinion.target
             style:
-                # cached width/height/left/top
+                # Size of the avatar
                 width: size?.width or 50
                 height: size?.width or 50
+                # Where to position it
                 transform: "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
+                # This is unnecessary unless we're using transform for size as well
                 transformOrigin: "top left"
+                # If there's a dragged avatar or we're an implicit vote, gray out
                 opacity: if (dragging or opinion.type?) then 0.4
                 filter: if (dragging or opinion.type?) then 'grayscale(80%)'
+                # If this avatar is the "original position" of the current floating drag, put a dashed border
                 boxSizing: "border-box"
-                borderWidth: "2px"
-                borderStyle: if (dragging and dragged) then "dashed" else "solid"
+                border: "2px dashed"
                 borderColor: if (dragging and dragged) then "black" else "transparent"
                 backgroundColor: if (dragging and dragged) then "transparent"
                 color: if (dragging and dragged) then "black"
+                # UX interactability
                 cursor: "pointer" unless @props.read_only
 
+        # This sets event listeners on the avatar
         unless @props.read_only
             props = implements_slide_draggable sldr, props, "target", opinion.target, @props.width
 
+        # Actually generate the icon
         AVATAR props
 
-    # Dragged avatar
+    # floating dragged avatar
     if dragging and local_sldr.live?
         val = local_sldr.live ? DEFAULT_SLIDER_VAL
         target = local_sldr.target
@@ -119,7 +142,7 @@ dom.MULTIHISTOGRAM = ->
             key: "histo-avatar-dragging"
             user: target
             hide_tooltip: true
-            vote_target: target
+            # This probably isn't necessary...
             "data-target": target
             style:
                 left: within val * @props.width - r - 2, 0, @props.width - 2 * r
@@ -138,16 +161,20 @@ dom.MULTIHISTOGRAM = ->
 dom.MULTIHISTOGRAM.refresh = ->
 
   sldr = fetch @props.sldr
-  local_sldr = fetch(shared_local_key(sldr))
+  local_sldr = fetch shared_local_key sldr
   c = fetch "/current_user"
   dragging = local_sldr.dragging
 
-  cache_key = md5([@props.width, @props.height, sldr.values, dragging ? 0, c.user?.key ? 0])
+  # We want to avoid running the expensive layout calculation unless things have changed
+  hash = (v.value for v in sldr.values || []).join " "
+  cache_key = md5([@props.width, @props.height, hash, c.user?.key ? 0])
 
   if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
     local_sldr.dirty_opinions = false
     save local_sldr
 
+    # Make a copy of the votes array that has weights on it.
+    # The area of each avatar will be proportional to its weight.
     vals_weight = sldr.values
         .map (v) ->
             vv = Object.assign({}, v)
@@ -160,6 +187,7 @@ dom.MULTIHISTOGRAM.refresh = ->
                 vv.weight = factor
             vv
 
+    # calcRadius takes weight into account
     packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
     radii = {}
@@ -177,6 +205,7 @@ dom.MULTIHISTOGRAM.refresh = ->
     @last_cache = cache_key
 
     
+# TODO refactor this
 style = document.createElement "style"
 style.id = "multihistogram-styles"
 style.innerHTML =   """

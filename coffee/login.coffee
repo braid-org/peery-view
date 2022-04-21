@@ -27,15 +27,18 @@ dom.LOGIN = ->
             c.error
         INPUT
             id: "login-name"
+            ref: "login-name"
             placeholder: "Username"
             gridArea: "name"
         INPUT
             id: "login-pw"
+            ref: "login-pw"
             placeholder: "Password"
             gridArea: "pw"
             type: "password"
         INPUT
             id: "login-email"
+            ref: "login-email"
             placeholder: "Email"
             gridArea: "email"
             type: "email"
@@ -44,10 +47,10 @@ dom.LOGIN = ->
             gridArea: "register"
             button_style...
 
-            onClick: (e) ->
-                name = document.getElementById("login-name").value
-                pw = document.getElementById("login-pw").value
-                em = document.getElementById("login-email").value
+            onClick: (e) =>
+                name = @refs["login-name"].getDOMNode().value
+                pw = @refs["login-pw"].getDOMNode().value
+                em = @refs["login-email"].getDOMNode().value
                 c.create_account =
                     name: name
                     pass: pw
@@ -55,12 +58,13 @@ dom.LOGIN = ->
                 save c
             },
             "Register"
+
         BUTTON {
             gridArea: "login"
             button_style...
-            onClick: (e) ->
-                name = document.getElementById("login-name").value
-                pw = document.getElementById("login-pw").value
+            onClick: (e) =>
+                name = @refs["login-name"].getDOMNode().value
+                pw = @refs["login-pw"].getDOMNode().value
                 c.login_as =
                     name: name
                     pass: pw
@@ -96,6 +100,7 @@ dom.SETTINGS = ->
             "Name"
         INPUT
             gridArea: "namefield"
+            ref: "name"
             value: c.user.name
             id: "name-change"
 
@@ -106,6 +111,7 @@ dom.SETTINGS = ->
             "Email"
         INPUT
             gridArea: "emailfield"
+            ref: "email"
             value: c.user.email
             id: "email-change"
             type: "email"
@@ -117,6 +123,7 @@ dom.SETTINGS = ->
             "Avatar URL"
         INPUT
             gridArea: "picfield"
+            ref: "pic"
             value: c.user.pic
             placeholder: "http://..."
             id: "pic-change"
@@ -127,6 +134,7 @@ dom.SETTINGS = ->
             "Min post score"
         INPUT
             gridArea: "filterfield"
+            ref: "filter"
             value: c.user.filter
             placeholder: -0.2
             id: "filter-change"
@@ -136,7 +144,7 @@ dom.SETTINGS = ->
 
         BUTTON
             gridArea: "cancel"
-            onClick: (e) ->
+            onClick: (e) =>
                 s = fetch "show_settings"
                 # Should reset values of INPUTs here
                 s.show = false
@@ -144,13 +152,12 @@ dom.SETTINGS = ->
             "Cancel"
         BUTTON
             gridArea: "save"
-            onClick: (e) ->
+            onClick: (e) =>
                 
-                # Another option would be to live-update these.
-                name = document.getElementById("name-change").value
-                email = document.getElementById("email-change").value
-                pic = document.getElementById("pic-change").value ? ""
-                filter = document.getElementById("filter-change").value ? -0.2
+                name = @refs.name.getDOMNode().value
+                email = @refs.email.getDOMNode().value
+                pic = @refs.pic.getDOMNode().value ? ""
+                filter = @refs.filter.getDOMNode().value ? -0.2
 
                 c.user.name = name
                 c.user.email = email

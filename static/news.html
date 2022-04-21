@@ -26,6 +26,11 @@
     .post-title:hover {
         color: #111;
     }
+    .tooltip {
+        width: -moz-fit-content;
+        width: -webkit-fit-content;
+        width: fit-content;
+    }
 
 </style>
 <script type=coffee>
@@ -268,8 +273,8 @@
             return
 
         form_submit = =>
-            title = document.getElementById "post-title"
-            link = document.getElementById "post-url"
+            title = @refs["post-title"].getDOMNode()
+            link = @refs["post-url"].getDOMNode()
             if title.value.length > 1 and link.value.length > 1
                 make_post title.value, link.value, c.user.key
                 title.value = ""
@@ -299,7 +304,7 @@
 
             INPUT
                 key: "title"
-                id: "post-title"
+                ref: "post-title"
                 className: "post-title"
                 gridArea: "title"
                 fontSize: "18px"
@@ -314,13 +319,12 @@
                         form_submit()
                     else if e.keyCode == 9
                         e.preventDefault()
-                        link = document.getElementById "post-url"
-                        link.focus()
+                        @refs["post-url"].getDOMNode().focus()
 
 
             INPUT
                 key: "url"
-                id: "post-url"
+                ref: "post-url"
                 gridArea: "domain_time"
                 fontSize: "12px"
                 color: "#999"
@@ -369,15 +373,11 @@
         unless c.logged_in
             # We clear the multigram_aux whenever the user is logged out.
             # Theres also a to_save handler on current_user that will clear it if the login state or our userkey changes.
-            multigram_aux = {}
+            # We keep the layout; we just want to clear the input state.
+            multigram_aux = 
+                layout: multigram_aux.layout
             username = "/user/default"
             
-
-        # Use this to put (potentially stale?) sizes on the votes
-        aux_sizes = {}
-        (multigram_aux.values ? []).forEach (v) ->
-            aux_sizes[v.target] = v.size
-
         users = {}
         # Add users that weve voted on
         Object.values(fetch "/votes_by#{username}")
@@ -391,7 +391,6 @@
                 # Now make a copy of it that isnt tied to the real state url
                 t = Object.assign {}, v
                 delete t.key
-                t.size = aux_sizes[slash t.target]
                 users[slash t.target] = t
 
         # Users in our network
@@ -406,7 +405,6 @@
                     # weights get computed between -1 and 1.
                     # but the vote value should be between 0 and 1.
                     value: (v + 1) / 2
-                    size: aux_sizes[kk]
                 }
 
         # Users that we havent voted on
@@ -419,7 +417,6 @@
                         target: vv
                         type: "remote"
                         value: 0.5
-                        size: aux_sizes[vv]
                     }
 
         # We have to make sure not to put ourselves in the array.
@@ -442,8 +439,6 @@
 
                     cop = Object.assign {}, v
                     cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"
-                    #// Only store computed positions locally
-                    delete cop.size
                     save cop
                        
         #// We don't actually want to save thing like mouse state to the server, but we need to keep a copy of it.
@@ -454,7 +449,8 @@
 
     bus('/current_user').to_save = (val, old, t) ->
         if (old.logged_in != val.logged_in) or (old.user?.key != val.user?.key)
-            multigram_aux = {}
+            multigram_aux = 
+                layout: multigram_aux.layout
         t.done val
 
 

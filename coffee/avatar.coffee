@@ -1,7 +1,3 @@
-
-default_path = window.avatar_default_path or get_script_attr('avatar', 'default-path')
-
-
 dom.AVATAR = -> 
   return SPAN null if !@props.user
 
@@ -132,4 +128,4 @@ style.innerHTML =   """
 """
 
 document.head.appendChild style
-
+default_path = window.avatar_default_path or get_script_attr('avatar', 'default-path')

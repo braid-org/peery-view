@@ -14,38 +14,6 @@ get_target_slide = (sldr, target_key, target) ->
             break
     res
 
-# Remove current user from this slider, if they're on it
-window.remove_self_from_slider = (sldr) ->
-  sldr = fetch sldr
-  return if !(sldr.selection or sldr.anchor)
-
-  you = your_key()
-  for o, idx in sldr.values
-    if o.user == you
-      sldr.values.splice(idx, 1)
-      save sldr
-      break
-
-# Delete slider + selection if no one has made a slider drag
-# BUG: if someone else has slid the slider, but that slide 
-#      hasn't been synchronized to this client yet, the slider
-#      might be erroneously deleted
-window.delete_slider_if_no_activity = (sldr) ->
-  sldr = fetch sldr
-  return if !(sldr.selection or sldr.anchor or sldr.point)
-
-  anchor = fetch(sldr.selection or sldr.anchor or sldr.point)
-
-  if !sldr.values || sldr.values.length == 0
-    idx = anchor.sliders.indexOf sldr.key
-    if idx > -1
-      anchor.sliders.splice(idx, 1)
-      save anchor
-
-    del sldr
-
-
-
 dom.SLIDERGRAM = ->
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
@@ -54,7 +22,6 @@ dom.SLIDERGRAM = ->
   has_opined = you in (o.user for o in (sldr.values or []))
 
   read_only = @props.read_only
-  slidergram_width = @props.width
 
   DIV
     key: 'opinion_area'
@@ -62,38 +29,49 @@ dom.SLIDERGRAM = ->
     display: 'flex'
     flexDirection: 'column'
 
+    # These two handle ghosted slides
     onMouseEnter: if !read_only then (e) =>
-      @local.hover_opinion_area = true
-      @local.hover = true
-      save @local
-      if !has_opined && !local_sldr.tracking_mouse
-        x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-        start_slide sldr, @props.width, 'tracking', "user", you,
-          initial_val: x_entry / slidergram_width
-          slidergram_width: slidergram_width
+        if !has_opined && !local_sldr.tracking_mouse
+            x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
+            start_slide sldr, @props.width, 'tracking', "user", you,
+                initial_val: x_entry / @props.width
+                slidergram_width: @props.width
 
 
     onMouseLeave: if !read_only then (e) =>
-      @local.hover_opinion_area = false
-      @local.hover = false
-      save @local
+        # only remove if we haven't added ourselves
+        if local_sldr.tracking_mouse == 'tracking'
+            e.preventDefault()
+            unregister_window_event "slide-#{local_sldr.key}"
+            local_sldr.tracking_mouse = null
+            save local_sldr
 
-      # only remove if we haven't added ourselves
-      if local_sldr.tracking_mouse == 'tracking'
-        e.preventDefault()
-        unregister_window_event "slide-#{local_sldr.key}"
-        local_sldr.tracking_mouse = null
+    # This handles hovering avatars
+    onMouseOver: (e) =>
+        if @loading()
+            return
+        if e.target.getAttribute?('data-target')?
+            target = e.target.getAttribute('data-target')
+            local_sldr.hover_target = target
+            local_sldr.hover = true
+        else
+            local_sldr.hover = false
+        save local_sldr
+    onMouseOut: (e) =>
+        if @loading()
+            return
+        local_sldr.hover = false
         save local_sldr
 
 
     HISTOGRAM
-      width: slidergram_width
-      height: @props.height
-      sldr: sldr
-      show_ghosted_user: !has_opined && (local_sldr.tracking_mouse || @props.force_ghosting)
-      read_only: read_only
-      max_avatar_radius: @props.max_avatar_radius
-      vote_key: @props.vote_key
+        width: @props.width
+        height: @props.height
+        sldr: sldr
+        show_ghosted_user: !has_opined && (local_sldr.tracking_mouse || @props.force_ghosting)
+        read_only: read_only
+        max_avatar_radius: @props.max_avatar_radius
+        vote_key: @props.vote_key
 
     SLIDER_BOTTOM
         sldr: sldr
@@ -103,6 +81,12 @@ dom.SLIDERGRAM = ->
         handleoffset: @props.height/3
         target_key: "user"
         target: you
+
+    SLIDER_TOOLTIP
+        local: local_sldr
+        width: @props.width
+        height: @props.height
+        follows_live: false
 
 #########
 # start_slide
@@ -279,6 +263,62 @@ dom.SLIDER_BOTTOM = ->
                          #{-hwidth/2},#{hheight/2}"
                 fill: @props.color ? color
 
+# In order to have avatar tooltips sit above avatars, they can't actually be ::after pseudoelements inside avatars.
+dom.SLIDER_TOOLTIP = ->
+    local = fetch @props.local
+    local.layout ?= {}
+
+    size = local.layout[local.hover_target] ? {}
+    active = local.hover
+
+    if @props.follows_live and local.dragging and local.live?
+        target = local.target
+        # Pulled from multigrams.coffee:
+        # independently compute the location of the dragged avatar
+        size_orig = local.layout[target]
+        r = (size_orig?.width or 50) / 2
+        size = 
+            left: within local.live * @props.width - r - 2, 0, @props.width - 2 * r
+            width: r * 2
+            top: size_orig?.top ? 0 - 2
+        # Force-render the tooltip
+        active = true
+
+    # Ok, maybe we waste time fetching info for the default user.
+    # Maybe find a cleaner way to cancel rendering?
+    user = fetch (target ? local.hover_target ? "/user/default")
+    # Pulled from avatar.coffee
+    name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2))
+
+    is_above = size.top + size.width + 20 > @props.height
+
+    DIV
+        # Position this container at the top left or bottom left corner of the avatar
+        position: "absolute"
+        transform: "translate(#{size.left}px, #{if is_above then size.top else size.top + size.width}px)"
+        # Needs to go over everything
+        zIndex: 10
+
+        # We'll set its width to the width of the avatar, and then use flex, in order to center the label inside.
+        width: size.width
+        display: if (active and size.left?) then "flex" else "none"
+        flexDirection: "row"
+        justifyContent: "center"
+        # If the tooltip clips an avatar, it shouldn't block hovers
+        pointerEvents: "none"
+
+        SPAN
+            padding: "2px 5px"
+            borderRadius: 2
+
+            backgroundColor: "white"
+            color: "#666"
+            opacity: 0.9
+            # The height of the parent div is just set by the computed height of the text!
+            # So if we translate by -100%, then we'll be just above the avatar
+            transform: if is_above then "translateY(-100%)"
+
+            name
 
 ####
 # Histogram
@@ -320,7 +360,8 @@ dom.HISTOGRAM = ->
       props =
         key: "histo-avatar-#{opinion[@props.vote_key]}"
         user: opinion.user
-        hide_tooltip: focus_on_dragging
+        hide_tooltip: true
+        "data-target": opinion[@props.vote_key]
         style:
           # cached width/height/left/top
           width: size?.width or 50
