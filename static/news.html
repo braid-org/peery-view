@@ -112,11 +112,7 @@
             time_string = "#{Math.floor(delta)} seconds"
 
 
-        user_clickable = c.logged_in and \
-            (c.user.key != author.key) and \
-            not (fetch "/votes/_#{unslash c.user.key}_#{unslash author.key}_")?.value?
-        user_clickable = false
-
+        user_clickable = c.logged_in and (c.user.key != author.key)
 
         DIV
             marginTop: "10px"
@@ -127,18 +123,16 @@
                     / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
             alignItems: "center"
 
-            AVATAR
+            AVATAR_WITH_SLIDER
                 key: "avatar"
                 user: author
-                gridArea: "icon"
+                clickable: user_clickable
+                width: margin_left - 10
+                height: margin_left - 10
                 style:
-                    width: margin_left - 10
-                    height: margin_left - 10
-                    borderRadius: "50%"
+                    gridArea: "icon"
+                    zIndex: 5
                     alignSelf: "center"
-                    cursor: if user_clickable then "pointer"
-                onClick: if user_clickable then (e) ->
-                    console.log "Clicking on a user does nothing, pending a $1M UX focus group."
 
             A
                 key: "title"
