@@ -117,8 +117,14 @@ dom.RENDER_POST = ->
 dom.HEADER = ->
     # view state contains information about whatever the current view is
     # In the future, we'll create a type of state that can be "viewed" (such as a project, user, or tag), and the HEADER will recieve that as a paremeter...
-    feed = fetch "view"
+    v = fetch "view"
     c = fetch "/current_user"
+
+    feed_name = "Braid"
+    if v.selected or c.logged_in
+        viewer = fetch (v.selected || c.user)
+        feed_name = "#{viewer.name}'s"
+
    
     DIV
         key: "header"
@@ -139,7 +145,7 @@ dom.HEADER = ->
                 key: "title"
                 fontSize: 36
                 flexGrow: 1
-                "Braid feed"
+                "#{feed_name} feed"
 
             SPAN
                 key: "home"
@@ -504,7 +510,8 @@ dom.FEEDS = ->
     feeds = (fetch "/feeds").all
     weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
     # sort feeds to put the selected one first...
-    feeds = feeds.sort (a, b) => (weights[a._key] ? 0) - (weights[b._key] ? 0)
+    feeds = feeds.sort((a, b) => (weights[a._key] ? 0) - (weights[b._key] ? 0))
+                 .filter (a) => a._key != c.user?.key
         #switch
         #    when a.key == v.selected then -10
         #    when b.key == v.selected then 10
@@ -533,6 +540,7 @@ dom.FEEDS_ITEM = ->
     v = fetch "view"
     selected = v.selected == feed._key
     type = "user"
+
     DIV
         key: "feed-#{type}-#{feed._key}"
         display: "contents"
