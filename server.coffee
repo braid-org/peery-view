@@ -233,7 +233,7 @@ bus('feeds').to_fetch = () ->
     users = bus.fetch('users').all
     return
         key: "feeds"
-        all: users.map (u) => {key: u.key, name: u.name}
+        all: users.map (u) => {_key: u.key, name: u.name}
 
 ###### Sending static content over HTTP ##############
 express = require 'express'

@@ -11,7 +11,6 @@ compute_score = (p) ->
 sort_posts = (posts, user) ->
     c = fetch "/current_user"
     me = slash (user ? c.user?.key ? "/user/default")
-    console.log me
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     weights = fetch "/weights#{me}"
 

@@ -504,7 +504,7 @@ dom.FEEDS = ->
     feeds = (fetch "/feeds").all
     weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
     # sort feeds to put the selected one first...
-    feeds = feeds.sort (a, b) => (weights[a.key] ? 0) - (weights[b.key] ? 0)
+    feeds = feeds.sort (a, b) => (weights[a._key] ? 0) - (weights[b._key] ? 0)
         #switch
         #    when a.key == v.selected then -10
         #    when b.key == v.selected then 10
@@ -531,15 +531,15 @@ dom.FEEDS = ->
 dom.FEEDS_ITEM = ->
     feed = @props.feed
     v = fetch "view"
-    selected = v.selected == feed.key
+    selected = v.selected == feed._key
     type = "user"
     DIV
-        key: "feed-#{type}-#{feed.key}"
+        key: "feed-#{type}-#{feed._key}"
         display: "contents"
         cursor: "pointer"
         color: if selected then "#179"
         onClick: () ->
-            v.selected = if selected then false else feed.key
+            v.selected = if selected then false else feed._key
             save v
 
         # TODO: How is an avatar rendered for something that isn't a user?

@@ -5,7 +5,7 @@ dom.AVATAR = ->
     @props.hide_tooltip ||= false
     @props.key ||= "avatar-#{@props.user.key or @props.user}"
     
-    add_initials = @props.add_initials ? true
+    add_initials = @props.add_initials ? !@props.user?.pic
 
     user = @props.user
     if (typeof @props.user == 'string') or @props.user.key
