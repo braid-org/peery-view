@@ -544,7 +544,7 @@ dom.FEEDS_ITEM = ->
 
         # TODO: How is an avatar rendered for something that isn't a user?
         AVATAR
-            user: feed
+            user: feed._key
             key: "icon"
             hide_tooltip: true
             style:

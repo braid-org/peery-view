@@ -5,13 +5,13 @@ dom.AVATAR = ->
     @props.hide_tooltip ||= false
     @props.key ||= "avatar-#{@props.user.key or @props.user}"
     
-    add_initials = @props.add_initials ? !@props.user?.pic
 
     user = @props.user
     if (typeof @props.user == 'string') or @props.user.key
         user = fetch(@props.user)
     # else it is a connection possibly just with a name
     
+    add_initials = @props.add_initials ? !user?.pic
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2)) ? 'Anonymous'
     extend @props,
         'data-user': name
