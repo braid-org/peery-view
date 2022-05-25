@@ -33,7 +33,8 @@ dom.SLIDERGRAM = ->
     onMouseEnter: if !read_only then (e) =>
         if !has_opined && !local_sldr.tracking_mouse
             x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-            start_slide sldr, @props.width, 'tracking', "user", you,
+            start_slide sldr, @props.width, 'tracking', you,
+                key: "user"
                 initial_val: x_entry / @props.width
                 slidergram_width: @props.width
 
@@ -88,6 +89,7 @@ dom.SLIDERGRAM = ->
         height: @props.height
         follows_live: false
 
+# TODO: Refactor start_slide and implements_slide_draggable?
 #########
 # start_slide
 #
@@ -95,7 +97,7 @@ dom.SLIDERGRAM = ->
 # via mouse tracking or by dragging. 
 #
 # Supports movement by touch, mouse, and click events. 
-start_slide = (sldr, slidergram_width, slide_type, target_key, target, args) -> 
+start_slide = (sldr, slidergram_width, slide_type, target, args) -> 
     sldr = fetch sldr
     local = fetch shared_local_key sldr
 
@@ -103,6 +105,7 @@ start_slide = (sldr, slidergram_width, slide_type, target_key, target, args) ->
     return if !your_key()
 
     val = args?.initial_val
+    target_key = args?.key ? "target"
 
     if slide_type == 'dragging'
         the_slide = get_target_slide sldr, target_key, target
@@ -194,11 +197,15 @@ start_slide = (sldr, slidergram_width, slide_type, target_key, target, args) ->
 
 # Extend a React component's props with implements_slide_draggable in order to make it 
 # act like a slider handle
-implements_slide_draggable = (sldr, props, target_key, target, width) ->
-  extend props,
-    onMouseDown: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging', target_key, target)
-    onTouchStart: (e) -> e.preventDefault(); start_slide(sldr, width, 'dragging', target_key, target)
-  props
+implements_slide_draggable = (sldr, props, target, width, args) ->
+    extend props,
+        onMouseDown: (e) =>
+            e.preventDefault()
+            start_slide sldr, width, 'dragging', target, args
+        onTouchStart: (e) =>
+            e.preventDefault()
+            start_slide sldr, width, 'dragging', target, args
+    props
 
 
 ##
@@ -403,7 +410,8 @@ dom.HISTOGRAM = ->
               filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3))" if focus_on_dragging
 
       if your_vote
-        props = implements_slide_draggable sldr, props, "user", you, @props.width
+        props = implements_slide_draggable sldr, props, you, @props.width,
+            key: "user"
 
       AVATAR props
 
@@ -840,62 +848,5 @@ window.get_average_value = (sldr) =>
     -1 
   else 
     v / w
-
-
-
-slidergramify = (node) ->
-  for lst in node.querySelectorAll('ol[data-slidergram], ul[data-slidergram]')
-    is_ol = lst.tagName.toLowerCase() == 'ol'
-    items = lst.querySelectorAll('li')
-
-    wrapper = document.createElement 'div'
-    wrapper.setAttribute 'data-slidergram-wrapper', true 
-    replaced = lst.parentNode.replaceChild wrapper, lst 
-
-    React.render SLIDERGRAM_OL({items, is_ol}), wrapper
-
-dom.SLIDERGRAM_OL = -> 
-  SLIST = if @props.is_ol then OL else UL
-
-  SLIST null,
-    for item in @props.items
-      SLIDERGRAM_LI 
-        html: item.innerHTML
-
-dom.SLIDERGRAM_LI = ->
-  sldr = fetch "/slider/#{@props.html}"
-
-  return LI null if @loading()
-
-  if !sldr.values?
-    anchor = 
-      key: "/anchor/#{@props.html}"
-      sliders: []
-    save anchor 
-
-    sldr = create_slidergram
-      anchor: anchor
-
-
-  LI 
-    style: 
-      minHeight: 50
-      position: 'relative'
-
-    SPAN 
-      dangerouslySetInnerHTML: __html: @props.html
-
-    DIV 
-      style: 
-        position: 'absolute'
-        right: -250
-        top: -25
-
-      SLIDERGRAM 
-        sldr: sldr 
-        width: 200
-        height: 40
-
-
 
 

@@ -228,6 +228,13 @@ bus('votes_by/*').to_fetch = (star, t) ->
 bus('weights/*').to_save = (star, t) ->
     t.abort()
 
+# TODO: People should be able to create feeds
+bus('feeds').to_fetch = () ->
+    users = bus.fetch('users').all
+    return
+        key: "feeds"
+        all: users.map (u) => {key: u.key, name: u.name}
+
 ###### Sending static content over HTTP ##############
 express = require 'express'
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)

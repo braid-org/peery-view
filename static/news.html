@@ -48,23 +48,19 @@
             width: body_width
             margin: "auto"
 
-            H1
-                key: "page-title"
-                marginLeft: margin_left
-                fontSize: "50px"
-                "Braid"
-            
-            USER()
+            HEADER()
             BIG_MULTIGRAM()
-            SUBMIT_POST()
             POSTS()
 
     dom.POSTS = ->
 
         # Local copy of posts, ordered.
+        c = fetch "/current_user"
         posts = (fetch "/posts").all ? []
+        v = fetch "view"
+        username = v.selected || c?.user?.key ? "/user/default"
 
-        ordered = sort_posts posts
+        ordered = sort_posts posts, username
 
         DIV 
             key: "post-list"
@@ -72,389 +68,35 @@
                 RENDER_POST
                     post: post
 
-    # The layout for a single post, including slidergram and such
-    dom.RENDER_POST = ->
-        post = @props.post
-        # Subscribe to the post
-        if post.key then fetch post
-        unless post.user?
-            # The post has actually just been deleted.
-            return
-
-        author = fetch post.user
-
-        c = fetch '/current_user'
-
-        # Compute the pretty-url
-        url = if post.url.startsWith "javascript:" then "" else post.url
-
-        pretty_url = url
-        functional_url = url
-        unless url.startsWith("https://") or url.startsWith("http://")
-            functional_url = "https://" + functional_url
-        try
-            the_url = new URL functional_url
-            the_url.protocol = "https://"
-            functional_url = the_url.toString()
-            pretty_url = the_url.host
-        catch e 
-            functional_url = ""
-        
-        time_string = ""
-        delta = Date.now() / 1000 - post.time
-        if delta > 60 * 60 * 24
-            time_string = "#{Math.floor(delta / (60 * 60 * 24))} days"
-        else if delta > 60 * 60
-            time_string = "#{Math.floor(delta / (60 * 60))} hours"
-        else if delta > 60
-            time_string = "#{Math.floor(delta / 60)} minutes"
-        else
-            time_string = "#{Math.floor(delta)} seconds"
-
-
-        user_clickable = c.logged_in and (c.user.key != author.key)
-
-        DIV
-            marginTop: "10px"
-            marginBottom: "10px"
-            display: "grid"
-            grid: "\"icon title slider del\" auto
-                   \"icon domain_time slider del\" 16px
-                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
-            alignItems: "center"
-
-            AVATAR_WITH_SLIDER
-                key: "avatar"
-                user: author
-                clickable: user_clickable
-                width: margin_left - 10
-                height: margin_left - 10
-                style:
-                    gridArea: "icon"
-                    zIndex: 5
-                    alignSelf: "center"
-
-            A
-                key: "title"
-                className: "post-title"
-                gridArea: "title"
-                fontSize: "18px"
-                paddingRight: "10px"
-                lineHeight: "#{margin_left - 10}px"
-                justifySelf: "stretch"
-                textDecoration: "none"
-                href: if functional_url.length then functional_url
-                "#{post.title}"
-
-            SPAN
-                key: "url_time"
-                gridArea: "domain_time"
-                fontSize: "12px"
-                color: "#999"
-                whiteSpace: "nowrap"
-                overflowX: "hidden"
-                textOverflow: "ellipsis"
-                "#{pretty_url} · #{time_string} ago"
-            
-            DIV
-                key: "post-votes-slider"
-                gridArea: "slider"
-                alignSelf: "start"
-                height: margin_left - 10
-                SLIDERGRAM
-                    sldr: "/votes_on#{post.key}"
-                    width: body_width - 2*margin_left - post_width - 10
-                    height: margin_left - 5
-                    max_avatar_radius: (margin_left - 5) / 2
-                    read_only: !c.logged_in
-                    vote_key: "user"
-
-            if c.logged_in and c.user.key == author.key then SPAN
-                key: "delete-btn"
-                color: "#999"
-                className: "material-icons md-dark"
-                fontSize: "24px"
-                cursor: "pointer"
-                textAlign: "end"
-                gridArea: "del"
-                onClick: (e) ->
-                    delete_post(post)
-                "delete"
-
-
-    # Information about the current user:
-    # Login/Out/Register
-    dom.USER = ->
-        c = fetch '/current_user'
-        s = fetch "show_settings"
-        s.show ?= false
-
-        DIV
-            position: "absolute"
-            top: 15
-            right: 30
-            zIndex: 5
-
-            DIV 
-                key: "user-header"
-                if c.logged_in
-                    DIV
-                        display: "flex"
-                        flexDirection: "row"
-                        alignItems: "center"
-                        justifyContent: "end"
-                        marginBottom: "5px"
-
-                        AVATAR
-                            key: "user-avatar"
-                            user: c.user
-                            hide_tooltip: true
-                            style:
-                                placeSelf: "center"
-                                width: 20
-                                height: 20
-                                borderRadius: "50%"
-
-                        DIV
-                            key: "user-name"
-                            marginLeft: "6px"
-                            marginRight: "6px"
-                            c.user.name
-
-                        SPAN
-                            key: "user-settings-btn"
-                            className: "material-icons md-dark"
-                            fontSize: "20px"
-                            cursor: "pointer"
-                            marginRight: "5px"
-                            onClick: (e) ->
-                                s.show = !s.show ? true
-                                save s
-                            "settings"
-                        SPAN
-                            key: "user-logout-btn"
-                            className: "material-icons md-dark"
-                            fontSize: "20px"
-                            cursor: "pointer"
-                            onClick: (e) ->
-                                c.logout = true
-                                save c
-                            "logout"
-                else if !s.show
-                    DIV
-                        onClick: (e) ->
-                            s.show = !s.show ? true
-                            save s
-                        fontSize: "14px"
-                        color: "#666"
-                        cursor: "pointer"
-                        "Not Logged In"
-            DIV
-                key: "user-modal"
-                display: unless s.show then "none"
-                if c.logged_in
-                    SETTINGS()
-                else
-                    LOGIN()
-
-
-    dom.SUBMIT_POST = ->
-
-        @local.typed ?= false
-
-        c = fetch "/current_user"
-        unless c.logged_in
-            return
-
-        form_submit = =>
-            title = @refs["post-title"].getDOMNode()
-            link = @refs["post-url"].getDOMNode()
-            if title.value.length > 1 and link.value.length > 1
-                make_post title.value, link.value, c.user.key
-                title.value = ""
-                link.value = ""
-
-        DIV
-            key: "submit-container"
-            marginTop: "10px"
-            marginBottom: "25px"
-            display: "grid"
-            grid: "\"icon title slider .\" auto
-                   \"icon domain_time slider .\" 16px
-                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
-            alignItems: "center"
-
-            AVATAR
-                key: "avatar"
-                user: c.user
-                hide_tooltip: true
-                gridArea: "icon"
-                style:
-                    width: margin_left - 10
-                    height: margin_left - 10
-                    borderRadius: "50%"
-                    alignSelf: "center"
-                    opacity: 0.5
-
-            INPUT
-                key: "title"
-                ref: "post-title"
-                className: "post-title"
-                gridArea: "title"
-                fontSize: "18px"
-                paddingRight: "10px"
-                marginBottom: "2px"
-                border: "none"
-                lineHeight: "#{margin_left - 10}px"
-                justifySelf: "stretch"
-                placeholder: "Say something..."
-                onKeyDown: (e) =>
-                    if e.keyCode == 13
-                        form_submit()
-                    else if e.keyCode == 9
-                        e.preventDefault()
-                        @refs["post-url"].getDOMNode().focus()
-
-
-            INPUT
-                key: "url"
-                ref: "post-url"
-                gridArea: "domain_time"
-                fontSize: "12px"
-                color: "#999"
-                whiteSpace: "nowrap"
-                placeholder: "https://..."
-                border: "none"
-                onKeyDown: (e) =>
-                    if e.keyCode == 13
-                        form_submit()
-                    else if e.keyCode == 9
-                        e.preventDefault()
-            
-            SPAN
-                key: "submit-btn"
-                gridArea: "slider"
-                alignSelf: "start"
-                height: margin_left - 10
-                textAlign: "center"
-                alignSelf: "center"
-                className: "material-icons md-dark"
-                fontSize: "24px"
-                onClick: form_submit
-                cursor: "pointer"
-                "post_add"
-
 
     dom.BIG_MULTIGRAM = ->
         c = fetch "/current_user"
+        v = fetch "view"
+        username = unslash (v.selected || c?.user?.key ? "/user/default")
         DIV
             key: "multigram-wrapper"
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
-                sldr: 'multigram'
+                sldr: "usergram/#{username}"
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
-                read_only: !c.logged_in
+                read_only: v.selected || !c.logged_in
 
-    multigram_aux = {}
 
-    bus('multigram').to_fetch = () ->
-        c = fetch "/current_user"
-        username = c.user?.key
-        unless c.logged_in
-            # We clear the multigram_aux whenever the user is logged out.
-            # Theres also a to_save handler on current_user that will clear it if the login state or our userkey changes.
-            # We keep the layout; we just want to clear the input state.
-            multigram_aux = 
-                layout: multigram_aux.layout
-            username = "/user/default"
-            
-        users = {}
-        # Add users that weve voted on
-        Object.values(fetch "/votes_by#{username}")
-            .filter (v) ->
-                unless v.target?
-                    return false
-                (unslash v.target).startsWith "user"
-            .forEach (v) ->
-                # Subscribe to each individual vote...
-                fetch v
-                # Now make a copy of it that isnt tied to the real state url
-                t = Object.assign {}, v
-                delete t.key
-                users[slash t.target] = t
-
-        # Users in our network
-        Object.entries(fetch "/weights#{username}")
-            .filter ([k, v]) -> k != "key"
-            .forEach ([k, v]) ->
-                kk = slash k
-                users[kk] ?= {
-                    user: username
-                    target: kk
-                    type: "network"
-                    # weights get computed between -1 and 1.
-                    # but the vote value should be between 0 and 1.
-                    value: (v + 1) / 2
-                }
-
-        # Users that we havent voted on
-        if c.logged_in
-            (fetch "/all_users").all
-                .forEach (v) ->
-                    vv = slash v
-                    users[vv] ?= {
-                        user: username
-                        target: vv
-                        type: "remote"
-                        value: 0.5
-                    }
-
-        # We have to make sure not to put ourselves in the array.
-        if users.hasOwnProperty username
-            delete users[username]
-
-        votes_arr = Object.values users
-
-        Object.assign multigram_aux, {values: votes_arr}
-
-    bus('multigram').to_save = (val, t) ->
-
-        #// Once done dragging, save whichever one was changed.
-        unless val.dragging
-            val.values.forEach (v) ->
-                if v.target == val.target
-                    if v.type?
-                        #// This is a NEW vote that didn't exist before.
-                        delete v.type
-
-                    cop = Object.assign {}, v
-                    cop.key = "/votes/_#{unslash v.user}_#{unslash v.target}_"
-                    save cop
-                       
-        #// We don't actually want to save thing like mouse state to the server, but we need to keep a copy of it.
-        #// Save the auxilliary data
-        Object.assign multigram_aux, val
-        #// Then save it:
-        t.done val
-
-    bus('/current_user').to_save = (val, old, t) ->
-        if (old.logged_in != val.logged_in) or (old.user?.key != val.user?.key)
-            multigram_aux = 
-                layout: multigram_aux.layout
-        t.done val
-
+# Should I have an on_save for view that wipes the multigram?
 
 </script>
+<!-- Main statebus script -->
 <script src="/client.js" server="/"></script>
+<script src="/static/vendor/considerit_shared.js" crossorigin=anonymous></script>
+<script src="/coffee/shared.coffee" crossorigin=anonymous></script>
+<script src="/coffee/ui.coffee" crossorigin=anonymous></script>
 <script src="/coffee/post.coffee" crossorigin=anonymous></script>
-<script src="/coffee/login.coffee" crossorigin=anonymous></script>
 
 <!-- For slidergrams -->
-<script src="/static/vendor/considerit_shared.js" crossorigin=anonymous></script>
 <script src="/coffee/avatar.coffee" crossorigin=anonymous></script>
 <script src="/coffee/slidergrams.coffee" crossorigin=anonymous></script>
 <script src="/coffee/multigrams.coffee" crossorigin=anonymous></script>

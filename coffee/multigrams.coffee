@@ -1,3 +1,72 @@
+bus('usergram/*').to_fetch = (star) ->
+    username = slash star
+    
+    users = {}
+    # Add users with direct votes
+    Object.values(fetch "/votes_by#{username}")
+        .filter (v) ->
+            unless v.target?
+                return false
+            (unslash v.target).startsWith "user"
+        .forEach (v) ->
+            # Subscribe to each individual vote...
+            fetch v
+            # Now make a copy of it that isnt tied to the real state url
+            t = Object.assign {}, v
+            delete t.key
+            users[slash t.target] = t
+
+    # Users in network
+    Object.entries(fetch "/weights#{username}")
+        .filter ([k, v]) -> k != "key"
+        .forEach ([k, v]) ->
+            kk = slash k
+            users[kk] ?= {
+                user: username
+                target: kk
+                type: "network"
+                # weights get computed between -1 and 1.
+                # but the vote value should be between 0 and 1.
+                value: (v + 1) / 2
+            }
+
+    # All other users
+    #if c.logged_in
+    #    (fetch "/all_users").all
+    #        .forEach (v) ->
+    #            vv = slash v
+    #            users[vv] ?= {
+    #                user: username
+    #                target: vv
+    #                type: "remote"
+    #                value: 0.5
+    #            }
+
+    # Don't put the user whose usergram this is in the display
+    if users.hasOwnProperty username
+        delete users[username]
+
+    {
+        values: Object.values users
+    }
+
+
+bus('usergram/*').to_save = (val, star, key, t) ->
+    local = fetch shared_local_key key
+
+    # Only save the vote that was changed.
+    val.values.forEach (v) ->
+        if v.target == local.target
+            if v.type?
+                # This is a NEW vote that didn't exist before.
+                delete v.type
+
+            cop = Object.assign {}, v
+            cop.key = "/votes/_#{unslash star}_#{unslash v.target}_"
+            save cop
+                   
+    t.done val
+
 dom.MULTIGRAM = ->
     sldr = fetch @props.sldr
     local_sldr = fetch shared_local_key sldr
@@ -125,7 +194,7 @@ dom.MULTIHISTOGRAM = ->
 
         # This sets event listeners on the avatar
         unless @props.read_only
-            props = implements_slide_draggable sldr, props, "target", opinion.target, @props.width
+            props = implements_slide_draggable sldr, props, opinion.target, @props.width
 
         # Actually generate the icon
         AVATAR props
@@ -159,15 +228,14 @@ dom.MULTIHISTOGRAM = ->
 
 
 dom.MULTIHISTOGRAM.refresh = ->
-
   sldr = fetch @props.sldr
   local_sldr = fetch shared_local_key sldr
-  c = fetch "/current_user"
+  # TODO: Replace current user with like, the name of the viewing user?
   dragging = local_sldr.dragging
 
   # We want to avoid running the expensive layout calculation unless things have changed
   hash = (v.value for v in sldr.values || []).join " "
-  cache_key = md5([@props.width, @props.height, hash, c.user?.key ? 0])
+  cache_key = md5([@props.width, @props.height, hash])
 
   if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
     local_sldr.dirty_opinions = false

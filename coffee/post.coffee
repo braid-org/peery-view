@@ -8,9 +8,10 @@ compute_score = (p) ->
     sqsc + att + att * (sqsc + p.author)
     
 
-sort_posts = (posts) ->
+sort_posts = (posts, user) ->
     c = fetch "/current_user"
-    me = if c.logged_in then c.user.key else "/user/default"
+    me = slash (user ? c.user?.key ? "/user/default")
+    console.log me
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     weights = fetch "/weights#{me}"
 
