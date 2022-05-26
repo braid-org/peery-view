@@ -17,6 +17,7 @@ dom.POST = ->
     author = fetch post.user
 
     c = fetch '/current_user'
+    v = fetch "view"
 
     # Compute the pretty version of the url
     url = if post.url.startsWith "javascript:" then "" else post.url
@@ -99,17 +100,26 @@ dom.POST = ->
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
-                SLIDERGRAM
-                    sldr: "/votes_on#{post.key}"
-                    width: slider_width
-                    height: margin_left - 5
-                    max_avatar_radius: (margin_left - 5) / 2
-                    read_only: !c.logged_in
-                    vote_key: "user"
-                    onsave: if c.logged_in then (vote) =>
-                        vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
-                        vote.target = post.key
-                        save vote
+                if v.type == "tag" and v.selected.length
+                    SLIDERGRAM_WITH_TAG
+                        post: post
+                        tag: unslash v.selected
+                        width: slider_width
+                        height: margin_left - 5
+                        max_avatar_radius: (margin_left - 5) / 2
+                        read_only: !c.logged_in
+                else
+                    SLIDERGRAM
+                        sldr: "/votes_on#{post.key}"
+                        width: slider_width
+                        height: margin_left - 5
+                        max_avatar_radius: (margin_left - 5) / 2
+                        read_only: !c.logged_in
+                        vote_key: "user"
+                        onsave: if c.logged_in then (vote) =>
+                            vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
+                            vote.target = post.key
+                            save vote
 
             SPAN
                 key: "more"
