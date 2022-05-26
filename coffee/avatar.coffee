@@ -30,8 +30,13 @@ dom.AVATAR = ->
 
         if src.indexOf('/') == -1 && default_path
             src = "#{default_path}/#{src}"
-        @props.style["backgroundImage"] = "url(\"#{src}\")"
-        @props.style["backgroundColor"] = "white"
+        @props.style.backgroundImage = "url(\"#{src}\")"
+        @props.style.backgroundColor = "white"
+    else
+        # Generate a pseudorandom background color
+        # But deterministic with respect to the user
+        hue = parseInt(md5(user?.key ? name).substr(0, 2), 16)
+        @props.style.backgroundColor = "hsl(#{hue},45%,70%)"
 
     if add_initials
         if name == 'Anonymous'
