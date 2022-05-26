@@ -32,7 +32,7 @@ dom.AVATAR = ->
             src = "#{default_path}/#{src}"
         @props.style.backgroundImage = "url(\"#{src}\")"
         @props.style.backgroundColor ?= "white"
-        @props.style.zIndex ?= 5
+        @props.style.zIndex ?= 2
     else
         # Generate a pseudorandom background color
         # But deterministic with respect to the user
