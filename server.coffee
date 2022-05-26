@@ -42,7 +42,7 @@ bus = require('statebus').serve
                 #   b. Delete the vote itself
                 # 4. Delete the actual post.
                 
-                # TODO: Make sure there are no like, race conditions here???
+                # TODO: Also delete the tagged votes
                 
                 # Fetch the votes and make a static copy
                 votes = JSON.parse(JSON.stringify(bus.fetch "votes_on/post/#{star}")).values ? []
@@ -65,6 +65,13 @@ bus = require('statebus').serve
                 val = {key: val.key}
                 bus.save val
                 return t.done val
+            # Adding a tag: TODO: FIND A BETTER PLACE TO STORE A TAG
+            if val?.tags?.length
+                old.tags ||= []
+                val.tags.forEach (t) => unless t in old.tags then old.tags.push t
+                bus.save old
+                return t.done old
+            
 
             t.abort()
 
@@ -74,6 +81,7 @@ bus = require('statebus').serve
             t.abort()
 
 
+        
         # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
         # We add a (redundant here) 'target', which is just star.
         # But we also add a key (concatenation of the user and the target)
@@ -81,6 +89,13 @@ bus = require('statebus').serve
         # 
         # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
         client('votes_on/*').to_save = (val, old, star, t) ->
+
+            # The slidergram no longer directly saves this array. So it's not clear what the 
+
+            console.warn("votes_on saved!!")
+            return t.abort()
+
+
             # since we're going to set properties directly on votes_by we have to prevent injection
             if star is "key"
                 return t.abort()
@@ -116,18 +131,19 @@ bus = require('statebus').serve
                     bus.save votes_by
             # finally, tell the client that we accept their value
             t.done val
-
+        
         # If an individual vote is saved, put it in the arrays if necessary.
         client('votes/*').to_save = (val, old, star, t) ->
             # Permission and integrity checking
             c = client.fetch "current_user"
             split = star.split "_"
             # Check that key is correct
-            unless split.length == 4
+            unless split.length == 4 or split.length == 5
                 console.log("Got a bad key")
                 return t.abort()
             voter = split[1]
             target = split[2]
+            tag = split[3]
             # Check that user has the right to change the key
             unless c.logged_in and c.user.key == voter
                 return t.abort()
@@ -137,22 +153,34 @@ bus = require('statebus').serve
             # Check that the vote has an associated value between 0 and 1
             unless 0 <= val.value and val.value <= 1
                 return t.abort()
+            # Check that the tag is right
+            if split.length == 5 and (tag != val.tag or tag.length == 0)
+                console.log tag
+                console.log val.tag
+                return t.abort()
             # Alright, looks good.
             
-
             # Is this a new vote?
             unless old.value?
+                tag_path = if split.length == 5 then "/#{tag}" else ""
                 # Put this vote into the necessary arrays.
-                votes_by = bus.fetch "votes_by/#{unslash val.user}"
+                votes_by = bus.fetch "votes_by/#{unslash val.user}#{tag_path}"
                 votes_by[unslash val.target] ?= val
                 bus.save votes_by
 
-                votes_on = bus.fetch "votes_on/#{unslash val.target}"
+                votes_on = bus.fetch "votes_on/#{unslash val.target}#{tag_path}"
                 votes_on.values ?= []
-                votes_on.values.push(val)
+                votes_on.values.push val
                 bus.save votes_on
 
-                # Is the simultaneous of this substate in two arrays going to cause issues? 
+            # Add the tag-type if necessary
+            if split.length == 5
+                target_obj = bus.fetch target
+                target_obj.tags ||= []
+                unless tag in target_obj.tags
+                    target_obj.tags.push tag
+                bus.save target_obj
+
             
             bus.save val
             t.done val

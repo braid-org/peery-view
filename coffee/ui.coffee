@@ -2,10 +2,11 @@
 # TODO: Should UI elements fetch global state or take arguments?
 body_width = 800
 margin_left = 40
-post_width = 575
+post_width = 525
+slider_width = body_width - 2*margin_left - post_width - 10
 
 # The layout for a single post, including slidergram and such
-dom.RENDER_POST = ->
+dom.POST = ->
     post = @props.post
     # Subscribe to the post
     if post.key then fetch post
@@ -17,7 +18,7 @@ dom.RENDER_POST = ->
 
     c = fetch '/current_user'
 
-    # Compute the pretty-url
+    # Compute the pretty version of the url
     url = if post.url.startsWith "javascript:" then "" else post.url
 
     pretty_url = url
@@ -48,75 +49,180 @@ dom.RENDER_POST = ->
     user_clickable = c.logged_in and (c.user.key != author.key)
 
     DIV
+        key: "post-container-#{post.key}"
         marginTop: "10px"
         marginBottom: "10px"
-        display: "grid"
-        grid: "\"icon title slider del\" auto
-               \"icon domain_time slider del\" 16px
-                / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
-        alignItems: "center"
-
-        AVATAR_WITH_SLIDER
-            key: "avatar"
-            user: author
-            clickable: user_clickable
-            width: margin_left - 10
-            height: margin_left - 10
-            style:
-                gridArea: "icon"
-                zIndex: 5
-                alignSelf: "center"
-
-        A
-            key: "title"
-            className: "post-title"
-            gridArea: "title"
-            fontSize: "18px"
-            paddingRight: "10px"
-            lineHeight: "#{margin_left - 10}px"
-            justifySelf: "stretch"
-            textDecoration: "none"
-            href: if functional_url.length then functional_url
-            "#{post.title}"
-
-        SPAN
-            key: "url_time"
-            gridArea: "domain_time"
-            fontSize: "12px"
-            color: "#999"
-            whiteSpace: "nowrap"
-            overflowX: "hidden"
-            textOverflow: "ellipsis"
-            "#{pretty_url} · #{time_string}"
-        
         DIV
-            key: "post-votes-slider"
-            gridArea: "slider"
-            alignSelf: "start"
-            height: margin_left - 10
-            SLIDERGRAM
-                sldr: "/votes_on#{post.key}"
-                width: body_width - 2*margin_left - post_width - 10
-                height: margin_left - 5
-                max_avatar_radius: (margin_left - 5) / 2
-                read_only: !c.logged_in
-                vote_key: "user"
-                onsave: if c.logged_in then (vote) =>
-                    vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
-                    vote.target = post.key
-                    save vote
+            key: "post-main"
+            display: "grid"
+            grid: "\"icon title slider more\" auto
+                   \"icon domain_time slider more\" 16px
+                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
+            alignItems: "center"
 
-        if c.logged_in and c.user.key == author.key then SPAN
-            key: "delete-btn"
-            color: "#999"
-            className: "material-icons md-dark"
-            fontSize: "24px"
-            cursor: "pointer"
-            textAlign: "end"
-            gridArea: "del"
-            onClick: (e) ->
-                delete_post(post)
-            "delete"
+            AVATAR_WITH_SLIDER
+                key: "avatar"
+                user: author
+                clickable: user_clickable
+                width: margin_left - 10
+                height: margin_left - 10
+                style:
+                    gridArea: "icon"
+                    zIndex: 5
+                    alignSelf: "center"
+
+            A
+                key: "title"
+                className: "post-title"
+                gridArea: "title"
+                fontSize: "18px"
+                paddingRight: "10px"
+                lineHeight: "#{margin_left - 10}px"
+                justifySelf: "stretch"
+                textDecoration: "none"
+                href: if functional_url.length then functional_url
+                "#{post.title}"
+
+            SPAN
+                key: "url_time"
+                gridArea: "domain_time"
+                fontSize: "12px"
+                color: "#999"
+                whiteSpace: "nowrap"
+                overflowX: "hidden"
+                textOverflow: "ellipsis"
+                "#{if @local.expanded then url else pretty_url} · #{time_string}"
+           
+            # TODO: Use the information in `view` to display a topical slidergram
+            DIV
+                key: "post-votes-slider"
+                gridArea: "slider"
+                alignSelf: "start"
+                height: margin_left - 10
+                SLIDERGRAM
+                    sldr: "/votes_on#{post.key}"
+                    width: slider_width
+                    height: margin_left - 5
+                    max_avatar_radius: (margin_left - 5) / 2
+                    read_only: !c.logged_in
+                    vote_key: "user"
+                    onsave: if c.logged_in then (vote) =>
+                        vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
+                        vote.target = post.key
+                        save vote
+
+            SPAN
+                key: "more"
+                color: "#999"
+                className: "material-icons md-dark"
+                fontSize: "24px"
+                cursor: "pointer"
+                textAlign: "end"
+                gridArea: "more"
+                onClick: () => 
+                    @local.expanded = !@local.expanded
+                    @local.addtagvisible &&= @local.expanded
+                    save @local
+                if @local.expanded then "expand_less" else "expand_more"
+
+        # TODO: Move the "expanded" stuff into its own widget
+        if @local.expanded
+            DIV
+                key: "post-dropdown"
+                padding: "10px #{margin_left/2}px"
+                margin: "0 #{margin_left/2}px"
+                border: "2px solid #999"
+                borderTop: "none"
+                borderRadius: "0 0 10px 10px"
+                display: "flex"
+                flexDirection: "row"
+                justifyContent: "stretch"
+                alignContent: "stretch"
+
+                # Tagged slidergrams?
+                ###
+                if c.logged_in and c.user.key == author.key then SPAN
+                    key: "delete-btn"
+                    color: "#999"
+                    className: "material-icons md-dark"
+                    fontSize: "24px"
+                    cursor: "pointer"
+                    textAlign: "end"
+                    gridArea: "del"
+                    onClick: () =>
+                        delete_post(post)
+                    "delete"
+                ###
+                DIV
+                    key: "add-tag"
+                    display: "flex"
+                    flexDirection: "row"
+                    justifyContent: "center"
+                    alignItems: "center"
+                    flexGrow: 1
+
+                    INPUT
+                        key: "textbox"
+                        ref: "addlabel"
+                        placeholder: "Relevant tag..."
+                        display: unless @local.addtagvisible then "none"
+                        width: slider_width
+                    SPAN
+                        key: "textbox-replacement"
+                        display: if @local.addtagvisible then "none"
+                        color: "#999"
+                        "Add Tag"
+                    
+                    SPAN
+                        key: "addbutton"
+                        color: "#999"
+                        className: "material-icons md-dark"
+                        fontSize: "24px"
+                        cursor: "pointer"
+                        marginLeft: 6
+                        onClick: () => 
+                            box = @refs.addlabel.getDOMNode()
+                            if @local.addtagvisible and box.value.length
+                                post.tags ||= []
+                                post.tags.push box.value.toString()
+                                save post
+                            
+                            @local.addtagvisible = !@local.addtagvisible
+                            save @local
+
+
+                        if @local.addtagvisible then "done" else "add_box"
+
+                DIV
+                    key: "tags-grid"
+                    display: "grid"
+                    gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
+                    gridColumnGap: 10
+                    gridAutoRows: margin_left
+                    alignItems: "center"
+
+                    for tag in (post.tags || [])
+                        DIV
+                            key: "tag-#{tag}"
+                            display: "contents"
+                            SPAN
+                                fontSize: 20
+                                textTransform: "capitalize"
+                                color: "#444"
+                                "#{tag}:"
+                            SLIDERGRAM
+                                sldr: "/votes_on#{post.key}/#{tag}"
+                                width: slider_width
+                                height: margin_left - 5
+                                max_avatar_radius: (margin_left - 5) / 2
+                                read_only: !c.logged_in
+                                vote_key: "user"
+                                onsave: if c.logged_in then (vote) =>
+                                    vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_#{tag}_"
+                                    vote.target = post.key
+                                    vote.tag = tag
+                                    save vote
+
 
 dom.HEADER = ->
     # view state contains information about whatever the current view is
@@ -220,6 +326,7 @@ dom.HEADER = ->
 
         DIV
             key: "dropdown"
+            className: "collapseOnLoseFocus"
             display: "none" unless @local.modal 
             position: "absolute"
             zIndex: 6
@@ -232,6 +339,7 @@ dom.HEADER = ->
             close = () =>
                 @local.modal = false
                 save @local
+
             
             switch @local.modal
                 when "post" then SUBMIT_POST(close: close)
@@ -539,6 +647,7 @@ dom.FEEDS = ->
                 feed: feed
 
 
+# I only did this to prevent scoping issues... I would rather it just be a normal function
 dom.FEEDS_ITEM = ->
     feed = @props.feed
     v = fetch "view"

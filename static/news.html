@@ -39,8 +39,6 @@
     post_width = 575
 
     document.title = 'Braid News'
-    window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
-    window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
 
     dom.BODY = ->
         DIV
@@ -65,7 +63,7 @@
         DIV 
             key: "post-list"
             for post in ordered
-                RENDER_POST
+                POST
                     post: post
 
 
