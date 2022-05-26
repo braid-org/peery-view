@@ -1,27 +1,212 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="1in" height="1in" version="1.1" viewBox="0 0 25 25" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-   <defs>
-      <linearGradient id="linearGradient2923">
-         <stop stop-color="#211649" offset="0"/>
-         <stop stop-color="#93c4d8" offset="1"/>
-      </linearGradient>
-      <linearGradient id="linearGradient3728" x1="2.4" x2="15" y1="1.4" y2="5.6" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient4742" x1=".95" x2="6.9" y1="4.8" y2="14" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient4991" x1="7.9" x2="16" y1="7" y2="11" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient5811" x1="9.1" x2="14" y1="12" y2="18" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient5857" x1="12" x2="25" y1="10" y2="19" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient5903" x1="16" x2="20" y1="16" y2="25" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-      <linearGradient id="linearGradient6063" x1="21" x2="23" y1="19" y2="24" gradientUnits="userSpaceOnUse" xlink:href="#linearGradient2923"/>
-   </defs>
-   <g>
-      <g transform="matrix(1 0 0 1.1 -.85 -1.9)" style="paint-order:markers fill stroke">
-         <path d="m20 19 0.39-2.5 5.2 2.9s0.9 4.5-3.3 6-2.3-6.4-2.3-6.4z" fill="url(#linearGradient6063)" style="paint-order:markers fill stroke"/>
-         <path d="m15 15s-0.13 4.9 1.1 7.5c0.81 1.7 1.5 2.5 1.5 2.5l4-0.0065s0.94-5.6-0.45-6.8-6.2-3.3-6.2-3.3z" fill="url(#linearGradient5903)" style="paint-order:markers fill stroke"/>
-         <path d="m14 12s6 0.22 8.4 2.3c2.4 2 3.1 5 3.1 5s-2.8-1.5-3.9-1.2c-1.1 0.25-5.8 0.032-6.8-2-0.99-2-0.79-4-0.79-4z" fill="url(#linearGradient5857)" style="paint-order:markers fill stroke"/>
-         <path d="m7.7 9.5c0 0.12 4.5 2.3 5.9 2.5 1.4 0.14 1 8.5 1.9 10 0.21 0.46-5.2-1.2-6.2-4.4-1-3.2-1.8-5.7-1.6-7.1 0.24-1.4 0.041-1.4 0.041-1.4z" fill="url(#linearGradient5811)" style="paint-order:markers fill stroke"/>
-         <path d="m8.8 5.6s2.9-1.2 5.7 0.65 6.3 7.1 6.3 7.1-2.6-1.2-5.6-1.2c-2.5 0.036-6.7-1.2-7.8-2.2-1.8-1.5-0.26-4.4-0.26-4.4z" fill="url(#linearGradient4991)" style="paint-order:markers fill stroke"/>
-         <path d="m1.9 4.9 5.2 0.56s0.35 0.26 0.38 1.1c0.026 0.89 0.71 7.7 1.1 8.9-0.57-0.046-4.1-2.1-5.2-4.4-1.1-2.3-1.7-4-1.6-4.9 0.058-0.96 0.15-1.3 0.15-1.3z" fill="url(#linearGradient4742)" style="paint-order:markers fill stroke"/>
-         <path d="m14 5.8c-1.8-0.51-10 1.3-12-0.95-1.5-1.7 1.3-2.9 3-2.6 5.2 0.69 5.8 1 9.2 3.6z" fill="url(#linearGradient3728)" stop-color="#000000" style="font-variation-settings:normal;paint-order:markers fill stroke"/>
-      </g>
-   </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1in"
+   height="1in"
+   version="1.1"
+   viewBox="0 0 25 25"
+   id="svg34"
+   sodipodi:docname="favicon.svg"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview36"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="in"
+     showgrid="false"
+     inkscape:snap-others="false"
+     inkscape:snap-nodes="false"
+     inkscape:snap-global="false"
+     inkscape:zoom="4.9938552"
+     inkscape:cx="28.535069"
+     inkscape:cy="59.573214"
+     inkscape:window-width="1536"
+     inkscape:window-height="834"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg34" />
+  <defs
+     id="defs14">
+    <linearGradient
+       id="linearGradient3309">
+      <stop
+         stop-color="#211649"
+         offset="0"
+         id="stop3305"
+         style="stop-color:#64b1b9;stop-opacity:1" />
+      <stop
+         stop-color="#93c4d8"
+         offset="1"
+         id="stop3307"
+         style="stop-color:#353263;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient2257">
+      <stop
+         stop-color="#211649"
+         offset="0"
+         id="stop2253"
+         style="stop-color:#8c6300;stop-opacity:1" />
+      <stop
+         stop-color="#93c4d8"
+         offset="1"
+         id="stop2255"
+         style="stop-color:#dcdea2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient
+       id="red">
+      <stop
+         stop-color="#211649"
+         offset="0"
+         id="stop930"
+         style="stop-color:#700303;stop-opacity:1" />
+      <stop
+         stop-color="#93c4d8"
+         offset="1"
+         id="stop932"
+         style="stop-color:#f6ab8e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient
+       id="blue">
+      <stop
+         stop-color="#211649"
+         offset="0"
+         id="stop925" />
+      <stop
+         stop-color="#93c4d8"
+         offset="1"
+         id="stop927" />
+    </linearGradient>
+    <linearGradient
+       id="yellow">
+      <stop
+         stop-color="#211649"
+         offset="0"
+         id="stop2" />
+      <stop
+         stop-color="#93c4d8"
+         offset="1"
+         id="stop4" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3728"
+       x1="2.4000001"
+       x2="16.399746"
+       y1="1.4"
+       y2="6.2081647"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#red"
+       gradientTransform="matrix(0.96743784,0,0,1.1,-0.79878635,-1.9)" />
+    <linearGradient
+       id="linearGradient4742"
+       x1=".95"
+       x2="6.9"
+       y1="4.8"
+       y2="14"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#yellow"
+       gradientTransform="matrix(1.0172274,0,0,1.1127615,-0.88047892,-1.962021)" />
+    <linearGradient
+       id="linearGradient4991"
+       x1="7.9"
+       x2="16"
+       y1="7"
+       y2="11"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#linearGradient2257"
+       gradientTransform="matrix(1.0217012,0,0,1.1330884,-0.99163389,-2.0726331)" />
+    <linearGradient
+       id="linearGradient5811"
+       x1="9.1000004"
+       x2="14"
+       y1="12"
+       y2="18"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#red"
+       gradientTransform="matrix(1.054995,0,0,1.1,-1.2717646,-1.9)" />
+    <linearGradient
+       id="linearGradient5857"
+       x1="12"
+       x2="25"
+       y1="10"
+       y2="19"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#yellow"
+       gradientTransform="matrix(1,0,0,1.1,-0.76,-1.79)" />
+    <linearGradient
+       id="linearGradient5903"
+       x1="16"
+       x2="20"
+       y1="16"
+       y2="25"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#linearGradient2257"
+       gradientTransform="matrix(1,0,0,1.1,-0.85,-1.9)" />
+    <linearGradient
+       id="linearGradient6063"
+       x1="21.829283"
+       x2="25.395689"
+       y1="23.901094"
+       y2="20.417429"
+       gradientUnits="userSpaceOnUse"
+       xlink:href="#red"
+       gradientTransform="matrix(1,0,0,1.1,-0.85,-1.9)" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3309"
+       id="radialGradient2889"
+       cx="20.532804"
+       cy="15.690235"
+       fx="20.532804"
+       fy="15.690235"
+       r="5.7532811"
+       gradientTransform="matrix(-0.12243329,0.53976567,-1.0769855,-0.24428908,37.75511,8.8515565)"
+       gradientUnits="userSpaceOnUse"
+       spreadMethod="pad" />
+  </defs>
+  <path
+     d="m 19.15,19 0.39,-2.75 5.2,3.19 c 0,0 0.9,4.95 -3.3,6.6 -4.2,1.65 -2.3,-7.04 -2.3,-7.04 z"
+     fill="url(#linearGradient6063)"
+     style="fill:url(#linearGradient6063);stroke-width:1.04881;paint-order:markers fill stroke;fill-opacity:1.0"
+     id="path16" />
+  <path
+     d="m 14.15,14.6 c 0,0 -0.13,5.39 1.1,8.25 0.81,1.87 1.5,2.75 1.5,2.75 l 4,-0.0072 c 0,0 0.94,-6.16 -0.45,-7.48 -1.39,-1.32 -6.2,-3.63 -6.2,-3.63 z"
+     fill="url(#linearGradient5903)"
+     style="fill:url(#linearGradient5903);stroke-width:1.04881;paint-order:markers fill stroke;fill-opacity:1.0"
+     id="path18" />
+  <path
+     d="m 13.24,11.41 c 0,0 6,0.242 8.4,2.53 2.4,2.2 3.1,5.5 3.1,5.5 0,0 -2.8,-1.65 -3.9,-1.32 -1.1,0.275 -5.8,0.0352 -6.8,-2.2 -0.99,-2.2 -0.79,-4.4 -0.79,-4.4 z"
+     fill="url(#linearGradient5857)"
+     style="fill:url(#radialGradient2889);stroke-width:1.04881;paint-order:markers fill stroke;fill-opacity:1"
+     id="path20" />
+  <path
+     d="m 6.8516967,8.55 c 0,0.132 4.7474773,2.53 6.2244703,2.75 1.476993,0.154 1.054995,9.35 2.004491,11 0.221548,0.506 -5.4859743,-1.32 -6.5409693,-4.84 -1.054995,-3.52 -1.898991,-6.27 -1.687992,-7.81 0.2531988,-1.54 0.043255,-1.54 0.043255,-1.54 z"
+     fill="url(#linearGradient5811)"
+     style="fill:url(#linearGradient5811);stroke-width:1.07726;paint-order:markers fill stroke;fill-opacity:1.0"
+     id="path22" />
+  <path
+     d="m 7.9993367,4.272662 c 0,0 2.9629333,-1.3597061 5.8236973,0.7365074 2.860763,2.0962137 6.436717,8.0449276 6.436717,8.0449276 0,0 -2.656423,-1.359705 -5.721527,-1.359705 C 11.983971,11.735181 7.6928263,10.334685 6.568955,9.2015966 4.7298929,7.501964 6.3033127,4.2160075 6.3033127,4.2160075 Z"
+     fill="url(#linearGradient4991)"
+     style="fill:url(#linearGradient4991);stroke-width:1.07596;paint-order:markers fill stroke"
+     id="path24" />
+  <path
+     d="m 1.0522531,3.4905105 5.2895825,0.6231464 c 0,0 0.3560296,0.289318 0.3865464,1.2240377 C 6.75483,6.3280523 7.4506135,13.905958 7.8473322,15.241272 7.2675126,15.190085 3.6766998,12.904473 2.5577497,10.345121 1.4387996,7.7857699 0.82846311,5.8940753 0.93018585,4.89259 0.98918504,3.8243389 1.08277,3.446 1.08277,3.446 Z"
+     fill="url(#linearGradient4742)"
+     style="fill:url(#linearGradient4742);stroke-width:1.06392;paint-order:markers fill stroke"
+     id="path26" />
+  <path
+     d="M 12.745343,4.48 C 11.003955,3.919 3.070965,5.91 1.1360893,3.435 c -1.45115674,-1.87 1.2576692,-3.19 2.9023136,-2.86 5.0306767,0.759 5.6111394,1.1 8.9004281,3.96 z"
+     fill="url(#linearGradient3728)"
+     stop-color="#000000"
+     style="font-variation-settings:normal;fill:url(#linearGradient3728);stroke-width:1.03159;paint-order:markers fill stroke;fill-opacity:1"
+     id="path28" />
 </svg>
