@@ -1,4 +1,5 @@
 bus('usergram/*').to_fetch = (star) ->
+    c = fetch "/current_user"
     username = slash star
     
     users = {}
@@ -31,7 +32,8 @@ bus('usergram/*').to_fetch = (star) ->
             }
 
     # All other users
-    #if c.logged_in
+    # I should just make this a toggle or something??
+    #if c.logged_in and c.user.key == username
     #    (fetch "/all_users").all
     #        .forEach (v) ->
     #            vv = slash v
@@ -51,21 +53,21 @@ bus('usergram/*').to_fetch = (star) ->
     }
 
 
-bus('usergram/*').to_save = (val, star, key, t) ->
-    local = fetch shared_local_key key
-
-    # Only save the vote that was changed.
-    val.values.forEach (v) ->
-        if v.target == local.target
-            if v.type?
-                # This is a NEW vote that didn't exist before.
-                delete v.type
-
-            cop = Object.assign {}, v
-            cop.key = "/votes/_#{unslash star}_#{unslash v.target}_"
-            save cop
-                   
-    t.done val
+#bus('usergram/*').to_save = (val, star, key, t) ->
+#    local = fetch shared_local_key key
+#
+#    # Only save the vote that was changed.
+#    val.values.forEach (v) ->
+#        if v.target == local.target
+#            if v.type?
+#                # This is a NEW vote that didn't exist before.
+#                delete v.type
+#
+#            cop = Object.assign {}, v
+#            cop.key = "/votes/_#{unslash star}_#{unslash v.target}_"
+#            save cop
+#                   
+#    t.done val
 
 dom.MULTIGRAM = ->
     sldr = fetch @props.sldr
@@ -104,6 +106,7 @@ dom.MULTIGRAM = ->
             sldr: sldr
             read_only: @props.read_only
             max_avatar_radius: @props.max_avatar_radius
+            onsave: @props.onsave
 
         SLIDER_BOTTOM
             sldr: sldr
@@ -136,7 +139,7 @@ dom.MULTIHISTOGRAM = ->
   local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
   
-  # Put the height on so that start_slide_target can properly position the elements
+  # Put the height on so that start_slide can properly position the elements
   local_sldr.height = @props.height
   save local_sldr
 
@@ -194,7 +197,8 @@ dom.MULTIHISTOGRAM = ->
 
         # This sets event listeners on the avatar
         unless @props.read_only
-            props = implements_slide_draggable sldr, props, opinion.target, @props.width
+            props = implements_slide_draggable sldr, props, opinion.target, @props.width,
+                onsave: @props.onsave
 
         # Actually generate the icon
         AVATAR props

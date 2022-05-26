@@ -83,7 +83,12 @@
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
-                read_only: v.selected || !c.logged_in
+                read_only: v.selected or !c.logged_in
+                onsave: if c.logged_in and !v.selected then (vote) =>
+                    delete vote.type
+                    copy = Object.assign {}, vote
+                    copy.key = "/votes/_#{username}_#{unslash vote.target}_"
+                    save copy
 
 
 # Should I have an on_save for view that wipes the multigram?

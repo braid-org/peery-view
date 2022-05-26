@@ -33,10 +33,11 @@ dom.SLIDERGRAM = ->
     onMouseEnter: if !read_only then (e) =>
         if !has_opined && !local_sldr.tracking_mouse
             x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
-            start_slide sldr, @props.width, 'tracking', you,
+            start_slide sldr, @props.width, you,
+                type: "tracking"
                 key: "user"
                 initial_val: x_entry / @props.width
-                slidergram_width: @props.width
+                onsave: @props.onsave
 
 
     onMouseLeave: if !read_only then (e) =>
@@ -73,6 +74,7 @@ dom.SLIDERGRAM = ->
         read_only: read_only
         max_avatar_radius: @props.max_avatar_radius
         vote_key: @props.vote_key
+        onsave: @props.onsave
 
     SLIDER_BOTTOM
         sldr: sldr
@@ -97,7 +99,7 @@ dom.SLIDERGRAM = ->
 # via mouse tracking or by dragging. 
 #
 # Supports movement by touch, mouse, and click events. 
-start_slide = (sldr, slidergram_width, slide_type, target, args) -> 
+start_slide = (sldr, slidergram_width, target, args) -> 
     sldr = fetch sldr
     local = fetch shared_local_key sldr
 
@@ -106,6 +108,7 @@ start_slide = (sldr, slidergram_width, slide_type, target, args) ->
 
     val = args?.initial_val
     target_key = args?.key ? "target"
+    slide_type = args?.type ? "dragging"
 
     if slide_type == 'dragging'
         the_slide = get_target_slide sldr, target_key, target
@@ -172,15 +175,16 @@ start_slide = (sldr, slidergram_width, slide_type, target, args) ->
         sldr = fetch sldr
         local = fetch shared_local_key sldr
         # Update the value in the actual slider
-        the_vote = get_target_slide sldr, target_key, target
-        if !the_vote
-            the_vote = {}
-            sldr.values.push the_vote
+        the_vote = (get_target_slide sldr, target_key, target) ? {}
         the_vote.updated = (new Date()).getTime()
         the_vote.value = local.live
         the_vote[target_key] = target
-
-        save sldr
+        
+        if args?.onsave
+            args?.onsave?(the_vote, sldr)
+        else
+            sldr.values.push the_vote
+            save sldr
         # Is this necessary?
         local.dirty_opinions = true
         # Delete a bunch of data from local
@@ -201,10 +205,10 @@ implements_slide_draggable = (sldr, props, target, width, args) ->
     extend props,
         onMouseDown: (e) =>
             e.preventDefault()
-            start_slide sldr, width, 'dragging', target, args
+            start_slide sldr, width, target, args
         onTouchStart: (e) =>
             e.preventDefault()
-            start_slide sldr, width, 'dragging', target, args
+            start_slide sldr, width, target, args
     props
 
 
@@ -412,6 +416,7 @@ dom.HISTOGRAM = ->
       if your_vote
         props = implements_slide_draggable sldr, props, you, @props.width,
             key: "user"
+            onsave: @props.onsave
 
       AVATAR props
 

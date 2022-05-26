@@ -101,6 +101,10 @@ dom.RENDER_POST = ->
                 max_avatar_radius: (margin_left - 5) / 2
                 read_only: !c.logged_in
                 vote_key: "user"
+                onsave: if c.logged_in then (vote) =>
+                    vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
+                    vote.target = post.key
+                    save vote
 
         if c.logged_in and c.user.key == author.key then SPAN
             key: "delete-btn"
