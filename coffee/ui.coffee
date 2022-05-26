@@ -185,6 +185,7 @@ dom.POST = ->
                             if @local.addtagvisible and box.value.length
                                 post.tags ||= []
                                 post.tags.push box.value.toString()
+                                box.value = ""
                                 save post
                             
                             @local.addtagvisible = !@local.addtagvisible
@@ -210,18 +211,16 @@ dom.POST = ->
                                 textTransform: "capitalize"
                                 color: "#444"
                                 "#{tag}:"
-                            SLIDERGRAM
-                                sldr: "/votes_on#{post.key}/#{tag}"
+
+                            SLIDERGRAM_WITH_TAG
+                                post: post
+                                tag: tag
                                 width: slider_width
                                 height: margin_left - 5
                                 max_avatar_radius: (margin_left - 5) / 2
                                 read_only: !c.logged_in
-                                vote_key: "user"
-                                onsave: if c.logged_in then (vote) =>
-                                    vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_#{tag}_"
-                                    vote.target = post.key
-                                    vote.tag = tag
-                                    save vote
+
+#TODO: The first time a vote on a tagged-slidergram is changed, it takes two clicks to show up
 
 
 dom.HEADER = ->
@@ -234,6 +233,8 @@ dom.HEADER = ->
     if v.selected or c.logged_in
         viewer = fetch (v.selected || c.user)
         feed_name = "#{viewer.name}'s"
+    if (v.type == "tag")
+        feed_name = v.selected.substr(1)
 
    
     DIV
@@ -631,8 +632,15 @@ dom.FEEDS = ->
     feeds = (fetch "/feeds").all
     weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
     # sort feeds to put the selected one first...
-    feeds = feeds.sort((a, b) => (weights[a._key] ? 0) - (weights[b._key] ? 0))
-                 .filter (a) => a._key != c.user?.key
+    feeds = feeds.sort((a, b) => 
+        if a.type == "tag" and b.type == "tag"
+            return 0
+        if a.type == "tag"
+            return -1
+        if b.type == "tag"
+            return 1
+        return (weights[a._key] ? 0) - (weights[b._key] ? 0)
+        ).filter (a) => a._key != c.user?.key
         #switch
         #    when a.key == v.selected then -10
         #    when b.key == v.selected then 10
@@ -661,7 +669,7 @@ dom.FEEDS_ITEM = ->
     feed = @props.feed
     v = fetch "view"
     selected = v.selected == feed._key
-    type = "user"
+    type = feed.type
 
     DIV
         key: "feed-#{type}-#{feed._key}"
@@ -670,17 +678,25 @@ dom.FEEDS_ITEM = ->
         color: if selected then "#179"
         onClick: () ->
             v.selected = if selected then false else feed._key
+            v.type = if selected then false else feed.type
             save v
 
         # TODO: How is an avatar rendered for something that isn't a user?
-        AVATAR
-            user: feed._key
-            key: "icon"
-            hide_tooltip: true
-            style:
+        if type == "user"
+            AVATAR
+                user: feed._key
+                key: "icon"
+                hide_tooltip: true
+                style:
+                    width: 24
+                    height: 24
+                    borderRadius: "50%"
+        else
+            DIV
+                key: "idk"
                 width: 24
-                height: 24
-                borderRadius: "50%"
+                textAlign: "center"
+                "#"
 
         SPAN
             key: "type"

@@ -67,8 +67,12 @@ bus = require('statebus').serve
                 return t.done val
             # Adding a tag: TODO: FIND A BETTER PLACE TO STORE A TAG
             if val?.tags?.length
+                all_tags = bus.fetch "tags"
+                all_tags.tags ||= []
                 old.tags ||= []
-                val.tags.forEach (t) => unless t in old.tags then old.tags.push t
+                val.tags.forEach (t) => 
+                    unless t in old.tags then old.tags.push t
+                    unless t in all_tags.tags then all_tags.tags.push t
                 bus.save old
                 return t.done old
             
@@ -181,6 +185,11 @@ bus = require('statebus').serve
                     target_obj.tags.push tag
                 bus.save target_obj
 
+                all_tags = bus.fetch "tags"
+                unless tag in all_tags.tags
+                    all_tags.tags.push tag
+                bus.save all_tags
+
             
             bus.save val
             t.done val
@@ -259,9 +268,13 @@ bus('weights/*').to_save = (star, t) ->
 # TODO: People should be able to create feeds
 bus('feeds').to_fetch = () ->
     users = bus.fetch('users').all
+    tags = (bus.fetch("tags").tags || [])
+
+    feeds = users.map((u) => {_key: u.key, name: u.name, type: "user"})
+                 .concat tags.map (t) => {_key: t, name: t, type: "tag"}
     return
         key: "feeds"
-        all: users.map (u) => {_key: u.key, name: u.name}
+        all: feeds
 
 ###### Sending static content over HTTP ##############
 express = require 'express'

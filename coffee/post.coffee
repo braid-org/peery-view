@@ -8,7 +8,7 @@ compute_score = (p) ->
     sqsc + att + att * (sqsc + p.author)
     
 
-sort_posts = (posts, user) ->
+sort_posts = (posts, user, tag) ->
     c = fetch "/current_user"
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
@@ -17,6 +17,7 @@ sort_posts = (posts, user) ->
     now = Date.now() / 1000
     
     scores = {}
+    was_tagged = {}
     posts.forEach (p) ->
         # Subscribe to the post
         p = fetch p
@@ -25,7 +26,7 @@ sort_posts = (posts, user) ->
         sum_weights = 0
 
         # Subscribe to the post's votes
-        votes = (fetch "/votes_on#{p.key}").values ? []
+        votes = (fetch "/votes_on#{p.key}#{tag || ''}").values ? []
         votes.forEach (v) ->
             # first subscribe to the vote
             if v.key then fetch v
@@ -42,12 +43,15 @@ sort_posts = (posts, user) ->
             author: author_weight
             score: sum_votes
             volume: sum_weights
+        if tag?.length
+            was_tagged[p.key] = (unslash tag) in (p.tags || [])
 
     # Should we save scores and weights to the local state?
 
     posts.sort (a, b) -> scores[b.key] - scores[a.key]
     posts.filter (v) ->
-        scores[v.key] > min_weight or slash(v.user) == me
+        (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
+    
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)

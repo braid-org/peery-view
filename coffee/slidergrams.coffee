@@ -14,6 +14,20 @@ get_target_slide = (sldr, target_key, target) ->
             break
     res
 
+dom.SLIDERGRAM_WITH_TAG = ->
+    post = @props.post
+    tag = @props.tag
+    c = fetch "/current_user"
+    @props.sldr = "/votes_on#{post.key}/#{tag}"
+    @props.onsave = (vote) =>
+        vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_#{tag}_"
+        vote.target = post.key
+        vote.tag = tag
+        save vote
+    @props.vote_key = "user"
+    @props.read_only = !c.logged_in
+    SLIDERGRAM @props
+
 dom.SLIDERGRAM = ->
   sldr = fetch @props.sldr
   local_sldr = fetch(shared_local_key(sldr))
@@ -129,9 +143,10 @@ start_slide = (sldr, slidergram_width, target, args) ->
 
     # Mouse DOWN events (only for tracking)
     if slide_type == 'tracking'
-        mousedown = (e) ->
+        mousedown = (e) =>
             e.preventDefault()
             local.tracking_mouse = 'activated'
+            local.dragging = true
             save local
 
         register_window_event "slide-#{local.key}", 'mousedown', mousedown
@@ -171,28 +186,30 @@ start_slide = (sldr, slidergram_width, target, args) ->
     register_window_event "slide-#{local.key}", 'mousemove', mousemove
     register_window_event "slide-#{local.key}", 'touchmove', mousemove
 
-    finalize = (e) ->
+    finalize = (e) =>
         sldr = fetch sldr
         local = fetch shared_local_key sldr
+
+        unregister_window_event "slide-#{local.key}"
         # Update the value in the actual slider
         the_vote = (get_target_slide sldr, target_key, target) ? {}
         the_vote.updated = (new Date()).getTime()
         the_vote.value = local.live
         the_vote[target_key] = target
         
+        # Is this necessary?
+        local.dirty_opinions = true
+        # Delete a bunch of data from local
+        local.x_adjustment = local.mouse_positions = local.dragging = null
+        local.tracking_mouse = local.live = local.dragging = null
+        save local
+
         if args?.onsave
             args?.onsave?(the_vote, sldr)
         else
             sldr.values.push the_vote
             save sldr
-        # Is this necessary?
-        local.dirty_opinions = true
-        # Delete a bunch of data from local
-        local.x_adjustment = local.mouse_positions = local.dragging = null
-        local.tracking_mouse = local.live = null
-        save local
 
-        unregister_window_event "slide-#{local.key}"
 
     register_window_event "slide-#{local.key}", 'mouseup', finalize
     register_window_event "slide-#{local.key}", 'touchend', finalize
