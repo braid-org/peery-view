@@ -59,11 +59,11 @@
         username = c?.user?.key ? "/user/default"
 
         ordered = posts
-        if v.type == "user"
-            username = v.selected || username
-            ordered = sort_posts posts, username, null
         if v.type == "tag"
             ordered = sort_posts posts, username, v.selected
+        else
+            username = v.selected || username
+            ordered = sort_posts posts, username, null
 
         DIV 
             key: "post-list"
