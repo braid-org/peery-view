@@ -530,7 +530,7 @@ dom.SETTINGS = ->
     unless c.logged_in
         return
     DIV
-        width: "250"
+        width: "300"
         display: "grid"
         # Maybe use flex instead here?
         alignContent: "center"
@@ -538,9 +538,9 @@ dom.SETTINGS = ->
                "emailtag emailfield emailfield" 32px
                "pictag picfield picfield" 32px
                "filtertag filterfield filterfield" 32px
-               ". cancel save" 24px
+               "logout cancel save" 24px
                 / auto auto auto'
-        gap: "5px"
+        gridGap: "5px"
         
         DIV
             gridArea: "nametag"
@@ -593,11 +593,20 @@ dom.SETTINGS = ->
 
         BUTTON
             gridArea: "cancel"
-            onClick: (e) => @props.close?()
+            onClick: () => @props.close?()
             "Cancel"
+
+        BUTTON
+            gridrea: "logout"
+            onClick: () =>
+                @props.close?()
+                c.logout = true
+                save c
+            "Logout"
+
         BUTTON
             gridArea: "save"
-            onClick: (e) =>
+            onClick: () =>
                 
                 name = @refs.name.getDOMNode().value
                 email = @refs.email.getDOMNode().value
