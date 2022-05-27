@@ -95,7 +95,6 @@ dom.SLIDERGRAM = ->
         width: @props.width
         linewidth: 1.75
         feedback: !read_only and !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
-        handleoffset: @props.height/3
         target_key: "user"
         target: you
 
@@ -247,7 +246,7 @@ dom.SLIDER_BOTTOM = ->
     side = width/2
     lwidth = @props.linewidth ? 3
     hwidth = @props.handlewidth ? lwidth * 3
-    offset = @props.handleoffset ? 2
+    offset = @props.handleoffset ? 0
 
     hheight = hwidth * 1.5
     htop = 5 + lwidth/2 + offset
@@ -258,6 +257,10 @@ dom.SLIDER_BOTTOM = ->
         height: htop + hheight
         viewBox: "#{-side} 0 #{width} #{htop + hheight}"
 
+        POLYGON
+            fill: @props.slider_color or SLIDER_COLOR
+            points: "-4,5 0,0 4,5"
+        ###
         G
             fill: @props.slider_color or SLIDER_COLOR
           
@@ -269,6 +272,7 @@ dom.SLIDER_BOTTOM = ->
 
             POLYGON
                 points: "-4,5 0,0 4,5"
+        ###
 
         POLYLINE
             points: "#{-side},5 #{side},5"
@@ -421,7 +425,7 @@ dom.HISTOGRAM = ->
           className: 'grab_cursor you'
           style:
               left: within val * @props.width - r - 1, 0, @props.width - 2 * r
-              top: @props.height - r - 1
+              top: @props.height - r*2 - 2
               width: r*2
               height: r*2
               zIndex: 3
