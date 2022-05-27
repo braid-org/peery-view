@@ -56,14 +56,13 @@
         c = fetch "/current_user"
         posts = (fetch "/posts").all ? []
         v = fetch "view"
+
         username = c?.user?.key ? "/user/default"
 
-        ordered = posts
-        if v.type == "tag"
-            ordered = sort_posts posts, username, v.selected
-        else
-            username = v.selected || username
-            ordered = sort_posts posts, username, null
+        ordered = switch
+            when v?.selected?.type == "user" then sort_posts posts, v.selected._key
+            when v?.selected?.type == "tag" then sort_posts posts, username, v.selected._key
+            else sort_posts posts, username
 
         DIV 
             key: "post-list"
@@ -75,9 +74,10 @@
     dom.BIG_MULTIGRAM = ->
         c = fetch "/current_user"
         v = fetch "view"
-        username = c?.user?.key ? "/user/default"
-        if v.type == "user"
-            username = v.selected || username
+        username = switch
+            when v?.selected?.type == "user" then v.selected._key
+            when c?.logged_in then c.user.key
+            else "/user/default"
         username = unslash username
         DIV
             key: "multigram-wrapper"
@@ -89,8 +89,8 @@
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
-                read_only: (v.type == "user" and v.selected) or !c.logged_in
-                onsave: if c.logged_in and !(v.selected and v.type == "user") then (vote) =>
+                read_only: (v?.selected?.type == "user") or !c.logged_in
+                onsave: (vote) =>
                     delete vote.type
                     copy = Object.assign {}, vote
                     copy.key = "/votes/_#{username}_#{unslash vote.target}_"

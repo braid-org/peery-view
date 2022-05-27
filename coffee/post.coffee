@@ -10,6 +10,7 @@ compute_score = (p) ->
 
 sort_posts = (posts, user, tag) ->
     c = fetch "/current_user"
+    # The user whose perspective we should be sorting from
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     weights = fetch "/weights#{me}"
@@ -48,9 +49,11 @@ sort_posts = (posts, user, tag) ->
 
     # Should we save scores and weights to the local state?
 
+    # Filter posts:              based on the minimum score       or we made this posts           only show posts with the selected tag
+    posts = posts.filter (v) -> (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
+    # Filter before sorting!!
     posts.sort (a, b) -> scores[b.key] - scores[a.key]
-    posts.filter (v) ->
-        (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
+    posts
     
 
 make_post = (title, url, userkey) ->

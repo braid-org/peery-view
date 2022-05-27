@@ -116,7 +116,7 @@ dom.POST = ->
                         max_avatar_radius: (margin_left - 5) / 2
                         read_only: !c.logged_in
                         vote_key: "user"
-                        onsave: if c.logged_in then (vote) =>
+                        onsave: (vote) =>
                             vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
                             vote.target = post.key
                             save vote
@@ -230,7 +230,8 @@ dom.POST = ->
                                 max_avatar_radius: (margin_left - 5) / 2
                                 read_only: !c.logged_in
 
-#TODO: The first time a vote on a tagged-slidergram is changed, it takes two clicks to show up
+
+#TODO: sometimes, The first time a vote on a slidergram is changed, it takes two clicks to show up
 
 
 dom.HEADER = ->
@@ -239,13 +240,11 @@ dom.HEADER = ->
     v = fetch "view"
     c = fetch "/current_user"
 
-    feed_name = "Braid"
-    if v.selected or c.logged_in
-        viewer = fetch (v.selected || c.user)
-        feed_name = "#{viewer.name}'s"
-    if (v.type == "tag")
-        feed_name = v.selected.substr(1)
-
+    feed_name = switch
+        when v?.selected?.type == "tag" then v.selected.name
+        when v?.selected?.type == "user" then "#{v.selected.name}'s"
+        when c.logged_in then "Your"
+        else "PeeryView"
    
     DIV
         key: "header"
@@ -643,13 +642,11 @@ dom.FEEDS = ->
     weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
     # sort feeds to put the selected one first...
     feeds = feeds.sort((a, b) => 
-        if a.type == "tag" and b.type == "tag"
-            return 0
-        if a.type == "tag"
-            return -1
-        if b.type == "tag"
-            return 1
-        return (weights[a._key] ? 0) - (weights[b._key] ? 0)
+        switch
+            when a.type == "tag" and b.type == "tag" then 0
+            when a.type == "tag" then -1
+            when b.type == "tag" then 1
+            else (weights[a._key] ? 0) - (weights[b._key] ? 0)
         ).filter (a) => a._key != c.user?.key
         #switch
         #    when a.key == v.selected then -10
@@ -678,7 +675,7 @@ dom.FEEDS = ->
 dom.FEEDS_ITEM = ->
     feed = @props.feed
     v = fetch "view"
-    selected = v.selected == feed._key
+    selected = v.selected?._key == feed._key
     type = feed.type
 
     DIV
@@ -687,8 +684,7 @@ dom.FEEDS_ITEM = ->
         cursor: "pointer"
         color: if selected then "#179"
         onClick: () ->
-            v.selected = if selected then false else feed._key
-            v.type = if selected then false else feed.type
+            v.selected = if selected then false else feed
             save v
 
         # TODO: How is an avatar rendered for something that isn't a user?
