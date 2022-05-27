@@ -1,10 +1,9 @@
 {
   "dependencies": {
-    "better-sqlite3": "^7.4.4",
-    "braidify": "^0.1.17",
+    "braidify": "^0.1.19",
     "chokidar": "^3.5.2",
     "coffeescript": "^2.6.1",
-    "statebus": "^6.1.5",
+    "statebus": "^6.1.22",
     "terser": "^5.12.0"
   }
 }

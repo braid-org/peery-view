@@ -279,6 +279,12 @@ bus('feeds').to_fetch = () ->
 ###### Sending static content over HTTP ##############
 express = require 'express'
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
+bus.http.use('/*', (req, res, next) ->
+  if req.headers.accept.includes('html')
+    res.sendFile(__dirname + '/static/news.html')
+  else
+    next()
+)
 bus.http.use free_the_cors
 bus.http.get '/', send_file '/static/news.html'
 bus.http.use '/static', express.static('static')
