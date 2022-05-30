@@ -335,6 +335,7 @@ dom.HEADER = ->
    
     DIV
         key: "header"
+        ref: "headercontainer"
         position: "relative"
         zIndex: 10
         DIV
@@ -423,7 +424,6 @@ dom.HEADER = ->
 
         DIV
             key: "dropdown"
-            className: "collapseOnLoseFocus"
             display: "none" unless @local.modal 
             position: "absolute"
             zIndex: 6
@@ -437,6 +437,10 @@ dom.HEADER = ->
                 @local.modal = false
                 save @local
 
+            register_window_event "header-modal", "mousedown", (e) =>
+                # should we preventdefault?
+                unless @refs.headercontainer.getDOMNode().contains e.target
+                    close()
             
             switch @local.modal
                 when "post" then SUBMIT_POST(close: close)
