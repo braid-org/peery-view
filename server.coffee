@@ -73,6 +73,7 @@ bus = require('statebus').serve
                 val.tags.forEach (t) => 
                     unless t in old.tags then old.tags.push t
                     unless t in all_tags.tags then all_tags.tags.push t
+                bus.save all_tags
                 bus.save old
                 return t.done old
             
@@ -94,7 +95,7 @@ bus = require('statebus').serve
         # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
         client('votes_on/*').to_save = (val, old, star, t) ->
 
-            # The slidergram no longer directly saves this array. So it's not clear what the 
+            # The slidergram no longer directly saves this array. Do we still want to allow saving here?
 
             console.warn("votes_on saved!!")
             return t.abort()
@@ -159,8 +160,6 @@ bus = require('statebus').serve
                 return t.abort()
             # Check that the tag is right
             if split.length == 5 and (tag != val.tag or tag.length == 0)
-                console.log tag
-                console.log val.tag
                 return t.abort()
             # Alright, looks good.
             

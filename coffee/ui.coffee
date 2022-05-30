@@ -131,104 +131,191 @@ dom.POST = ->
                 gridArea: "more"
                 onClick: () => 
                     @local.expanded = !@local.expanded
-                    @local.addtagvisible &&= @local.expanded
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
 
-        # TODO: Move the "expanded" stuff into its own widget
         if @local.expanded
+            POST_DETAILS
+                post: post
+
+dom.POST_DETAILS = ->
+    post = fetch @props.post
+    c = fetch "/current_user"
+    # Cache this?
+    potential_tags = (fetch "/feeds").all.filter (f) =>
+        f.type == "tag" and (unslash f._key) not in (post.tags || [])
+    max_suggestions = @props.max_suggestions ? 4
+    # Setup default values in @local
+    @local.selected_idx ?= -1
+    @local.tagsearch ?= []
+    @local.typed ?= ""
+    @local.addtagvisible ?= false
+    save @local
+    DIV
+        key: "post-dropdown"
+        padding: "10px #{margin_left/2}px"
+        margin: "0 #{margin_left/2}px"
+        border: "2px solid #999"
+        borderTop: "none"
+        borderRadius: "0 0 10px 10px"
+        display: "flex"
+        flexDirection: "row"
+        justifyContent: "space-between"
+        alignContent: "stretch"
+
+        ###
+        if c.logged_in and c.user.key == author.key then SPAN
+            key: "delete-btn"
+            color: "#999"
+            className: "material-icons md-dark"
+            fontSize: "24px"
+            cursor: "pointer"
+            textAlign: "end"
+            gridArea: "del"
+            onClick: () =>
+                delete_post(post)
+            "delete"
+        ###
+        DIV
+            key: "add-tag"
+            display: "grid"
+            gridTemplateColumns: "1fr auto 1fr"
+            gridAutoRows: "24px"
+            width: "50%"
+            alignSelf: "center"
+            alignItems: "stretch"
+
+            # Grid will look like this:
+            # . SEARCHBOX  CONFIRM
+            # . SUGGESTION .
+            # . SUGGESTION .
+            # .   ...      .
+            SPAN key: "dummy"
+
             DIV
-                key: "post-dropdown"
-                padding: "10px #{margin_left/2}px"
-                margin: "0 #{margin_left/2}px"
-                border: "2px solid #999"
-                borderTop: "none"
-                borderRadius: "0 0 10px 10px"
-                display: "flex"
-                flexDirection: "row"
-                justifyContent: "stretch"
-                alignContent: "stretch"
+                key: "input-and-suggestions"
+                INPUT
+                    key: "textbox"
+                    ref: "addlabel"
+                    placeholder: "Relevant tag..."
+                    display: unless @local.addtagvisible then "none"
+                    width: slider_width
+                    # Handle arrow keys, enter, etc
+                    onKeyDown: (e) =>
+                        switch e.keyCode
+                            # Enter
+                            when 13
+                                e.preventDefault()
+                            # Up/down
+                            when 38, 40
+                                e.preventDefault()
+                                v = @refs.addlabel.getDOMNode()
+                                # Up arrow is 38, down arrow is 40
+                                di = e.keyCode - 39
+                                # Increment or decrement the index
+                                @local.selected_idx += di
+                                switch @local.selected_idx
+                                    # If we scrolled past the last one, or up from the 1st/0th, unselect
+                                    when @local.tagsearch.length, -1, -2
+                                        @local.selected_idx = -1
+                                        v.value = @local.typed
+                                    else
+                                        # Otherwise, set the textbox value to the right name
+                                        v.value = @local.tagsearch[@local.selected_idx].name
+                            # Tab 
+                            when 9
+                                e.preventDefault()
+                        save @local
+                    # Handle actual text entry
+                    onInput: (e) =>
+                        v = @refs.addlabel.getDOMNode().value
+                        @local.typed = v
+                        @local.tagsearch = potential_tags.filter((t) => t.name.toLowerCase().startsWith v.toLowerCase())
+                                                         .slice 0, max_suggestions
+                        @local.selected_idx = -1
+                        unless v.length then @local.tagsearch = []
+                        save @local
 
-                # Tagged slidergrams?
-                ###
-                if c.logged_in and c.user.key == author.key then SPAN
-                    key: "delete-btn"
+                        
+                SPAN
+                    key: "textbox-replacement"
+                    display: if @local.addtagvisible then "none"
                     color: "#999"
-                    className: "material-icons md-dark"
-                    fontSize: "24px"
-                    cursor: "pointer"
-                    textAlign: "end"
-                    gridArea: "del"
-                    onClick: () =>
-                        delete_post(post)
-                    "delete"
-                ###
-                DIV
-                    key: "add-tag"
-                    display: "flex"
-                    flexDirection: "row"
-                    justifyContent: "center"
-                    alignItems: "center"
-                    flexGrow: 1
+                    "Add Tag"
 
-                    INPUT
-                        key: "textbox"
-                        ref: "addlabel"
-                        placeholder: "Relevant tag..."
-                        display: unless @local.addtagvisible then "none"
-                        width: slider_width
-                    SPAN
-                        key: "textbox-replacement"
-                        display: if @local.addtagvisible then "none"
-                        color: "#999"
-                        "Add Tag"
+            SPAN
+                key: "addbutton"
+                color: "#999"
+                className: "material-icons md-dark"
+                fontSize: "24px"
+                cursor: "pointer"
+                marginLeft: 6
+                onClick: () => 
+                    box = @refs.addlabel.getDOMNode()
+                    if @local.addtagvisible and box.value.length
+                        post.tags ||= []
+                        post.tags.push box.value.toString()
+                        box.value = ""
+                        save post
                     
+                    @local.addtagvisible = !@local.addtagvisible
+                    @local.tagsearch = []
+                    save @local
+
+                # Have an X instead when the field is empty?
+                if @local.addtagvisible then "done" else "add_box"
+
+            # Using map instead of for ... in prevents scoping issues, and allows access to the index
+            @local.tagsearch.map (suggested, i) =>
+                selected = i == @local.selected_idx
+                DIV
+                    key: "#{suggested._key}-res"
+                    display: "contents"
+
+                    SPAN key: "dummy1"
+
                     SPAN
-                        key: "addbutton"
-                        color: "#999"
-                        className: "material-icons md-dark"
-                        fontSize: "24px"
+                        key: "res"
                         cursor: "pointer"
-                        marginLeft: 6
-                        onClick: () => 
-                            box = @refs.addlabel.getDOMNode()
-                            if @local.addtagvisible and box.value.length
-                                post.tags ||= []
-                                post.tags.push box.value.toString()
-                                box.value = ""
-                                save post
-                            
-                            @local.addtagvisible = !@local.addtagvisible
+                        className: "hover-select"
+                        lineHeight: "24px"
+                        color: "#444"
+                        background: if selected then "#eee"
+                        onClick: (e) =>
+                            # Save text of the selected result in the widget state
+                            @refs.addlabel.getDOMNode().value = suggested.name
+                            @local.selected_idx = i
                             save @local
 
+                        suggested.name
 
-                        if @local.addtagvisible then "done" else "add_box"
+                    SPAN key: "dummy2"
 
+        DIV
+            key: "tags-grid"
+            display: "grid"
+            gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
+            gridColumnGap: 10
+            gridAutoRows: margin_left
+            alignItems: "center"
+
+            for tag in (post.tags || [])
                 DIV
-                    key: "tags-grid"
-                    display: "grid"
-                    gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
-                    gridColumnGap: 10
-                    gridAutoRows: margin_left
-                    alignItems: "center"
+                    key: "tag-#{tag}"
+                    display: "contents"
+                    SPAN
+                        fontSize: 20
+                        textTransform: "capitalize"
+                        color: "#444"
+                        "#{tag}:"
 
-                    for tag in (post.tags || [])
-                        DIV
-                            key: "tag-#{tag}"
-                            display: "contents"
-                            SPAN
-                                fontSize: 20
-                                textTransform: "capitalize"
-                                color: "#444"
-                                "#{tag}:"
-
-                            SLIDERGRAM_WITH_TAG
-                                post: post
-                                tag: tag
-                                width: slider_width
-                                height: margin_left - 5
-                                max_avatar_radius: (margin_left - 5) / 2
-                                read_only: !c.logged_in
+                    SLIDERGRAM_WITH_TAG
+                        post: post
+                        tag: tag
+                        width: slider_width
+                        height: margin_left - 5
+                        max_avatar_radius: (margin_left - 5) / 2
+                        read_only: !c.logged_in
 
 
 #TODO: sometimes, The first time a vote on a slidergram is changed, it takes two clicks to show up
@@ -666,50 +753,43 @@ dom.FEEDS = ->
         gridGap: "10px 4px"
         alignItems: "center"
 
-        for feed in feeds
-            FEEDS_ITEM
-                feed: feed
 
+        feeds.map (feed) =>
+            selected = v.selected?._key == feed._key
+            type = feed.type
 
-# I only did this to prevent scoping issues... I would rather it just be a normal function
-dom.FEEDS_ITEM = ->
-    feed = @props.feed
-    v = fetch "view"
-    selected = v.selected?._key == feed._key
-    type = feed.type
-
-    DIV
-        key: "feed-#{type}-#{feed._key}"
-        display: "contents"
-        cursor: "pointer"
-        color: if selected then "#179"
-        onClick: () ->
-            v.selected = if selected then false else feed
-            save v
-
-        # TODO: How is an avatar rendered for something that isn't a user?
-        if type == "user"
-            AVATAR
-                user: feed._key
-                key: "icon"
-                hide_tooltip: true
-                style:
-                    width: 24
-                    height: 24
-                    borderRadius: "50%"
-        else
             DIV
-                key: "idk"
-                width: 24
-                textAlign: "center"
-                "#"
+                key: "feed-#{type}-#{feed._key}"
+                display: "contents"
+                cursor: "pointer"
+                color: if selected then "#179"
+                onClick: () ->
+                    v.selected = if selected then false else feed
+                    save v
 
-        SPAN
-            key: "type"
-            fontWeight: "bold"
-            textTransform: "capitalize"
-            "#{type}:"
+                # TODO: How is an avatar rendered for something that isn't a user?
+                if type == "user"
+                    AVATAR
+                        user: feed._key
+                        key: "icon"
+                        hide_tooltip: true
+                        style:
+                            width: 24
+                            height: 24
+                            borderRadius: "50%"
+                else
+                    DIV
+                        key: "idk"
+                        width: 24
+                        textAlign: "center"
+                        "#"
 
-        SPAN
-            key: "name"
-            feed.name
+                SPAN
+                    key: "type"
+                    fontWeight: "bold"
+                    textTransform: "capitalize"
+                    "#{type}:"
+
+                SPAN
+                    key: "name"
+                    feed.name
