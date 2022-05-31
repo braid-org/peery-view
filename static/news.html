@@ -36,12 +36,48 @@
     }
 
 </style>
+
 <script type=coffee>
     body_width = 800
     margin_left = 40
     post_width = 575
 
     document.title = 'Braid News'
+    window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
+    window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
+    
+    window.change_path = (path) ->
+        u = new URL window.location.href
+        u.pathname = path
+        history.pushState {}, '', u
+
+    window.parse_path = (path) ->
+        path = unslash path
+        v = fetch "view"
+        v.selected = switch
+            when path.startsWith "tag"
+                tagname = (path.substr 4).toLowerCase()
+                {
+                    _key: "/#{tagname}",
+                    name: tagname,
+                    type: "tag"
+                }
+            when path.startsWith "user"
+                {
+                    _key: slash path,
+                    name: path.substr 5
+                    type: "user"
+                }
+            else
+                null
+        save v
+
+    window.load_path = (path) ->
+        change_path path
+        parse_path path
+
+
+    parse_path ((new URL window.location.href).pathname)
 
     dom.BODY = ->
         DIV
@@ -101,10 +137,10 @@
 
 
 </script>
+
 <!-- Main statebus script -->
 <script src="/client.js" server="/"></script>
 <script src="/static/vendor/considerit_shared.js" crossorigin=anonymous></script>
-<script src="/coffee/shared.coffee" crossorigin=anonymous></script>
 <script src="/coffee/ui.coffee" crossorigin=anonymous></script>
 <script src="/coffee/post.coffee" crossorigin=anonymous></script>
 

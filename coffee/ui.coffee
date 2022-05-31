@@ -358,6 +358,9 @@ dom.HEADER = ->
             SPAN
                 key: "home"
                 margin: 10
+                cursor: "pointer"
+                onClick: () =>
+                    load_path "/"
                 "Home"
 
             SPAN
@@ -427,6 +430,8 @@ dom.HEADER = ->
             display: "none" unless @local.modal 
             position: "absolute"
             zIndex: 6
+            # Sometimes, we want the popup to be close to the button that opened it
+            # So we can compute and specify a horizontal offset.
             right: @local.offset ? 0
             marginTop: 10
             padding: 10
@@ -437,6 +442,7 @@ dom.HEADER = ->
                 @local.modal = false
                 save @local
 
+            # register_window_event prevents a new handler from being added when the element is re-rendered
             register_window_event "header-modal", "mousedown", (e) =>
                 # should we preventdefault?
                 unless @refs.headercontainer.getDOMNode().contains e.target
@@ -447,8 +453,6 @@ dom.HEADER = ->
                 when "settings" then SETTINGS(close: close)
                 when "login" then LOGIN(close: close)
                 when "feeds" then FEEDS()
-
-
 
 
 
@@ -767,8 +771,14 @@ dom.FEEDS = ->
                 display: "contents"
                 cursor: "pointer"
                 color: if selected then "#179"
-                onClick: () ->
+                onClick: () =>
                     v.selected = if selected then false else feed
+                    # Update the url... todo: find a better way of doing this?
+                    newpath = switch v?.selected?.type
+                        when "user" then feed._key
+                        when "tag" then "/tag#{feed._key}"
+                        else "/"
+                    change_path newpath
                     save v
 
                 # TODO: How is an avatar rendered for something that isn't a user?
