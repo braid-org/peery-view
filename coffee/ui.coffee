@@ -100,10 +100,10 @@ dom.POST = ->
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
-                if v.type == "tag" and v.selected.length
+                if v.selected.type == "tag" and v.selected
                     SLIDERGRAM_WITH_TAG
                         post: post
-                        tag: unslash v.selected
+                        tag: unslash v.selected._key
                         width: slider_width
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
@@ -228,9 +228,9 @@ dom.POST_DETAILS = ->
                         save @local
                     # Handle actual text entry
                     onInput: (e) =>
-                        v = @refs.addlabel.getDOMNode().value
+                        v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
                         @local.typed = v
-                        @local.tagsearch = potential_tags.filter((t) => t.name.toLowerCase().startsWith v.toLowerCase())
+                        @local.tagsearch = potential_tags.filter((t) => t.name.startsWith v)
                                                          .slice 0, max_suggestions
                         @local.selected_idx = -1
                         unless v.length then @local.tagsearch = []
@@ -254,7 +254,7 @@ dom.POST_DETAILS = ->
                     box = @refs.addlabel.getDOMNode()
                     if @local.addtagvisible and box.value.length
                         post.tags ||= []
-                        post.tags.push box.value.toString()
+                        post.tags.push box.value.toString().toLowerCase()
                         box.value = ""
                         save post
                     
