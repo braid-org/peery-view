@@ -247,17 +247,20 @@ bus('votes_by/*').to_fetch = (star, t) ->
     cur = bus.cache[key]
     if cur?
         return cur
-    # Put a vote on the default user
-    cur = {
-        key: key
-        "user/default": {
-            key: "votes/_#{star}_user/default_"
-            updated: 0
-            user: "/#{star}"
-            target: "/user/default"
-            value: 1.0
+    # Put a vote on the default user, if this isn't a tagged-vote array
+    unless /user\/.+\/.+/.test star
+        cur = {
+            key: key
+            "user/default": {
+                key: "votes/_#{star}_user/default_"
+                updated: 0
+                user: "/#{star}"
+                target: "/user/default"
+                value: 1.0
+            }
         }
-    }
+    else
+        cur = {key: key}
     bus.save.sync cur
     return cur
 
@@ -274,6 +277,76 @@ bus('feeds').to_fetch = () ->
     return
         key: "feeds"
         all: feeds
+
+# Server migrations
+migrate = ->
+    migrations = bus.fetch "migrations"
+
+    # Convert tagnames to lowercase
+    unless migrations.lowercase_tags
+        console.warn "Migration: Lowercase tags"
+        Object.keys(bus.cache).forEach (k) =>
+            # First rename all keys of the form votes/_user/x_post/y_tag_
+            if /votes\/_user\/.+_post\/.+_.+_/.test k
+                parts = k.split '_' 
+                tag = parts[3]
+                newkey = "#{parts[0]}_#{parts[1]}_#{parts[2]}_#{tag.toLowerCase()}_"
+
+                obj = bus.fetch k 
+                obj.key = newkey
+                obj.tag = obj.tag.toLowerCase()
+                bus.save obj
+                # If we actually moved the state
+                unless newkey == k
+                    bus.delete k
+
+            # Now rename all keys of the form votes_on/post/y/tag
+            else if /votes_on\/post\/.+\/.+/.test k
+                parts = k.split '/'
+                tag = parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
+                newkey = parts.join '/'
+
+                votes_obj = bus.fetch k
+                votes_obj.key = newkey
+                votes_obj.values.forEach (v) =>
+                    k_l = v.key
+                    parts_l = k_l.split '_' 
+                    newkey_l = "#{parts_l[0]}_#{parts_l[1]}_#{parts_l[2]}_#{tag}_"
+                    v.key = newkey_l
+                    v.tag = tag
+
+                bus.save votes_obj
+                unless newkey == k
+                    bus.delete k
+                
+            else if /votes_by\/user\/.+\/.+/.test k
+                parts = k.split '/'
+                parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
+                newkey = parts.join '/'
+
+                votes_obj = bus.fetch k
+                votes_obj.key = newkey
+                bus.save votes_obj
+                unless newkey == k
+                    bus.delete k
+
+            # Then go through every post and lowercase the names of the tags
+            else if k.startsWith "post"
+                post = bus.fetch k
+                post.tags = (post.tags || []).map (t) => t.toLowerCase()
+                bus.save post
+         
+        # Then lowercase the content in `tags`
+        tags = bus.fetch "tags"
+        tags.tags = (tags.tags || []).map (t) => t.toLowerCase()
+        bus.save tags
+        
+        migrations.lowercase_tags = true
+        console.log "Finished lowercasing tags"
+
+    bus.save migrations
+
+migrate()
 
 ###### Sending static content over HTTP ##############
 express = require 'express'
