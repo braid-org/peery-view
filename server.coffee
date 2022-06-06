@@ -336,7 +336,7 @@ migrate = ->
                 post = bus.fetch k
                 post.tags = (post.tags || []).map (t) => t.toLowerCase()
                 # Remove duplicates
-                post.tags = post.tags.filter (e, i) => tags.tags.indexOf(e) == i
+                post.tags = post.tags.filter (e, i) => post.tags.indexOf(e) == i
                 bus.save post
          
         # Then lowercase the content in `tags`
