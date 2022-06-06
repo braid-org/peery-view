@@ -100,7 +100,7 @@ dom.POST = ->
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
-                if v.selected.type == "tag" and v.selected
+                if v.selected?.type == "tag"
                     SLIDERGRAM_WITH_TAG
                         post: post
                         tag: unslash v.selected._key
@@ -326,6 +326,10 @@ dom.HEADER = ->
     # In the future, we'll create a type of state that can be "viewed" (such as a project, user, or tag), and the HEADER will recieve that as a paremeter...
     v = fetch "view"
     c = fetch "/current_user"
+
+    if v?.selected?.type == "user" and not v?.selected?.name
+        v.selected.name = (fetch v.selected._key).name
+        save v
 
     feed_name = switch
         when v?.selected?.type == "tag" then v.selected.name
@@ -806,4 +810,5 @@ dom.FEEDS = ->
 
                 SPAN
                     key: "name"
+                    textTransform: if type == "tag" then "capitalize"
                     feed.name

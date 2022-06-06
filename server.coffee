@@ -13,6 +13,7 @@ bus = require('statebus').serve
             # 1. A client is making a new post
             # 2. A client is deleting an existing post.
             # 3. A client is editing an existing post: this is not allowed!
+            # 4. A client is adding a tag to an existing post
 
             # New post
             unless old.user?
@@ -290,33 +291,33 @@ migrate = ->
             if /votes\/_user\/.+_post\/.+_.+_/.test k
                 parts = k.split '_' 
                 tag = parts[3]
-                newkey = "#{parts[0]}_#{parts[1]}_#{parts[2]}_#{tag.toLowerCase()}_"
+                unless tag == tag.toLowerCase()
+                    tag = tag.toLowerCase()
+                    newkey = "#{parts[0]}_#{parts[1]}_#{parts[2]}_#{tag.toLowerCase()}_"
 
-                obj = bus.fetch k 
-                obj.key = newkey
-                obj.tag = obj.tag.toLowerCase()
-                bus.save obj
-                # If we actually moved the state
-                unless newkey == k
+                    obj = bus.fetch k 
+                    obj.key = newkey
+                    obj.tag = obj.tag.toLowerCase()
+                    bus.save obj
                     bus.delete k
 
             # Now rename all keys of the form votes_on/post/y/tag
             else if /votes_on\/post\/.+\/.+/.test k
                 parts = k.split '/'
-                tag = parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
-                newkey = parts.join '/'
+                unless parts[parts.length - 1] == parts[parts.length - 1].toLowerCase()
+                    tag = parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
+                    newkey = parts.join '/'
 
-                votes_obj = bus.fetch k
-                votes_obj.key = newkey
-                votes_obj.values.forEach (v) =>
-                    k_l = v.key
-                    parts_l = k_l.split '_' 
-                    newkey_l = "#{parts_l[0]}_#{parts_l[1]}_#{parts_l[2]}_#{tag}_"
-                    v.key = newkey_l
-                    v.tag = tag
+                    votes_obj = bus.fetch k
+                    votes_obj.key = newkey
+                    votes_obj.values.forEach (v) =>
+                        k_l = v.key
+                        parts_l = k_l.split '_' 
+                        newkey_l = "#{parts_l[0]}_#{parts_l[1]}_#{parts_l[2]}_#{tag}_"
+                        v.key = newkey_l
+                        v.tag = tag
 
-                bus.save votes_obj
-                unless newkey == k
+                    bus.save votes_obj
                     bus.delete k
                 
             else if /votes_by\/user\/.+\/.+/.test k
@@ -334,11 +335,15 @@ migrate = ->
             else if k.startsWith "post"
                 post = bus.fetch k
                 post.tags = (post.tags || []).map (t) => t.toLowerCase()
+                # Remove duplicates
+                post.tags = post.tags.filter (e, i) => tags.tags.indexOf(e) == i
                 bus.save post
          
         # Then lowercase the content in `tags`
         tags = bus.fetch "tags"
         tags.tags = (tags.tags || []).map (t) => t.toLowerCase()
+        # Remove duplicates
+        tags.tags = tags.tags.filter (e, i) => tags.tags.indexOf(e) == i
         bus.save tags
         
         migrations.lowercase_tags = true
