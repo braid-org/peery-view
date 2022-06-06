@@ -3,7 +3,6 @@ dom.AVATAR = ->
 
     @props.style ||= {}
     @props.hide_tooltip ||= false
-    @props.key ||= "avatar-#{@props.user.key or @props.user}"
     
 
     user = @props.user
@@ -64,7 +63,6 @@ dom.AVATAR = ->
 dom.AVATAR_WITH_SLIDER = ->
 
     SPAN
-        key: "container"
         style: {
             @props.style...,
             position: "relative",
@@ -87,6 +85,7 @@ dom.AVATAR_WITH_SLIDER = ->
                 save @local
 
         AVATAR
+            key: "the-avatar"
             user: @props.user
             hide_tooltip: @local.user_slide
             style:

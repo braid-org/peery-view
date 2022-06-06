@@ -50,7 +50,6 @@ dom.POST = ->
     user_clickable = c.logged_in and (c.user.key != author.key)
 
     DIV
-        key: "post-container-#{post.key}"
         margin: "5px 0"
         padding: "5px 10px"
         boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
@@ -103,6 +102,7 @@ dom.POST = ->
                 height: margin_left - 10
                 if v.selected?.type == "tag"
                     SLIDERGRAM_WITH_TAG
+                        key: "slidergram"
                         post: post
                         tag: unslash v.selected._key
                         width: slider_width
@@ -111,6 +111,7 @@ dom.POST = ->
                         read_only: !c.logged_in
                 else
                     SLIDERGRAM
+                        key: "sidergram"
                         sldr: "/votes_on#{post.key}"
                         width: slider_width
                         height: margin_left - 5
@@ -137,6 +138,7 @@ dom.POST = ->
 
         if @local.expanded
             POST_DETAILS
+                key: "details-dropdown"
                 post: post
 
 dom.POST_DETAILS = ->
@@ -153,7 +155,6 @@ dom.POST_DETAILS = ->
     @local.addtagvisible ?= false
     save @local
     DIV
-        key: "post-dropdown"
         padding: "10px #{margin_left/2}px"
         margin: "4px #{margin_left/2}px"
         display: "flex"
@@ -161,19 +162,19 @@ dom.POST_DETAILS = ->
         justifyContent: "space-between"
         alignContent: "stretch"
 
-        ###
-        if c.logged_in and c.user.key == author.key then SPAN
+        
+        if c?.user?.key == post?.user then SPAN
             key: "delete-btn"
             color: "#999"
             className: "material-icons md-dark"
             fontSize: "24px"
             cursor: "pointer"
-            textAlign: "end"
-            gridArea: "del"
+            textAlign: "center"
+            alignSelf: "center"
             onClick: () =>
                 delete_post(post)
             "delete"
-        ###
+        
         DIV
             key: "add-tag"
             display: "grid"
@@ -302,12 +303,14 @@ dom.POST_DETAILS = ->
                     key: "tag-#{tag}"
                     display: "contents"
                     SPAN
+                        key: "tag-text"
                         fontSize: 20
                         textTransform: "capitalize"
                         color: "#444"
                         "#{tag}:"
 
                     SLIDERGRAM_WITH_TAG
+                        key: "tag-slidergram"
                         post: post
                         tag: tag
                         width: slider_width
@@ -336,7 +339,6 @@ dom.HEADER = ->
         else "PeeryView"
    
     DIV
-        key: "header"
         ref: "headercontainer"
         position: "relative"
         zIndex: 10
@@ -408,6 +410,7 @@ dom.HEADER = ->
                         marginRight: 4
                         c.user.name
                     AVATAR
+                        key: "avatar"
                         user: c.user
                         hide_tooltip: true
                         style:
@@ -451,10 +454,17 @@ dom.HEADER = ->
                     close()
             
             switch @local.modal
-                when "post" then SUBMIT_POST(close: close)
-                when "settings" then SETTINGS(close: close)
-                when "login" then LOGIN(close: close)
-                when "feeds" then FEEDS()
+                when "post" then SUBMIT_POST
+                    close: close
+                    key: "submit-modal"
+                when "settings" then SETTINGS
+                    close: close
+                    key: "settings-modal"
+                when "login" then LOGIN
+                    close: close
+                    key: "login-modal"
+                when "feeds" then FEEDS
+                    key: "feeds-modal"
 
 
 
@@ -568,23 +578,27 @@ dom.LOGIN = ->
                 / auto auto'
         gap: "6px"
         DIV
+            key: "error"
             gridArea: "error"
             display: "none" unless c.error
             fontSize: "12px"
             color: "red"
             c.error
         INPUT
+            key: "login-name"
             id: "login-name"
             ref: "login-name"
             placeholder: "Username"
             gridArea: "name"
         INPUT
+            key: "login-pw"
             id: "login-pw"
             ref: "login-pw"
             placeholder: "Password"
             gridArea: "pw"
             type: "password"
         INPUT
+            key: "login-email"
             id: "login-email"
             ref: "login-email"
             placeholder: "Email"
@@ -592,6 +606,7 @@ dom.LOGIN = ->
             type: "email"
 
         BUTTON {
+            key: "register"
             gridArea: "register"
             button_style...
 
@@ -617,6 +632,7 @@ dom.LOGIN = ->
             "Register"
 
         BUTTON {
+            key: "login"
             gridArea: "login"
             button_style...
             onClick: (e) =>
@@ -650,22 +666,26 @@ dom.SETTINGS = ->
         gridGap: "5px"
         
         DIV
+            key: "name"
             gridArea: "nametag"
             color: "#333"
             fontSize: "12px"
             "Name"
         INPUT
+            key: "name-change"
             gridArea: "namefield"
             ref: "name"
             value: c.user.name
             id: "name-change"
 
         DIV
+            key: "email"
             gridArea: "emailtag"
             color: "#333"
             fontSize: "12px"
             "Email"
         INPUT
+            key: "email-change"
             gridArea: "emailfield"
             ref: "email"
             value: c.user.email
@@ -673,22 +693,26 @@ dom.SETTINGS = ->
             type: "email"
 
         DIV
+            key: "pic"
             gridArea: "pictag"
             color: "#333"
             fontSize: "12px"
             "Avatar URL"
         INPUT
+            key: "pic-change"
             gridArea: "picfield"
             ref: "pic"
             value: c.user.pic
             placeholder: "http://..."
             id: "pic-change"
         DIV
+            key: "filter"
             gridArea: "filtertag"
             color: "#333"
             fontSize: "12px"
             "Min post score"
         INPUT
+            key: "filter-change"
             gridArea: "filterfield"
             ref: "filter"
             value: c.user.filter
@@ -699,12 +723,14 @@ dom.SETTINGS = ->
 
 
         BUTTON
+            key: "cancel"
             gridArea: "cancel"
             onClick: () => @props.close?()
             "Cancel"
 
         BUTTON
-            gridrea: "logout"
+            key: "logout"
+            gridArea: "logout"
             onClick: () =>
                 @props.close?()
                 c.logout = true
@@ -712,6 +738,7 @@ dom.SETTINGS = ->
             "Logout"
 
         BUTTON
+            key: "save"
             gridArea: "save"
             onClick: () =>
                 
@@ -750,7 +777,6 @@ dom.FEEDS = ->
         #    when b.key == v.selected then 10
         #    else (weights[a.key] ? 0) - (weights[b.key] ? 0)
     DIV
-        key: "feeds-scroll-list"
         ref: "feeds"
         maxHeight: 200
         overflowY: "auto"
@@ -795,7 +821,7 @@ dom.FEEDS = ->
                             borderRadius: "50%"
                 else
                     DIV
-                        key: "idk"
+                        key: "tagvatar"
                         width: 24
                         textAlign: "center"
                         "#"

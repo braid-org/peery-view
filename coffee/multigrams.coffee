@@ -101,6 +101,7 @@ dom.MULTIGRAM = ->
 
 
         MULTIHISTOGRAM
+            key: "histogram"
             width: @props.width
             height: @props.height
             sldr: sldr
@@ -109,6 +110,7 @@ dom.MULTIGRAM = ->
             onsave: @props.onsave
 
         SLIDER_BOTTOM
+            key: "bottom"
             sldr: sldr
             width: @props.width
             # Show the handle if we're dragging or hovering on an avatar
@@ -120,6 +122,7 @@ dom.MULTIGRAM = ->
             target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
 
         SLIDER_TOOLTIP
+            key: "floating-tooltip"
             local: local_sldr
             width: @props.width
             height: @props.height
@@ -148,7 +151,6 @@ dom.MULTIHISTOGRAM = ->
   dragging = local_sldr.dragging
 
   DIV extend( props,
-    key: 'histo'
     className: 'histogram'
     style:
       width: @props.width

@@ -80,13 +80,15 @@
 
     dom.BODY = ->
         DIV
-            key: "body"
             width: body_width
             margin: "auto"
 
-            HEADER()
-            BIG_MULTIGRAM()
-            POSTS()
+            HEADER
+                key: "header"
+            BIG_MULTIGRAM
+                key: "multigram"
+            POSTS
+                key: "posts"
 
     dom.POSTS = ->
 
@@ -104,9 +106,10 @@
 
         DIV 
             key: "post-list"
-            for post in ordered
+            ordered.map (post) =>
                 POST
                     post: post
+                    key: "post-#{post.key.substr 6}"
 
 
     dom.BIG_MULTIGRAM = ->
@@ -118,11 +121,11 @@
             else "/user/default"
         username = unslash username
         DIV
-            key: "multigram-wrapper"
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
+                key: "multigram-inner"
                 sldr: "usergram/#{username}"
                 width: body_width - 2 * margin_left 
                 height: 130

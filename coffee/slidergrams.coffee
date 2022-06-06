@@ -38,7 +38,6 @@ dom.SLIDERGRAM = ->
   read_only = @props.read_only
 
   DIV
-    key: 'opinion_area'
     ref: 'opinion_area'
     display: 'flex'
     flexDirection: 'column'
@@ -81,6 +80,7 @@ dom.SLIDERGRAM = ->
 
 
     HISTOGRAM
+        key: "histogram"
         width: @props.width
         height: @props.height
         sldr: sldr
@@ -91,6 +91,7 @@ dom.SLIDERGRAM = ->
         onsave: @props.onsave
 
     SLIDER_BOTTOM
+        key: "bottom"
         sldr: sldr
         width: @props.width
         linewidth: 1.75
@@ -99,6 +100,7 @@ dom.SLIDERGRAM = ->
         target: you
 
     SLIDER_TOOLTIP
+        key: "hover-tooltip"
         local: local_sldr
         width: @props.width
         height: @props.height
@@ -258,6 +260,7 @@ dom.SLIDER_BOTTOM = ->
         viewBox: "#{-side} 0 #{width} #{htop + hheight}"
 
         POLYGON
+            key: "triangle"
             fill: @props.slider_color or SLIDER_COLOR
             points: "-4,5 0,0 4,5"
         ###
@@ -275,18 +278,22 @@ dom.SLIDER_BOTTOM = ->
         ###
 
         POLYLINE
+            key: "empty-line"
             points: "#{-side},5 #{side},5"
             stroke: @props.slider_color or SLIDER_COLOR
             strokeWidth: lwidth
 
         G
+            key: "dynamic-stuff"
             opacity: 0 unless val?
             POLYLINE
+                key: "filled-line"
                 points: "#{side * Math.min val, 0},5 #{side * Math.max val, 0},5"
                 stroke: @props.color ? color 
                 strokeWidth: lwidth
 
             POLYGON
+                key: "handle"
                 transform: "translate(#{side * val}px, #{htop}px)"
                 points: "0,0
                          #{hwidth/2},#{hheight/2}
@@ -340,6 +347,7 @@ dom.SLIDER_TOOLTIP = ->
         pointerEvents: "none"
 
         SPAN
+            key: "tooltip-text"
             padding: "2px 5px"
             borderRadius: 2
 
