@@ -57,20 +57,23 @@ sort_posts = (posts, user, tag) ->
     
 
 make_post = (title, url, userkey) ->
-    get_id = () -> "/post/" + Math.random().toString(36).substr(2, 10)
+    get_id = () -> "/post/" + Math.random().toString(36)
     id = get_id()
+    ###
     # Check for ID collision -- usually this won't happen
     while Object.keys(fetch id).length > 1
         # If we picked an ID that already exists, just forget it and make a new one
         forget id
         id = get_id()
-
+    ###
+    v = fetch "view"
     post =
         key: id
         user: userkey
         title: title
         url: url
         time: Math.floor (Date.now() / 1000)
+        tags: if v?.selected?.type == "tag" then [unslash v.selected._key]
 
     save post
 
