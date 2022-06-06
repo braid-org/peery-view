@@ -51,14 +51,15 @@ dom.POST = ->
 
     DIV
         key: "post-container-#{post.key}"
-        marginTop: "10px"
-        marginBottom: "10px"
+        margin: "5px 0"
+        padding: "5px 10px"
+        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
         DIV
             key: "post-main"
             display: "grid"
             grid: "\"icon title slider more\" auto
                    \"icon domain_time slider more\" 16px
-                    / #{margin_left}px #{post_width + 10}px 1fr #{margin_left}px"
+                    / #{margin_left}px #{post_width}px 1fr #{margin_left}px"
             alignItems: "center"
 
             AVATAR_WITH_SLIDER
@@ -123,12 +124,12 @@ dom.POST = ->
 
             SPAN
                 key: "more"
+                gridArea: "more"
                 color: "#999"
                 className: "material-icons md-dark"
                 fontSize: "24px"
                 cursor: "pointer"
-                textAlign: "end"
-                gridArea: "more"
+                textAlign: "center"
                 onClick: () => 
                     @local.expanded = !@local.expanded
                     save @local
@@ -154,10 +155,7 @@ dom.POST_DETAILS = ->
     DIV
         key: "post-dropdown"
         padding: "10px #{margin_left/2}px"
-        margin: "0 #{margin_left/2}px"
-        border: "2px solid #999"
-        borderTop: "none"
-        borderRadius: "0 0 10px 10px"
+        margin: "4px #{margin_left/2}px"
         display: "flex"
         flexDirection: "row"
         justifyContent: "space-between"
