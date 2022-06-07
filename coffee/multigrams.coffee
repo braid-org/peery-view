@@ -1,15 +1,15 @@
 bus('usergram/*').to_fetch = (star) ->
-    c = fetch "/current_user"
-    username = slash star
+    username_with_tag = slash star
+    username_without_tag = "/user/#{star.split('/')[1]}"
     
     users = {}
     # Add users with direct votes
-    Object.values(fetch "/votes_by#{username}")
-        .filter (v) ->
+    Object.values(fetch "/votes_by#{username_with_tag}")
+        .filter (v) =>
             unless v.target?
                 return false
             (unslash v.target).startsWith "user"
-        .forEach (v) ->
+        .forEach (v) =>
             # Subscribe to each individual vote...
             fetch v
             # Now make a copy of it that isnt tied to the real state url
@@ -18,12 +18,12 @@ bus('usergram/*').to_fetch = (star) ->
             users[slash t.target] = t
 
     # Users in network
-    Object.entries(fetch "/weights#{username}")
-        .filter ([k, v]) -> k != "key"
-        .forEach ([k, v]) ->
+    Object.entries(fetch "/weights#{username_without_tag}")
+        .filter ([k, v]) => k != "key"
+        .forEach ([k, v]) =>
             kk = slash k
             users[kk] ?= {
-                user: username
+                user: username_without_tag
                 target: kk
                 type: "network"
                 # weights get computed between -1 and 1.
@@ -45,8 +45,8 @@ bus('usergram/*').to_fetch = (star) ->
     #            }
 
     # Don't put the user whose usergram this is in the display
-    if users.hasOwnProperty username
-        delete users[username]
+    if users.hasOwnProperty username_without_tag
+        delete users[username_without_tag]
 
     {
         values: Object.values users
@@ -236,14 +236,14 @@ dom.MULTIHISTOGRAM = ->
 dom.MULTIHISTOGRAM.refresh = ->
   sldr = fetch @props.sldr
   local_sldr = fetch shared_local_key sldr
-  # TODO: Replace current user with like, the name of the viewing user?
   dragging = local_sldr.dragging
 
   # We want to avoid running the expensive layout calculation unless things have changed
   hash = (v.value for v in sldr.values || []).join " "
-  cache_key = md5([@props.width, @props.height, hash])
+  cache_key = md5([@props.width, @props.height, hash, sldr.key])
+  # A single multihistogram widget could get pointed at different state. Hence, the cache key should change when the state key changes
 
-  if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
+  if sldr.values?.length > 0 and (cache_key != @last_cache || local_sldr.dirty_opinions) and !@loading()
     local_sldr.dirty_opinions = false
     save local_sldr
 
@@ -277,6 +277,7 @@ dom.MULTIHISTOGRAM.refresh = ->
       vote_key: "target"
 
     @last_cache = cache_key
+
 
     
 # TODO refactor this

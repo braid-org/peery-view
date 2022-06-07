@@ -250,6 +250,7 @@ bus('votes_by/*').to_fetch = (star, t) ->
         return cur
     # Put a vote on the default user, if this isn't a tagged-vote array
     unless /user\/.+\/.+/.test star
+        console.log star
         cur = {
             key: key
             "user/default": {

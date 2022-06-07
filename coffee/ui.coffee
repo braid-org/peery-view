@@ -332,11 +332,13 @@ dom.HEADER = ->
         v.selected.name = (fetch v.selected._key).name
         save v
 
-    feed_name = switch
-        when v?.selected?.type == "tag" then v.selected.name
-        when v?.selected?.type == "user" then "#{v.selected.name}'s"
-        when c.logged_in then "Your"
-        else "PeeryView"
+    feed_perspective = switch
+        when v?.selected?.type == "user" then "#{v.selected.name}'s view"
+        when c.logged_in then "Your view"
+        else "Overview"
+    feed_content = switch
+        when v?.selected?.type == "tag" then titlecase v.selected.name
+        else "everything"
    
     DIV
         ref: "headercontainer"
@@ -355,9 +357,9 @@ dom.HEADER = ->
 
             SPAN
                 key: "title"
-                fontSize: 36
+                fontSize: 24
                 flexGrow: 1
-                "#{feed_name} feed"
+                "#{feed_perspective} of #{feed_content}"
 
             SPAN
                 key: "home"

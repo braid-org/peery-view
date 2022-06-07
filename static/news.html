@@ -45,6 +45,7 @@
     document.title = 'Braid News'
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
+    window.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
     
     window.change_path = (path) ->
         u = new URL window.location.href
@@ -52,11 +53,11 @@
         history.pushState {}, '', u
 
     window.parse_path = (path) ->
-        path = unslash path
+        path = unslash unescape path
         v = fetch "view"
         v.selected = switch
             when path.startsWith "tag"
-                tagname = (path.substr 4).toLowerCase()
+                tagname = (path.substr 4)
                 {
                     _key: "/#{tagname}",
                     name: tagname,
@@ -120,13 +121,16 @@
             when c?.logged_in then c.user.key
             else "/user/default"
         username = unslash username
+        if v?.selected?.type == "tag"
+            username_tag = "#{username}#{slash v.selected._key}"
+            tag = unslash v.selected._key
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
                 key: "multigram-inner"
-                sldr: "usergram/#{username}"
+                sldr: "usergram/#{username_tag ? username}"
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
@@ -134,7 +138,11 @@
                 onsave: (vote) =>
                     delete vote.type
                     copy = Object.assign {}, vote
-                    copy.key = "/votes/_#{username}_#{unslash vote.target}_"
+                    if tag
+                        copy.key = "/votes/_#{username}_#{unslash vote.target}_#{tag}_"
+                        copy.tag = tag
+                    else
+                        copy.key = "/votes/_#{username}_#{unslash vote.target}_"
                     save copy
 
 

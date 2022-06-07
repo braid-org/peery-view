@@ -13,13 +13,29 @@ sort_posts = (posts, user, tag) ->
     # The user whose perspective we should be sorting from
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+
     weights = fetch "/weights#{me}"
+    # Add tagged votes, which aren't seen in the weights
+    if tag
+        tagged_votes = fetch "/votes_by#{me}/#{unslash tag}"
+        (Object.entries tagged_votes).filter( ([k, v]) => (unslash k).startsWith "user")
+                                     .forEach ([k, v]) =>
+                                         fetch v
+                                         weights[unslash k] = (2 * v.value) - 1
+
+    if loading()
+        return posts
 
     now = Date.now() / 1000
     
     scores = {}
     was_tagged = {}
     posts.forEach (p) ->
+        if tag?.length
+            if (unslash tag) in (p.tags || [])
+                was_tagged[p.key] = true
+            else
+                return
         # Subscribe to the post
         p = fetch p
 
@@ -44,8 +60,6 @@ sort_posts = (posts, user, tag) ->
             author: author_weight
             score: sum_votes
             volume: sum_weights
-        if tag?.length
-            was_tagged[p.key] = (unslash tag) in (p.tags || [])
 
     # Should we save scores and weights to the local state?
 
