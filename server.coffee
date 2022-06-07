@@ -1,12 +1,110 @@
+# I think all these things have to be defined before 
+unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
+slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
+
+split_once = (str, char) ->
+    i = str.indexOf char
+    if i == -1
+        [str, ""]
+    else
+        [str[...i], str[i+1..]]
+
+# KSON = Kinda Simple Object Notation
+# but it rhymes with JSON
+parseKSON = (str) ->
+    # assert str.startsWith "(" and str.endsWith ")"
+
+    # Coffeescript doesn't have object comprehensions :(
+    ret = {}
+    # Pull out the parentheses
+    str[1...-1]
+    # Split by commas. TODO: Allow spaces after commas?
+    .split ","
+    # Delete empty parts (this ensures that empty strings will properly result in empty KSON, and allows trailing commas)
+    .filter (part) -> part.length
+    .forEach (part) ->
+        # If the part has a comma, its a key:value, otherwise it's just a singleton
+        [k, v] = split_once part, ":"
+
+        ret[k] = switch
+            when v.length == 0 then true
+            # If the value is itself a KSON object, parse it recursively
+            when v.startsWith "(" then parseKSON v
+            else v
+    ret
+
+# Pattern: looks something like `const/<args1>/...`
+# Star: looks something like `a/b/c/d(params:etc)`
+match_pattern = (pattern, star) ->
+    # First separate out the params, as raw KSON
+    [star, params_raw] = split_once star, "("
+    
+    # Now we need to determine if star matches the pattern
+    # TODO: Do we need to consider trailing or leading slashes?
+    star_parts = star.split "/"
+    pattern_parts = pattern.split "/"
+    # Quick length check
+    unless star_parts.length == pattern_parts.length
+        return false
+
+    # Once again... no object comprehension, or zip()
+    path = {}
+    for ppart, i in pattern_parts
+        spart = star_parts[i]
+        # we either match an argument (if ppart is of the form <keyN>) or we verify that the constants are equal
+        unless ppart.startsWith("<") or ppart == spart
+            return false
+        path[ppart[1...-1]] = spart
+
+    # split_once will take off the parenthese if it exists, let's put it back on
+    params = if params_raw.length then parseKSON "(#{params_raw}" else {}
+    {path, params}
+
+# Pattern-Path-Params Parser
+PPPParser = (bus) ->
+    # Create arrays to store the fetch and save handlers
+    handlers =
+        to_fetch: []
+        to_save: []
+        to_delete: []
+
+    og_route = bus.route
+    bus.route = (key, method, arg, t) ->
+        for route in (handlers[method] || [])
+            {pattern, handler} = route
+            if {path, params} = match_pattern pattern, key
+                t ||= {}
+                t._path = path
+                t._params = params
+                bus.run_handler handler, method, arg, {t: t, binding: pattern}
+                return 1
+        return og_route(key, method, arg, t)
+
+    (pattern) ->
+        ret = {}
+        Object.entries(handlers).forEach ([method, arr]) ->
+            Object.defineProperty ret, method,
+                set: (handler) -> arr.push {pattern, handler}
+        ret
+
+
 ######### Clientwise handlers ##########
+# on the to_fetch and to_save handlers:
 bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
+        parser = PPPParser client
 
-        client('posts').to_save = (val, t) ->
-            t.abort()
+        parser('post/<postid>').to_fetch = (key, t) ->
+            {postid} = t._path
+            params = t._params
+            t.return
+               key: key
+               value: "Post at #{postid}"
 
-        client('post/*').to_save = (val, old, star, t) ->
+        ###
+        parser('post/*').to_save = (path, params, val, old, t) ->
+
             c = client.fetch "current_user"
             all_posts = bus.fetch "posts"
             # So there's a few cases here. 
@@ -197,13 +295,13 @@ bus = require('statebus').serve
         # Clients may also get a list of all users
         client('all_users').to_fetch = ->
             { all: for user in bus.fetch('users').all then user.key }
-
+        ###
         client.shadows bus
+        
 
 ######### main bus handlers #########
-
 # Create user/default?
-
+###
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 NETWORK_ATT = 0.95
@@ -266,10 +364,6 @@ bus('votes_by/*').to_fetch = (star, t) ->
     bus.save.sync cur
     return cur
 
-bus('weights/*').to_save = (star, t) ->
-    t.abort()
-
-# TODO: People should be able to create feeds
 bus('feeds').to_fetch = () ->
     users = bus.fetch('users').all
     tags = (bus.fetch("tags").tags || [])
@@ -279,80 +373,7 @@ bus('feeds').to_fetch = () ->
     return
         key: "feeds"
         all: feeds
-
-# Server migrations
-migrate = ->
-    migrations = bus.fetch "migrations"
-
-    # Convert tagnames to lowercase
-    unless migrations.lowercase_tags
-        console.warn "Migration: Lowercase tags"
-        Object.keys(bus.cache).forEach (k) =>
-            # First rename all keys of the form votes/_user/x_post/y_tag_
-            if /votes\/_user\/.+_post\/.+_.+_/.test k
-                parts = k.split '_' 
-                tag = parts[3]
-                unless tag == tag.toLowerCase()
-                    tag = tag.toLowerCase()
-                    newkey = "#{parts[0]}_#{parts[1]}_#{parts[2]}_#{tag.toLowerCase()}_"
-
-                    obj = bus.fetch k 
-                    obj.key = newkey
-                    obj.tag = obj.tag.toLowerCase()
-                    bus.save obj
-                    bus.delete k
-
-            # Now rename all keys of the form votes_on/post/y/tag
-            else if /votes_on\/post\/.+\/.+/.test k
-                parts = k.split '/'
-                unless parts[parts.length - 1] == parts[parts.length - 1].toLowerCase()
-                    tag = parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
-                    newkey = parts.join '/'
-
-                    votes_obj = bus.fetch k
-                    votes_obj.key = newkey
-                    votes_obj.values.forEach (v) =>
-                        k_l = v.key
-                        parts_l = k_l.split '_' 
-                        newkey_l = "#{parts_l[0]}_#{parts_l[1]}_#{parts_l[2]}_#{tag}_"
-                        v.key = newkey_l
-                        v.tag = tag
-
-                    bus.save votes_obj
-                    bus.delete k
-                
-            else if /votes_by\/user\/.+\/.+/.test k
-                parts = k.split '/'
-                parts[parts.length - 1] = parts[parts.length - 1].toLowerCase()
-                newkey = parts.join '/'
-
-                votes_obj = bus.fetch k
-                votes_obj.key = newkey
-                bus.save votes_obj
-                unless newkey == k
-                    bus.delete k
-
-            # Then go through every post and lowercase the names of the tags
-            else if k.startsWith "post"
-                post = bus.fetch k
-                post.tags = (post.tags || []).map (t) => t.toLowerCase()
-                # Remove duplicates
-                post.tags = post.tags.filter (e, i) => post.tags.indexOf(e) == i
-                bus.save post
-         
-        # Then lowercase the content in `tags`
-        tags = bus.fetch "tags"
-        tags.tags = (tags.tags || []).map (t) => t.toLowerCase()
-        # Remove duplicates
-        tags.tags = tags.tags.filter (e, i) => tags.tags.indexOf(e) == i
-        bus.save tags
-        
-        migrations.lowercase_tags = true
-        console.log "Finished lowercasing tags"
-
-    bus.save migrations
-
-migrate()
+###
 
 ###### Sending static content over HTTP ##############
 express = require 'express'
@@ -411,9 +432,8 @@ bus.http.get '/client.js', (req, res) ->
     res.send clientjs
 
 
-unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
-slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
 
+             
 
 old_bodify = bus.to_http_body
 bus.to_http_body = (o) ->
