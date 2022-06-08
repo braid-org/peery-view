@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset=UTF-8>
-<title>Braid News</title>
+<title>PeeryView 2.0</title>
 <style>
     body {
         margin: min(4vw, 25px);
@@ -42,7 +42,6 @@
     margin_left = 40
     post_width = 575
 
-    document.title = 'Braid News'
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
     window.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
@@ -53,6 +52,8 @@
         history.pushState {}, '', u
 
     window.parse_path = (path) ->
+        # TODO: Refactor this shit!
+        ###
         path = unslash unescape path
         v = fetch "view"
         v.selected = switch
@@ -71,6 +72,7 @@
             else
                 null
         save v
+        ###
 
     window.load_path = (path) ->
         change_path path
@@ -83,23 +85,24 @@
         DIV
             width: body_width
             margin: "auto"
-
+            
             HEADER
                 key: "header"
             BIG_MULTIGRAM
                 key: "multigram"
             POSTS
                 key: "posts"
+            
 
     dom.POSTS = ->
 
         # Local copy of posts, ordered.
         c = fetch "/current_user"
         posts = (fetch "/posts").all ? []
-        v = fetch "view"
+        #v = fetch "view"
 
         username = c?.user?.key ? "/user/default"
-
+        
         ordered = switch
             when v?.selected?.type == "user" then sort_posts posts, v.selected._key
             when v?.selected?.type == "tag" then sort_posts posts, username, v.selected._key
@@ -110,27 +113,28 @@
             ordered.map (post) =>
                 POST
                     post: post
-                    key: "post-#{post.key.substr 6}"
+                    key: unslash post.key
 
 
     dom.BIG_MULTIGRAM = ->
         c = fetch "/current_user"
-        v = fetch "view"
+        #v = fetch "view"
         username = switch
             when v?.selected?.type == "user" then v.selected._key
             when c?.logged_in then c.user.key
             else "/user/default"
         username = unslash username
-        if v?.selected?.type == "tag"
-            username_tag = "#{username}#{slash v.selected._key}"
-            tag = unslash v.selected._key
+        
+        params = 
+            computed: true
+            tag: if v?.selected?.type == "tag" then unslash v.selected._key
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
                 key: "multigram-inner"
-                sldr: "usergram/#{username_tag ? username}"
+                sldr: "/#{username}/votes/people#{stringify_kson params}"
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
@@ -138,11 +142,10 @@
                 onsave: (vote) =>
                     delete vote.type
                     copy = Object.assign {}, vote
+                    copy.key = "/#{username}/vote/#{unslash vote.target}"
                     if tag
-                        copy.key = "/votes/_#{username}_#{unslash vote.target}_#{tag}_"
+                        copy.key = "#{copy.key}(tag:#{tag})"
                         copy.tag = tag
-                    else
-                        copy.key = "/votes/_#{username}_#{unslash vote.target}_"
                     save copy
 
 
@@ -151,6 +154,7 @@
 <!-- Main statebus script -->
 <script src="/client.js" server="/"></script>
 <script src="/static/vendor/considerit_shared.js" crossorigin=anonymous></script>
+<script src="/coffee/parser.coffee" crossorigin=anonymous></script>
 <script src="/coffee/ui.coffee" crossorigin=anonymous></script>
 <script src="/coffee/post.coffee" crossorigin=anonymous></script>
 

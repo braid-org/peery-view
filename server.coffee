@@ -1,106 +1,12 @@
-# I think all these things have to be defined before 
-unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
-slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
-
-split_once = (str, char) ->
-    i = str.indexOf char
-    if i == -1
-        [str, ""]
-    else
-        [str[...i], str[i+1..]]
-
-# KSON = Kinda Simple Object Notation
-# but it rhymes with JSON
-parseKSON = (str) ->
-    # assert str.startsWith "(" and str.endsWith ")"
-
-    # Coffeescript doesn't have object comprehensions :(
-    ret = {}
-    # Pull out the parentheses
-    str[1...-1]
-    # Split by commas. TODO: Allow spaces after commas?
-    .split ","
-    # Delete empty parts (this ensures that empty strings will properly result in empty KSON, and allows trailing commas)
-    .filter (part) -> part.length
-    .forEach (part) ->
-        # If the part has a comma, its a key:value, otherwise it's just a singleton
-        [k, v] = split_once part, ":"
-
-        ret[k] = switch
-            when v.length == 0 then true
-            # If the value is itself a KSON object, parse it recursively
-            when v.startsWith "(" then parseKSON v
-            else v
-    ret
-
-# Pattern: looks something like `const/<args1>/...`
-# Star: looks something like `a/b/c/d(params:etc)`
-match_pattern = (pattern, star) ->
-    # First separate out the params, as raw KSON
-    [star, params_raw] = split_once star, "("
-    
-    # Now we need to determine if star matches the pattern
-    # TODO: Do we need to consider trailing or leading slashes?
-    star_parts = star.split "/"
-    pattern_parts = pattern.split "/"
-    # Quick length check
-    unless star_parts.length == pattern_parts.length
-        return false
-
-    # Once again... no object comprehension, or zip()
-    path = {}
-    for ppart, i in pattern_parts
-        spart = star_parts[i]
-        # we either match an argument (if ppart is of the form <keyN>) or we verify that the constants are equal
-        unless ppart.startsWith("<") or ppart == spart
-            return false
-        path[ppart[1...-1]] = spart
-
-    # split_once will take off the parenthese if it exists, let's put it back on
-    params = if params_raw.length then parseKSON "(#{params_raw}" else {}
-    {path, params}
-
-# Pattern-Path-Params Parser
-PPPParser = (bus) ->
-    # Create arrays to store the fetch and save handlers
-    handlers =
-        to_fetch: []
-        to_save: []
-        to_delete: []
-
-    og_route = bus.route
-    bus.route = (key, method, arg, t) ->
-        for route in (handlers[method] || [])
-            {pattern, handler} = route
-            if {path, params} = match_pattern pattern, key
-                t ||= {}
-                t._path = path
-                t._params = params
-                bus.run_handler handler, method, arg, {t: t, binding: pattern}
-                return 1
-        return og_route(key, method, arg, t)
-
-    (pattern) ->
-        ret = {}
-        Object.entries(handlers).forEach ([method, arr]) ->
-            Object.defineProperty ret, method,
-                set: (handler) -> arr.push {pattern, handler}
-        ret
-
+require 'coffeescript/register'
+parse = require('./coffee/parser.coffee')
 
 ######### Clientwise handlers ##########
 # on the to_fetch and to_save handlers:
 bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
-        parser = PPPParser client
-
-        parser('post/<postid>').to_fetch = (key, t) ->
-            {postid} = t._path
-            params = t._params
-            t.return
-               key: key
-               value: "Post at #{postid}"
+        parser = parse.PPPParser client
 
         ###
         parser('post/*').to_save = (path, params, val, old, t) ->
@@ -300,70 +206,78 @@ bus = require('statebus').serve
         
 
 ######### main bus handlers #########
-# Create user/default?
-###
+bus_parser = parse.PPPParser bus
 # Network-spread weighting
 MIN_WEIGHT = 0.05
-NETWORK_ATT = 0.95
-bus('weights/*').to_fetch = (star) ->
-    # This functions implements the following computation:
-    # w(x, y) :=
-    #    let l = minimum length of all paths x -> y
-    #    let P = { p : path x -> y | length(p) = l }
-    #    return (0.95^l / |P|) * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
-    # Then W(x) = { (y, w(x, y)) | w(x, y) > 0.05 }
-    weights = {}
-    queue_cur = {}
-    queue_cur[star] = [1.0]
-    queue_next = {}
-    while Object.keys(queue_cur).length
-        # Do something here?
-        for y, P of queue_cur
-            w = (P.reduce (a, b) -> a+b) / P.length
-            weights[y] = w
-            if Math.abs(w) <= MIN_WEIGHT
-                continue
-
-            Object.values(bus.fetch "votes_by/#{y}")
-                .forEach (v) ->
-                    unless v.target?
-                        return false
-                    t = unslash v.target
-                    unless (t.startsWith "user") and (t not of weights) and (t not of queue_cur)
-                        return false
-                    # Put a subscription on the individual vote
-                    if t not of queue_next
-                        queue_next[t] = []
-                        bus.fetch v
-                    queue_next[t].push (2 * v.value - 1) * w * NETWORK_ATT
-        # We've processed all nodes at depth n. Now we'll swap our buffers and process the next depth.
-        queue_cur = queue_next
+NETWORK_ATT = 0.9
+bus_parser('user/<username>/votes/people').to_fetch = (key, t) ->
+    {username} = t._path
+    args = t._params
+    userkey = "user/#{username}"
+    
+    # Compute weights through the network
+    # TODO: fix "enemy of my enemy is my friend" ("ReLU multiplication"?)
+    if args.computed
+        # This functions implements the following computation:
+        # w(x, y) :=
+        #    let l = minimum length of all paths x -> y
+        #    let P = { p : path x -> y | length(p) = l and (Product_{j=1}^(l-1) 0.9 p_j) >= 0.05}
+        #    return (0.9^l / |P|) * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
+        # Then W(x) = { (y, w(x, y)) }
+        weights = {}
+        depth = 0
+        queue_cur = {}
+        queue_cur[userkey] = [1.0]
         queue_next = {}
-    weights
+        while Object.keys(queue_cur).length
+            for y, P of queue_cur
+                w = (P.reduce (a, b) -> a+b) / P.length
 
-bus('votes_by/*').to_fetch = (star, t) ->
-    key = "votes_by/#{star}"
-    cur = bus.cache[key]
-    if cur?
-        return cur
-    # Put a vote on the default user, if this isn't a tagged-vote array
-    unless /user\/.+\/.+/.test star
-        console.log star
-        cur = {
+                weights[y] = 
+                    key: "#{userkey}/vote/#{y}#{parse.stringify_kson {computed: depth != 1, tag: args.tag}}"
+                    user: userkey
+                    target: y
+                    value: w
+                    depth: depth
+                if Math.abs(w) <= MIN_WEIGHT
+                    continue
+
+                bus.fetch "#{y}/votes/people#{parse.stringify_kson {tag: args.tag}}"
+                    .arr
+                    .filter (v) -> (v.target not of weights) and (v.target not of queue_cur)
+                    .forEach (v) ->
+                        t = v.target
+                        # Put a subscription on the individual vote
+                        unless t of queue_next
+                            queue_next[t] = []
+                            bus.fetch v
+                        queue_next[t].push (2 * v.value - 1) * w * NETWORK_ATT
+
+            # We've processed all nodes at depth n. Now we'll swap our buffers and process the next depth.
+            queue_cur = queue_next
+            queue_next = {}
+            depth++
+            # We want to fallback a vote on the default user at depth 2, so that it'll be considered computed.
+            # So the "naive" way would be to queue it at depth 2 if the conditions are right. But we might not make it to depth 2!
+            # So at depth 1, if the queue is empty, we'll jump to depth 2.
+            if (depth == 1) and Object.keys(queue_cur).length == 0
+                depth++
+            # Now if we're at depth 2 and we don't have a depth-1 vote on default
+            if (depth == 2) and "user/default" not of weights
+                queue_cur["user/default"] = [1.0]
+                
+        # Weights is a hash so that we can quickly check membership,
+        # but we need to return an array of votes.
+        {
             key: key
-            "user/default": {
-                key: "votes/_#{star}_user/default_"
-                updated: 0
-                user: "/#{star}"
-                target: "/user/default"
-                value: 1.0
-            }
+            arr: Object.values weights
         }
     else
-        cur = {key: key}
-    bus.save.sync cur
-    return cur
-
+        cur = bus.cache[key] ? {key: key}
+        cur.arr ?= []
+        cur
+            
+###
 bus('feeds').to_fetch = () ->
     users = bus.fetch('users').all
     tags = (bus.fetch("tags").tags || [])
@@ -433,14 +347,12 @@ bus.http.get '/client.js', (req, res) ->
 
 
 
-             
-
 old_bodify = bus.to_http_body
 bus.to_http_body = (o) ->
     if o.key == 'posts'
-        JSON.stringify(o.all)
+        JSON.stringify o.all
     else
-        old_bodify(o)
+        old_bodify o 
 
 
 `
