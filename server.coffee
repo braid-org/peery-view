@@ -20,10 +20,10 @@ bus = require('statebus').serve
             # New post
             unless old.user?
                 # Is the user logged in and making a post under their own name?
-                unless c.logged_in and (c.user.key == unslash val.user)
+                unless c.logged_in and (c.user.key == val.user_key)
                     return t.abort()
                 # Does the post contain all the required fields?
-                unless val.user and val.title and val.url and val.time \
+                unless val.user_key and val.title and val.url and val.time \
                     and typeof(val.title) == "string" and typeof(val.url) == "string" and typeof(val.time) == "number"
                     return t.abort()
                 
@@ -33,11 +33,11 @@ bus = require('statebus').serve
                 return t.done val
            
             # Deleting post
-            unless val.user?
+            unless val.user_key?
                 # TODO
                 return t.abort()
                 
-                unless c.logged_in and (c.user.key == unslash old.user)
+                unless c.logged_in and (c.user.key == old.user_key)
                     return t.abort()
                 # Everything looks good. So we need to do four things.
                 # 1. Remove the post from `posts`
@@ -61,8 +61,8 @@ bus = require('statebus').serve
                 
                 # Remove from `votes_by/` and delete the vote key itself
                 votes.forEach (v) ->
-                    votes_by = bus.fetch "votes_by/#{unslash v.user}"
-                    delete votes_by[unslash val.key]
+                    votes_by = bus.fetch "votes_by/#{v.user_key}"
+                    delete votes_by[val.key]
                     bus.save votes_by
                     bus.save {key: v.key}
                                 
@@ -87,7 +87,6 @@ bus = require('statebus').serve
 
         # If an individual vote is saved, put it in the arrays if necessary.
         parser('user/<userid>/vote/<type>/<targetid>').to_save = (key, val, old, t) ->
-            console.log key, val, old, t
             {userid, type, targetid} = t._path
             {tag} = t._params
             user = "user/#{userid}"
@@ -98,19 +97,16 @@ bus = require('statebus').serve
             unless type == "user" or type == "post"
                 return t.abort()
             # Check that user has the right to change the key
-            unless c.logged_in and c.user.key == user == unslash val.user
-                console.warm "#{c.user.key} tried to save a vote by #{unslash val.user} on #{key}"
+            unless c.logged_in and c.user.key == user == val.user_key
                 return t.abort()
             # Check that the key matches the contents
-            unless target == unslash val.target
-                console.warn "... tried to save a vote on #{unslash val.target} at #{key}"
+            unless target == val.target_key
                 return t.abort()
             # Check that the vote has an associated value between 0 and 1
             unless 0 <= val.value <= 1
                 return t.abort()
             # Check that the tag is right
             if tag != val.tag
-                console.warn "... tried to save a vote with the tag #{val.tag} at #{key}"
                 return t.abort()
             # Alright, looks good.
             
@@ -144,81 +140,91 @@ bus = require('statebus').serve
 bus_parser = parse.PPPParser bus
 # Network-spread weighting
 MIN_WEIGHT = 0.05
-NETWORK_ATT = 0.9
+MAX_DEPTH = 5
 bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
     {username, type} = t._path
     {computed, tag} = t._params
     userkey = "user/#{username}"
     
     # Compute weights through the network
-    # TODO: fix "enemy of my enemy is my friend" ("ReLU multiplication"?)
     if computed and type == "people"
-        # This functions implements the following computation:
+        # This function implements the following computation:
         # w(x, y) :=
-        #    let l = minimum length of all paths x -> y
-        #    let P = { p : path x -> y | length(p) = l and (Product_{j=1}^(l-1) 0.9 p_j) >= 0.05}
-        #    return (0.9^l / |P|) * Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
+        #    let l = min(minimum length of all paths x -> y, 5) 
+        #    let P = { p : path x -> y | length(p) = l and |Product_{j=1}^(l-1) p_j| >= 0.05}
+        #    return Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
         # Then W(x) = { (y, w(x, y)) }
-        weights = {}
+        # Note that *votes* have their values scaled from 0 to 1, while this choice of algorithm scales votes from -1 to 1
+        # Just a choice.
+        votes = {}
         depth = 0
         queue_cur = {}
         queue_cur[userkey] = [1.0]
         queue_next = {}
         while Object.keys(queue_cur).length
-            for y, P of queue_cur
-                w = (P.reduce (a, b) -> a+b) / P.length
+            for target, paths of queue_cur
 
-                weights[y] = 
-                    key: "#{userkey}/vote/#{y}#{parse.stringify_kson {computed: depth != 1, tag: tag}}"
-                    user: userkey
-                    target: y
-                    value: w
-                    depth: depth
+                vote_computed = depth != 1
+                vote_key =  "#{userkey}/vote/#{target}#{parse.stringify_kson {computed: vote_computed, tag: tag}}"
+
+                unless vote_computed
+                    votes[target] = bus.fetch vote_key
+                    w = 2 * votes[target].value - 1
+                else
+                    w = (paths.reduce (a, b) -> a+b) / paths.length
+
+                    votes[target] = 
+                        key: vote_key
+                        user_key: userkey
+                        target_key: target
+                        value: (w + 1) / 2
+                        depth: depth
+
                 if Math.abs(w) <= MIN_WEIGHT
                     continue
 
-                bus.fetch "#{y}/votes/people#{parse.stringify_kson {tag: tag}}"
-                    .arr
-                    .filter (v) -> (v.target not of weights) and (v.target not of queue_cur)
-                    .forEach (v) ->
-                        t = v.target
+                bus.fetch "#{target}/votes/people#{parse.stringify_kson {tag: tag}}"
+                    ?.arr
+                    ?.filter (v) -> (v.target_key not of votes) and (v.target_key not of queue_cur)
+                    ?.forEach (v) ->
+                        t = v.target_key
                         # Put a subscription on the individual vote
                         unless t of queue_next
                             queue_next[t] = []
                             bus.fetch v
-                        queue_next[t].push (2 * v.value - 1) * w * NETWORK_ATT
+                        # If a user has a negative weight we record that weight but then we end the chain.
+                        queue_next[t].push (2 * v.value - 1) * Math.max w, 0
 
             # We've processed all nodes at depth n. Now we'll swap our buffers and process the next depth.
-            queue_cur = queue_next
-            queue_next = {}
-            depth++
+            if ++depth <= 5
+                queue_cur = queue_next
+                queue_next = {}
             # We want to fallback a vote on the default user at depth 2, so that it'll be considered computed.
             # So the "naive" way would be to queue it at depth 2 if the conditions are right. But we might not make it to depth 2!
             # So at depth 1, if the queue is empty, we'll jump to depth 2.
             if (depth == 1) and Object.keys(queue_cur).length == 0
                 depth++
-            # Now if we're at depth 2 and we don't have a depth-1 vote on default
-            if (depth == 2) and "user/default" not of weights
+            # Now if we're at depth 2 and we don't have a depth=1 vote on default
+            if (depth == 2) and "user/default" not of votes
                 queue_cur["user/default"] = [1.0]
                 
-        # Weights is a hash so that we can quickly check membership,
+        # Votes is a hash so that we can quickly check membership,
         # but we need to return an array of votes.
         {
             key: key
-            arr: Object.values weights
+            arr: Object.values votes
         }
-# TODO: Is it more efficient to use "successive filtering"?
-## From this point on it's basically the same fetch-and-filter code several times. ##
     else
         prefix = if type == "people" then "user" else "post"
         all_votes = bus.fetch "#{userkey}/votes"
         {
             key: key
             arr: all_votes.arr.filter (v) ->
-                fetch v
-                !tag or tag == v.tag and v.target.startsWith prefix
+
+                if c = (!tag or tag == v.tag) and v.target_key.startsWith prefix then bus.fetch v
+                c
         }
-            
+# Here's a bunch of boring filtering code...    
 bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
     {type, targetid} = t._path
     {computed, tag} = t._params
@@ -228,8 +234,8 @@ bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
         {
             key: key
             arr: all_votes.arr.filter (v) ->
-                fetch v
-                tag == v.tag
+                if c = tag == v.tag then bus.fetch v
+                c
 
         }
     else
@@ -246,8 +252,8 @@ bus_parser('user/<username>/votes').to_fetch = (key, t) ->
         {
             key: key
             arr: all_votes.arr.filter (v) ->
-                fetch v
-                tag == v.tag
+                if c = tag == v.tag then bus.fetch v
+                c
         }
     else
         all_votes = bus.cache[key] ?= {key: key}
@@ -262,8 +268,8 @@ bus_parser('user/<username>/posts').to_fetch = (key, t) ->
     {
         key: key
         arr: all_posts.arr.filter (p) ->
-            fetch p
-            !tag or tag in p.tags and userkey == unslash p.user
+            if c = !tag or tag in p.tags and userkey == p.user_key then bus.fetch p
+            c
     }
 
 bus_parser('posts').to_fetch = (key, t) ->
@@ -273,8 +279,8 @@ bus_parser('posts').to_fetch = (key, t) ->
         {
             key: key
             arr: all_posts.arr.filter (p) ->
-                fetch p
-                tag in p.tags
+                if c = tag in p.tags then bus.fetch p
+                c
         }
     else
         all_posts = bus.cache[key] ?= {key: key}
@@ -282,16 +288,6 @@ bus_parser('posts').to_fetch = (key, t) ->
         all_posts
 
 
-# should be able to fetch feeds and views here...
-bus('feeds').to_fetch = () ->
-    users = bus.fetch('users').all
-    tags = (bus.fetch("tags").arr || [])
-
-    feeds = users.map((u) => {_key: u.key, name: u.name, type: "user"})
-                 .concat tags.map (t) => {_key: t, name: t, type: "tag"}
-    return
-        key: "feeds"
-        arr: feeds
 
 ###### Sending static content over HTTP ##############
 express = require 'express'

@@ -17,7 +17,7 @@ sort_posts = (posts, user, tag) ->
     weights = {}
     (fetch "#{me}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
         fetch v
-        weights[slash v.target] = 2 * v.value - 1
+        weights[v.target_key] = 2 * v.value - 1
     ###
     # Add tagged votes, which aren't seen in the weights
     if tag
@@ -45,13 +45,13 @@ sort_posts = (posts, user, tag) ->
         (fetch "/votes/#{unslash p.key}#{stringify_kson {tag}}")?.arr?.forEach (v) ->
             # first subscribe to the vote
             if v.key then fetch v
-            voter = unslash v.user
+            voter = v.user_key
             # Keep track of the total weight of votes, and of the weighted sum of votes.
             sum_weights += Math.abs(weights[voter] ? 0)
             sum_votes   += (2 * v.value - 1) * (weights[voter] ? 0)
 
         # Our network-weight on the author
-        author_weight = weights[unslash p.user] ? 0
+        author_weight = weights[p.user_key] ? 0
 
         scores[p.key] = compute_score
             age: now - p.time
@@ -63,7 +63,7 @@ sort_posts = (posts, user, tag) ->
     # ^ past me, that probably wouldn't do anything!
 
     # Filter posts:              based on the minimum score       or we made this post           only show posts with the selected tag
-    posts.filter (v) -> (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
+    posts.filter (v) -> (scores[v.key] > min_weight or v.user == me) and (!tag?.length or was_tagged[v.key])
     # Filter before sorting!!
         .sort (a, b) -> scores[b.key] - scores[a.key]
     
@@ -81,7 +81,7 @@ make_post = (title, url, userkey) ->
     #v = fetch "view"
     post =
         key: id
-        user: userkey
+        user_key: userkey
         title: title
         url: url
         time: Math.floor (Date.now() / 1000)

@@ -16,7 +16,7 @@ dom.MULTIGRAM = ->
             # Doing it this way allows us to reuse one hover handler for all of the multigram avatars.
             if e.target.getAttribute?('data-target')?
                 target = e.target.getAttribute('data-target')
-                local_sldr.hover_target = target
+                local_sldr.hover_target_key = target
                 local_sldr.hover = true
             else
                 local_sldr.hover = false
@@ -47,8 +47,8 @@ dom.MULTIGRAM = ->
             linewidth: 3
             handleheight: Math.min((@props.height ? 100) / 4, 20)
             handleoffset: 3
-            target_key: "target"
-            target: if local_sldr.dragging then local_sldr.target else local_sldr.hover_target
+            vote_key: "target_key"
+            target: if local_sldr.dragging then local_sldr.target_key else local_sldr.hover_target_key
 
         SLIDER_TOOLTIP
             key: "floating-tooltip"
@@ -94,17 +94,17 @@ dom.MULTIHISTOGRAM = ->
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.depth == 0
 
-        size = local_sldr.layout[opinion.target]
+        size = local_sldr.layout[opinion.target_key]
         
-        dragged = local_sldr.target == opinion.target
+        dragged = local_sldr.target_key == opinion.target_key
         props = 
-            key: "histo-avatar-#{opinion.target}"
+            key: "histo-avatar-#{opinion.target_key}"
             # To tell the AVATAR whose pic/initials to display
-            user: opinion.target
+            user: opinion.target_key
             # Hide the tooltip if we're dragging someone else
             hide_tooltip: true
             # To allow the multigram to check hovers properly
-            "data-target": opinion.target
+            "data-target": opinion.target_key
             style: 
                 # Size of the avatar
                 width: size?.width or 50
@@ -127,7 +127,7 @@ dom.MULTIHISTOGRAM = ->
 
         # This sets event listeners on the avatar
         unless @props.read_only
-            props = implements_slide_draggable sldr, props, opinion.target, @props.width,
+            props = implements_slide_draggable sldr, props, opinion.target_key, @props.width,
                 onsave: @props.onsave
 
         # Actually generate the icon
@@ -136,7 +136,7 @@ dom.MULTIHISTOGRAM = ->
     # floating dragged avatar
     if dragging and local_sldr.live?
         val = local_sldr.live ? DEFAULT_SLIDER_VAL
-        target = local_sldr.target
+        target = local_sldr.target_key
         
         # Get the "static" position of this avatar
         size = local_sldr.layout[target]
@@ -189,9 +189,9 @@ dom.MULTIHISTOGRAM.refresh = ->
 
     radii = {}
     vals_weight
-        .filter (vote) -> vote.target != vote.user
+        .filter (vote) -> vote.target_key != vote.user_key
         .forEach (vote) ->
-            radii[vote.target] = Math.sqrt(vote.weight) * packing_radius
+            radii[vote.target_key] = Math.sqrt(vote.weight) * packing_radius
 
     positionAvatars
       sldr: sldr
@@ -199,7 +199,7 @@ dom.MULTIHISTOGRAM.refresh = ->
       height: @props.height
       default_radius: packing_radius
       radii: radii
-      vote_key: "target"
+      vote_key: "target_key"
 
     @last_cache = cache_key
 

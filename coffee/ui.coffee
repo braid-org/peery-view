@@ -10,11 +10,11 @@ dom.POST = ->
     post = @props.post
     # Subscribe to the post
     if post.key then fetch post
-    unless post.user?
+    unless post.user_key?
         # The post has actually just been deleted.
         return
 
-    author = fetch post.user
+    author = fetch post.user_key
 
     c = fetch '/current_user'
     v = fetch "view"
@@ -106,10 +106,10 @@ dom.POST = ->
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
                         read_only: !c.logged_in
-                        vote_key: "user"
+                        vote_key: "user_key"
                         onsave: (vote) =>
                             vote.key = "#{c.user.key}/vote/#{unslash post.key}"
-                            vote.target = post.key
+                            vote.target_key = post.key
                             save vote
 
             SPAN
@@ -151,7 +151,7 @@ dom.POST_DETAILS = ->
         alignContent: "stretch"
 
         
-        if c?.user?.key == post?.user then SPAN
+        if c?.user?.key == post?.user_key then SPAN
             key: "delete-btn"
             color: "#999"
             className: "material-icons md-dark"

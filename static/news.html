@@ -123,7 +123,6 @@
             when v?.selected?.type == "user" then v.selected._key
             when c?.logged_in then c.user.key
             else "/user/default"
-        username = unslash username
        
         tag = if v?.selected?.type == "tag" then unslash v.selected._key 
         params = 
@@ -135,15 +134,16 @@
 
             MULTIGRAM
                 key: "multigram-inner"
-                sldr: "/#{username}/votes/people#{stringify_kson params}"
+                sldr: "#{username}/votes/people#{stringify_kson params}"
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
                 read_only: (v?.selected?.type == "user") or !c.logged_in
                 onsave: (vote) =>
-                    delete vote.weight
+                    # Wait, why do we need to do this on a copy?
                     copy = Object.assign {}, vote
-                    copy.key = "/#{username}/vote/#{unslash vote.target}"
+                    copy.key = "#{username}/vote/#{unslash vote.target_key}"
+                    copy.depth = 1
                     if tag
                         copy.key = "#{copy.key}(tag:#{tag})"
                         copy.tag = tag

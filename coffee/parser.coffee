@@ -56,7 +56,6 @@ match_pattern = (pattern, star) ->
     [star, params_raw] = split_once star, "("
     
     # Now we need to determine if star matches the pattern
-    # TODO: Do we need to consider trailing or leading slashes?
     star_parts = star.split "/"
     pattern_parts = pattern.split "/"
     # Quick length check
@@ -77,13 +76,37 @@ match_pattern = (pattern, star) ->
     params = if params_raw.length then parse_kson "(#{params_raw}" else {}
     {path, params}
 
+autodetect_args = (handler) ->
+    if handler.args then return
+
+    # Get an array of the handler's params
+    comments = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg
+    params = /([^\s,]+)/g
+    s = handler.toString().replace comments, ''
+
+    params = s[s.indexOf('(') + 1 ... s.indexOf(')')].match(params) || []
+
+    handler.args = {}
+    params.forEach (p, i) ->
+        switch p
+            when "key", "k" then handler.args.key = i
+            when "json", "vars" then handler.args.vars = i
+            when "star", "rest" then handler.args.res= i
+            when "t", "transaction" then handler.args.t = i
+            when "o", "obj", "val", "new", "New" then handler.args.obj = i
+            when "old" then handler.args.old = i
+
 # Pattern-Path-Params Parser
 PPPParser = (bus) ->
     # Create arrays to store the fetch and save handlers
-    handlers =
+    handlers = 
         to_fetch: []
         to_save: []
+        on_save: []
+        on_set_sync: []
+        on_delete: []
         to_delete: []
+        to_forget: []
 
     og_route = bus.route
     bus.route = (key, method, arg, t) ->
@@ -96,18 +119,28 @@ PPPParser = (bus) ->
                 t ||= {}
                 t._path = path
                 t._params = params
-                console.log "Running handler for #{pattern} and method #{method}"
                 bus.run_handler handler, method, arg, {t: t, binding: pattern}
                 return 1
         return og_route(key, method, arg, t)
-
+    
     (pattern) ->
         ret = {}
         Object.entries handlers
-        .forEach ([method, arr]) ->
-            Object.defineProperty ret, method,
-                set: (handler) -> arr.push {pattern, handler}
+            .forEach ([method, arr]) ->
+                Object.defineProperty ret, method,
+                    set: (handler) ->
+                        autodetect_args handler
+                        (handler.defined ?= []).push
+                            as: 'handler'
+                            bus: bus
+                            method: method
+                            key: pattern
+                        arr.push {pattern, handler}
+                    # Could add a getter here that allows deleting patterns.
+                    # get: -> ...
         ret
+
+
 
 exports = {slash, unslash, split_once, parse_kson, stringify_kson, match_pattern, PPPParser}
 if window?

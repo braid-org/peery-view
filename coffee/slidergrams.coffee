@@ -5,10 +5,10 @@ considerit_salmon = '#F45F73'
 color_positive = '#5fb4f4'
 color_negative = '#f46444'
 
-get_target_slide = (sldr, target_key, target) ->
+get_target_slide = (sldr, vote_key, target) ->
     sldr = fetch sldr
     for v in (sldr.arr or [])
-        if v[target_key] == target
+        if v[vote_key] == target
             return v
     null
 
@@ -20,7 +20,7 @@ dom.SLIDERGRAM_WITH_TAG = ->
     @props.sldr = "/votes/#{unslash post.key}#{kson}"
     @props.onsave = (vote) =>
         vote.key = "#{c?.user?.key}/vote/#{unslash post.key}#{kson}"
-        vote.target = post.key
+        vote.target_key = post.key
         vote.tag = tag
         save vote
     @props.vote_key = "user"
@@ -32,7 +32,7 @@ dom.SLIDERGRAM = ->
   local_sldr = fetch(shared_local_key(sldr))
 
   you = your_key()
-  has_opined = you in (o.user for o in (sldr.arr ? []))
+  has_opined = you in (o.user_key for o in (sldr.arr ? []))
 
   read_only = @props.read_only
 
@@ -47,7 +47,7 @@ dom.SLIDERGRAM = ->
             x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
             start_slide sldr, @props.width, you,
                 type: "tracking"
-                key: "user"
+                vote_key: @props.vote_key ? "user_key"
                 initial_val: x_entry / @props.width
                 onsave: @props.onsave
 
@@ -66,7 +66,7 @@ dom.SLIDERGRAM = ->
             return
         if e.target.getAttribute?('data-target')?
             target = e.target.getAttribute('data-target')
-            local_sldr.hover_target = target
+            local_sldr.hover_target_key = target
             local_sldr.hover = true
         else
             local_sldr.hover = false
@@ -95,7 +95,7 @@ dom.SLIDERGRAM = ->
         width: @props.width
         linewidth: 1.75
         feedback: !read_only and !@props.no_feedback and (local_sldr.tracking_mouse or @props.force_ghosting or has_opined)
-        target_key: "user"
+        vote_key: @props.vote_key ? "user_key"
         target: you
 
     SLIDER_TOOLTIP
@@ -121,11 +121,11 @@ start_slide = (sldr, slidergram_width, target, args) ->
     return if !your_key()
 
     val = args?.initial_val
-    target_key = args?.key ? "target"
+    vote_key = args?.vote_key ? "target_key"
     slide_type = args?.type ? "dragging"
 
     if slide_type == 'dragging'
-        the_slide = get_target_slide sldr, target_key, target
+        the_slide = get_target_slide sldr, vote_key, target
         val = if the_slide then the_slide.value else DEFAULT_SLIDER_VAL
         local.dragging = true
 
@@ -134,7 +134,7 @@ start_slide = (sldr, slidergram_width, target, args) ->
         local.tracking_mouse = 'tracking'
 
     local.live = val
-    local.target = target
+    local.target_key = target
   
     # Save mouse info
     local.mouse_positions = [{x: mouseX, y: mouseY}]
@@ -192,10 +192,10 @@ start_slide = (sldr, slidergram_width, target, args) ->
 
         unregister_window_event "slide-#{local.key}"
         # Update the value in the actual slider
-        the_vote = (get_target_slide sldr, target_key, target) ? {}
+        the_vote = (get_target_slide sldr, vote_key, target) ? {}
         the_vote.updated = (new Date()).getTime()
         the_vote.value = local.live
-        the_vote[target_key] = target
+        the_vote[vote_key] = target
         
         # Is this necessary?
         local.dirty_opinions = true
@@ -238,7 +238,7 @@ dom.SLIDER_BOTTOM = ->
         val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live?
                 local_sldr.live
             else
-                get_target_slide(@props.sldr, @props.target_key, @props.target)?.value or 0
+                get_target_slide(@props.sldr, @props.vote_key, @props.target)?.value or 0
 
         val = 2 * val - 1
         color = if val >= 0 then color_positive else color_negative
@@ -306,11 +306,11 @@ dom.SLIDER_TOOLTIP = ->
     local = fetch @props.local
     local.layout ?= {}
 
-    size = local.layout[local.hover_target] ? {}
+    size = local.layout[local.hover_target_key] ? {}
     active = local.hover
 
     if @props.follows_live and local.dragging and local.live?
-        target = local.target
+        target = local.target_key
         # Pulled from multigrams.coffee:
         # independently compute the location of the dragged avatar
         size_orig = local.layout[target]
@@ -324,7 +324,7 @@ dom.SLIDER_TOOLTIP = ->
 
     # Ok, maybe we waste time fetching info for the default user.
     # Maybe find a cleaner way to cancel rendering?
-    user = fetch (target ? local.hover_target ? "/user/default")
+    user = fetch (target ? local.hover_target_key ? "/user/default")
     # Pulled from avatar.coffee
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2))
 
@@ -379,7 +379,7 @@ dom.HISTOGRAM = ->
   opinion_weights = {}
   (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
       fetch v
-      opinion_weights[slash v.target] = 2 * v.value - 1
+      opinion_weights[v.target_key] = 2 * v.value - 1
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -398,12 +398,12 @@ dom.HISTOGRAM = ->
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
     for opinion in sldr.arr
-      continue if (opinion_weights and (unslash opinion.user) not of opinion_weights ) or (opinion.user == you) or !opinion[@props.vote_key]
+      continue if (opinion_weights and (opinion.user_key not of opinion_weights )) or (opinion.user_key == you)
       size = local_sldr.layout[opinion[@props.vote_key]]
 
       props =
         key: "histo-avatar-#{opinion[@props.vote_key]}"
-        user: opinion.user
+        user: opinion.user_key
         hide_tooltip: true
         "data-target": opinion[@props.vote_key]
         style:
@@ -448,7 +448,7 @@ dom.HISTOGRAM = ->
 
       if your_vote
         props = implements_slide_draggable sldr, props, you, @props.width,
-            key: "user"
+            vote_key: "user_key"
             onsave: @props.onsave
 
       AVATAR props
@@ -464,9 +464,9 @@ dom.HISTOGRAM.refresh = ->
     opinion_weights = {}
     (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
         fetch v
-        opinion_weights[slash v.target] = 2 * v.value - 1
+        opinion_weights[v.target_key] = 2 * v.value - 1
 
-    hash = (opinion_weights[unslash v.user] * v.value for v in sldr.arr when (unslash v.user) of opinion_weights)
+    hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])
 
     if sldr.arr?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
@@ -474,10 +474,10 @@ dom.HISTOGRAM.refresh = ->
         save local_sldr
 
         vals_weight = sldr.arr
-            .filter (v) -> (v.user != you) and (unslash(v.user) of opinion_weights)
+            .filter (v) -> (v.user_key != you) and (v.user_key of opinion_weights)
             .map (v) ->
                 {
-                    weight: Math.abs(opinion_weights[unslash v.user] * 0.9) + 0.1
+                    weight: Math.abs(opinion_weights[v.user_key] * 0.9) + 0.1
                     v...
                 }
 
@@ -485,7 +485,7 @@ dom.HISTOGRAM.refresh = ->
 
         radii = {}
         vals_weight.forEach (vote) ->
-            radii[vote.user] = Math.sqrt(vote.weight) * packing_radius
+            radii[vote.user_key] = Math.sqrt(vote.weight) * packing_radius
 
         # Ignore the user's own vote
         ignore = {}
@@ -859,7 +859,7 @@ window.get_your_slide = (sldr) =>
   you = your_key()
   your_slide = null
   for v in (sldr.arr or [])
-    if v?.user == you
+    if v?.user_key == you
       your_slide = v
       break
   your_slide
