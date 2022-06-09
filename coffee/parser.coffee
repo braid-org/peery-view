@@ -68,9 +68,10 @@ match_pattern = (pattern, star) ->
     for ppart, i in pattern_parts
         spart = star_parts[i]
         # we either match an argument (if ppart is of the form <keyN>) or we verify that the constants are equal
-        unless ppart.startsWith("<") or ppart == spart
+        if ppart.startsWith "<"
+            path[ppart[1...-1]] = spart
+        else if ppart != spart
             return false
-        path[ppart[1...-1]] = spart
 
     # split_once will take off the parenthese if it exists, let's put it back on
     params = if params_raw.length then parse_kson "(#{params_raw}" else {}
@@ -95,6 +96,7 @@ PPPParser = (bus) ->
                 t ||= {}
                 t._path = path
                 t._params = params
+                console.log "Running handler for #{pattern} and method #{method}"
                 bus.run_handler handler, method, arg, {t: t, binding: pattern}
                 return 1
         return og_route(key, method, arg, t)

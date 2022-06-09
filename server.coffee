@@ -8,9 +8,7 @@ bus = require('statebus').serve
     client: (client, server) ->
         parser = parse.PPPParser client
 
-        ###
-        parser('post/*').to_save = (path, params, val, old, t) ->
-
+        parser('post/<postid>').to_save = (key, val, old, t) ->
             c = client.fetch "current_user"
             all_posts = bus.fetch "posts"
             # So there's a few cases here. 
@@ -30,13 +28,15 @@ bus = require('statebus').serve
                     return t.abort()
                 
                 # Ok, put it into the posts list
-                all_posts.all ?= []
-                all_posts.all.push val
+                (all_posts.arr ?= []).push val
                 bus.save all_posts
                 return t.done val
            
             # Deleting post
             unless val.user?
+                # TODO
+                return t.abort()
+                
                 unless c.logged_in and (c.user.key == unslash old.user)
                     return t.abort()
                 # Everything looks good. So we need to do four things.
@@ -70,154 +70,89 @@ bus = require('statebus').serve
                 val = {key: val.key}
                 bus.save val
                 return t.done val
-            # Adding a tag: TODO: FIND A BETTER PLACE TO STORE A TAG
+
+            # Adding a tag: 
             if val?.tags?.length
                 all_tags = bus.fetch "tags"
-                all_tags.tags ||= []
-                old.tags ||= []
-                val.tags.forEach (t) => 
+                all_tags.arr ?= []
+                old.tags ?= []
+                val.tags.forEach (t) ->
                     unless t in old.tags then old.tags.push t
-                    unless t in all_tags.tags then all_tags.tags.push t
+                    unless t in all_tags.arr then all_tags.arr.push t
                 bus.save all_tags
                 bus.save old
                 return t.done old
-            
 
             t.abort()
 
-
-        # Client cannot edit /votes_by/
-        client('votes_by/*').to_save = (val, star, t) ->
-            t.abort()
-
-
-        
-        # When the slidergram saves the list of votes, we want to add some fields to each vote in case they don't exist.
-        # We add a (redundant here) 'target', which is just star.
-        # But we also add a key (concatenation of the user and the target)
-        # This means that each vote will actually get a url.
-        # 
-        # We will also add this vote (if it doesn't yet exist there) to the array votes_by.
-        client('votes_on/*').to_save = (val, old, star, t) ->
-
-            # The slidergram no longer directly saves this array. Do we still want to allow saving here?
-
-            console.warn("votes_on saved!!")
-            return t.abort()
-
-
-            # since we're going to set properties directly on votes_by we have to prevent injection
-            if star is "key"
-                return t.abort()
-
-            c = client.fetch "current_user"
-            userkey = c.user?.key
-            our_vote = false
-            
-            val.values.forEach (v) ->
-                v.target ?= star
-                v.key ?= "votes/_#{unslash v.user}_#{star}_"
-
-                if userkey is unslash v.user
-                    our_vote = v
-            
-            bus.save val
-            # now any new votes will have a url.
-            
-            # Explicit fetching?
-            if userkey?
-                # If there is a vote by the client, put it in votes_by if it isn't already there.
-                votes_by = bus.fetch "votes_by/#{userkey}"
-
-                need_to_save = false
-                if our_vote
-                    need_to_save = !votes_by[star]?
-                    votes_by[star] ?= our_vote
-                # Delete a vote if it's not there
-                else
-                    need_to_save = votes_by[star]?
-                    delete votes_by[star]
-                if need_to_save
-                    bus.save votes_by
-            # finally, tell the client that we accept their value
-            t.done val
-        
         # If an individual vote is saved, put it in the arrays if necessary.
-        client('votes/*').to_save = (val, old, star, t) ->
+        parser('user/<userid>/vote/<type>/<targetid>').to_save = (key, val, old, t) ->
+            console.log key, val, old, t
+            {userid, type, targetid} = t._path
+            {tag} = t._params
+            user = "user/#{userid}"
+            target = "#{type}/#{targetid}"
+
             # Permission and integrity checking
             c = client.fetch "current_user"
-            split = star.split "_"
-            # Check that key is correct
-            unless split.length == 4 or split.length == 5
-                console.log("Got a bad key")
+            unless type == "user" or type == "post"
                 return t.abort()
-            voter = split[1]
-            target = split[2]
-            tag = split[3]
             # Check that user has the right to change the key
-            unless c.logged_in and c.user.key == voter
+            unless c.logged_in and c.user.key == user == unslash val.user
+                console.warm "#{c.user.key} tried to save a vote by #{unslash val.user} on #{key}"
                 return t.abort()
             # Check that the key matches the contents
-            unless voter == (unslash val.user) and target == (unslash val.target)
+            unless target == unslash val.target
+                console.warn "... tried to save a vote on #{unslash val.target} at #{key}"
                 return t.abort()
             # Check that the vote has an associated value between 0 and 1
-            unless 0 <= val.value and val.value <= 1
+            unless 0 <= val.value <= 1
                 return t.abort()
             # Check that the tag is right
-            if split.length == 5 and (tag != val.tag or tag.length == 0)
+            if tag != val.tag
+                console.warn "... tried to save a vote with the tag #{val.tag} at #{key}"
                 return t.abort()
             # Alright, looks good.
             
             # Is this a new vote?
             unless old.value?
-                tag_path = if split.length == 5 then "/#{tag}" else ""
                 # Put this vote into the necessary arrays.
-                votes_by = bus.fetch "votes_by/#{unslash val.user}#{tag_path}"
-                votes_by[unslash val.target] ?= val
-                bus.save votes_by
-
-                votes_on = bus.fetch "votes_on/#{unslash val.target}#{tag_path}"
-                votes_on.values ?= []
-                votes_on.values.push val
-                bus.save votes_on
+                # We only put it into the untagged arrays -- the tagged (ie, filtered) views of these arrays are computed automatically
+                ["#{user}/votes", "votes/#{target}"].forEach (k) ->
+                    s = bus.fetch k
+                    (s.arr ?= []).push val
+                    bus.save s
 
             # Add the tag-type if necessary
-            if split.length == 5
+            if tag
                 target_obj = bus.fetch target
-                target_obj.tags ||= []
-                unless tag in target_obj.tags
+                unless tag in (target_obj.tags ?= [])
                     target_obj.tags.push tag
                 bus.save target_obj
 
                 all_tags = bus.fetch "tags"
-                unless tag in all_tags.tags
-                    all_tags.tags.push tag
+                unless tag in (all_tags.arr ?= [])
+                    all_tags.arr.push tag
                 bus.save all_tags
-
             
             bus.save val
             t.done val
 
-        # Clients may also get a list of all users
-        client('all_users').to_fetch = ->
-            { all: for user in bus.fetch('users').all then user.key }
-        ###
         client.shadows bus
         
-
-######### main bus handlers #########
+########## main bus handlers #########
 bus_parser = parse.PPPParser bus
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 NETWORK_ATT = 0.9
-bus_parser('user/<username>/votes/people').to_fetch = (key, t) ->
-    {username} = t._path
-    args = t._params
+bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
+    {username, type} = t._path
+    {computed, tag} = t._params
     userkey = "user/#{username}"
     
     # Compute weights through the network
     # TODO: fix "enemy of my enemy is my friend" ("ReLU multiplication"?)
-    if args.computed
+    if computed and type == "people"
         # This functions implements the following computation:
         # w(x, y) :=
         #    let l = minimum length of all paths x -> y
@@ -234,7 +169,7 @@ bus_parser('user/<username>/votes/people').to_fetch = (key, t) ->
                 w = (P.reduce (a, b) -> a+b) / P.length
 
                 weights[y] = 
-                    key: "#{userkey}/vote/#{y}#{parse.stringify_kson {computed: depth != 1, tag: args.tag}}"
+                    key: "#{userkey}/vote/#{y}#{parse.stringify_kson {computed: depth != 1, tag: tag}}"
                     user: userkey
                     target: y
                     value: w
@@ -242,7 +177,7 @@ bus_parser('user/<username>/votes/people').to_fetch = (key, t) ->
                 if Math.abs(w) <= MIN_WEIGHT
                     continue
 
-                bus.fetch "#{y}/votes/people#{parse.stringify_kson {tag: args.tag}}"
+                bus.fetch "#{y}/votes/people#{parse.stringify_kson {tag: tag}}"
                     .arr
                     .filter (v) -> (v.target not of weights) and (v.target not of queue_cur)
                     .forEach (v) ->
@@ -272,22 +207,91 @@ bus_parser('user/<username>/votes/people').to_fetch = (key, t) ->
             key: key
             arr: Object.values weights
         }
+# TODO: Is it more efficient to use "successive filtering"?
+## From this point on it's basically the same fetch-and-filter code several times. ##
     else
-        cur = bus.cache[key] ? {key: key}
-        cur.arr ?= []
-        cur
+        prefix = if type == "people" then "user" else "post"
+        all_votes = bus.fetch "#{userkey}/votes"
+        {
+            key: key
+            arr: all_votes.arr.filter (v) ->
+                fetch v
+                !tag or tag == v.tag and v.target.startsWith prefix
+        }
             
-###
+bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
+    {type, targetid} = t._path
+    {computed, tag} = t._params
+    if tag
+        # Fetching here instead of accessing cache makes us reactive
+        all_votes = bus.fetch "votes/#{type}/#{targetid}"
+        {
+            key: key
+            arr: all_votes.arr.filter (v) ->
+                fetch v
+                tag == v.tag
+
+        }
+    else
+        all_votes = bus.cache[key] ?= {key: key}
+        all_votes.arr ?= []
+        all_votes
+
+bus_parser('user/<username>/votes').to_fetch = (key, t) ->
+    {username} = t._path
+    {computed, tag} = t._params
+    if tag
+        # Fetching here instead of accessing cache makes us reactive
+        all_votes = bus.fetch "user/#{username}/votes"
+        {
+            key: key
+            arr: all_votes.arr.filter (v) ->
+                fetch v
+                tag == v.tag
+        }
+    else
+        all_votes = bus.cache[key] ?= {key: key}
+        all_votes.arr ?= []
+        all_votes
+
+bus_parser('user/<username>/posts').to_fetch = (key, t) ->
+    {username} = t._path
+    {computed, tag} = t._params
+    all_posts = bus.fetch "posts"
+    userkey = "user/#{username}"
+    {
+        key: key
+        arr: all_posts.arr.filter (p) ->
+            fetch p
+            !tag or tag in p.tags and userkey == unslash p.user
+    }
+
+bus_parser('posts').to_fetch = (key, t) ->
+    {computed, tag} = t._params
+    if tag
+        all_posts = bus.fetch "posts"
+        {
+            key: key
+            arr: all_posts.arr.filter (p) ->
+                fetch p
+                tag in p.tags
+        }
+    else
+        all_posts = bus.cache[key] ?= {key: key}
+        all_posts.arr ?= []
+        all_posts
+
+
+# should be able to fetch feeds and views here...
 bus('feeds').to_fetch = () ->
     users = bus.fetch('users').all
-    tags = (bus.fetch("tags").tags || [])
+    tags = (bus.fetch("tags").arr || [])
 
     feeds = users.map((u) => {_key: u.key, name: u.name, type: "user"})
                  .concat tags.map (t) => {_key: t, name: t, type: "tag"}
     return
         key: "feeds"
-        all: feeds
-###
+        arr: feeds
 
 ###### Sending static content over HTTP ##############
 express = require 'express'

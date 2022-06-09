@@ -1,74 +1,3 @@
-bus('usergram/*').to_fetch = (star) ->
-    username_with_tag = slash star
-    username_without_tag = "/user/#{star.split('/')[1]}"
-    
-    users = {}
-    # Add users with direct votes
-    Object.values(fetch "/votes_by#{username_with_tag}")
-        .filter (v) =>
-            unless v.target?
-                return false
-            (unslash v.target).startsWith "user"
-        .forEach (v) =>
-            # Subscribe to each individual vote...
-            fetch v
-            # Now make a copy of it that isnt tied to the real state url
-            t = Object.assign {}, v
-            delete t.key
-            users[slash t.target] = t
-
-    # Users in network
-    Object.entries(fetch "/weights#{username_without_tag}")
-        .filter ([k, v]) => k != "key"
-        .forEach ([k, v]) =>
-            kk = slash k
-            users[kk] ?= {
-                user: username_without_tag
-                target: kk
-                type: "network"
-                # weights get computed between -1 and 1.
-                # but the vote value should be between 0 and 1.
-                value: (v + 1) / 2
-            }
-
-    # All other users
-    # I should just make this a toggle or something??
-    #if c.logged_in and c.user.key == username
-    #    (fetch "/all_users").all
-    #        .forEach (v) ->
-    #            vv = slash v
-    #            users[vv] ?= {
-    #                user: username
-    #                target: vv
-    #                type: "remote"
-    #                value: 0.5
-    #            }
-
-    # Don't put the user whose usergram this is in the display
-    if users.hasOwnProperty username_without_tag
-        delete users[username_without_tag]
-
-    {
-        values: Object.values users
-    }
-
-
-#bus('usergram/*').to_save = (val, star, key, t) ->
-#    local = fetch shared_local_key key
-#
-#    # Only save the vote that was changed.
-#    val.values.forEach (v) ->
-#        if v.target == local.target
-#            if v.type?
-#                # This is a NEW vote that didn't exist before.
-#                delete v.type
-#
-#            cop = Object.assign {}, v
-#            cop.key = "/votes/_#{unslash star}_#{unslash v.target}_"
-#            save cop
-#                   
-#    t.done val
-
 dom.MULTIGRAM = ->
     sldr = fetch @props.sldr
     local_sldr = fetch shared_local_key sldr
@@ -138,7 +67,7 @@ dom.MULTIGRAM = ->
 
 dom.MULTIHISTOGRAM = ->
   sldr = fetch @props.sldr
-  sldr.values ||= []
+  sldr.arr ?= []
   local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
   
@@ -150,7 +79,7 @@ dom.MULTIHISTOGRAM = ->
 
   dragging = local_sldr.dragging
 
-  DIV extend( props,
+  DIV extend(@props,
     className: 'histogram'
     style:
       width: @props.width
@@ -161,15 +90,14 @@ dom.MULTIHISTOGRAM = ->
 
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
-    for opinion in sldr.values
+    for opinion in sldr.arr
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
-        continue if opinion.type == "me"
+        continue if opinion.depth == 0
 
         size = local_sldr.layout[opinion.target]
         
         dragged = local_sldr.target == opinion.target
-        props =
-            # To hopefully avoid react issues
+        props = 
             key: "histo-avatar-#{opinion.target}"
             # To tell the AVATAR whose pic/initials to display
             user: opinion.target
@@ -177,7 +105,7 @@ dom.MULTIHISTOGRAM = ->
             hide_tooltip: true
             # To allow the multigram to check hovers properly
             "data-target": opinion.target
-            style:
+            style: 
                 # Size of the avatar
                 width: size?.width or 50
                 height: size?.width or 50
@@ -186,8 +114,8 @@ dom.MULTIHISTOGRAM = ->
                 # This is unnecessary unless we're using transform for size as well
                 transformOrigin: "top left"
                 # If there's a dragged avatar or we're an implicit vote, gray out
-                opacity: if (dragging or opinion.type?) then 0.4
-                filter: if (dragging or opinion.type?) then 'grayscale(80%)'
+                opacity: if (dragging or opinion.depth != 1) then 0.4
+                filter: if (dragging or opinion.depth != 1) then 'grayscale(80%)'
                 # If this avatar is the "original position" of the current floating drag, put a dashed border
                 boxSizing: "border-box"
                 border: "2px dashed"
@@ -195,7 +123,7 @@ dom.MULTIHISTOGRAM = ->
                 backgroundColor: if (dragging and dragged) then "transparent"
                 color: if (dragging and dragged) then "black"
                 # UX interactability
-                cursor: "pointer" unless @props.read_only
+                cursor: unless @props.read_only then "pointer"
 
         # This sets event listeners on the avatar
         unless @props.read_only
@@ -239,34 +167,31 @@ dom.MULTIHISTOGRAM.refresh = ->
   dragging = local_sldr.dragging
 
   # We want to avoid running the expensive layout calculation unless things have changed
-  hash = (v.value for v in sldr.values || []).join " "
+  hash = (v.value for v in sldr.arr || []).join " "
   cache_key = md5([@props.width, @props.height, hash, sldr.key])
   # A single multihistogram widget could get pointed at different state. Hence, the cache key should change when the state key changes
 
-  if sldr.values?.length > 0 and (cache_key != @last_cache || local_sldr.dirty_opinions) and !@loading()
+  if sldr.arr?.length > 0 and (cache_key != @last_cache || local_sldr.dirty_opinions) and !@loading()
     local_sldr.dirty_opinions = false
     save local_sldr
 
     # Make a copy of the votes array that has weights on it.
     # The area of each avatar will be proportional to its weight.
-    vals_weight = sldr.values
+    vals_weight = sldr.arr
         .map (v) ->
-            vv = Object.assign({}, v)
-            if vv.type == "remote"
-                vv.weight = 0.1
-            else
-                factor = Math.abs(vv.value - 0.5) * 1.8 + 0.1
-                if vv.type == "network"
-                    factor /= 2
-                vv.weight = factor
-            vv
+            {
+                v...
+                weight: (Math.abs(v.value - 0.5) * 1.8 + 0.1) * (if v.depth == 1 then 1 else 0.5)
+            }
 
     # calcRadius takes weight into account
     packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
     radii = {}
-    vals_weight.forEach (vote) ->
-        radii[vote.target] = Math.sqrt(vote.weight) * packing_radius
+    vals_weight
+        .filter (vote) -> vote.target != vote.user
+        .forEach (vote) ->
+            radii[vote.target] = Math.sqrt(vote.weight) * packing_radius
 
     positionAvatars
       sldr: sldr

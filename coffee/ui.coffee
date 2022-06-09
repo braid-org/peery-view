@@ -34,16 +34,6 @@ dom.POST = ->
     catch e 
         functional_url = ""
     
-    #time_string = ""
-    #delta = Date.now() / 1000 - post.time
-    #if delta > 60 * 60 * 24
-    #    time_string = "#{Math.floor(delta / (60 * 60 * 24))} days"
-    #else if delta > 60 * 60
-    #    time_string = "#{Math.floor(delta / (60 * 60))} hours"
-    #else if delta > 60
-    #    time_string = "#{Math.floor(delta / 60)} minutes"
-    #else
-    #    time_string = "#{Math.floor(delta)} seconds"
     time_string = prettyDate(post.time * 1000)
 
 
@@ -94,13 +84,12 @@ dom.POST = ->
                 textOverflow: "ellipsis"
                 "#{if @local.expanded then url else pretty_url} · #{time_string}"
            
-            # TODO: Use the information in `view` to display a topical slidergram
             DIV
                 key: "post-votes-slider"
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
-                if v.selected?.type == "tag"
+                if v?.selected?.type == "tag"
                     SLIDERGRAM_WITH_TAG
                         key: "slidergram"
                         post: post
@@ -111,15 +100,15 @@ dom.POST = ->
                         read_only: !c.logged_in
                 else
                     SLIDERGRAM
-                        key: "sidergram"
-                        sldr: "/votes_on#{post.key}"
+                        key: "slidergram"
+                        sldr: "/votes/#{unslash post.key}"
                         width: slider_width
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
                         read_only: !c.logged_in
                         vote_key: "user"
                         onsave: (vote) =>
-                            vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_"
+                            vote.key = "#{c.user.key}/vote/#{unslash post.key}"
                             vote.target = post.key
                             save vote
 
@@ -145,8 +134,7 @@ dom.POST_DETAILS = ->
     post = fetch @props.post
     c = fetch "/current_user"
     # Cache this?
-    potential_tags = (fetch "/feeds").all.filter (f) =>
-        f.type == "tag" and (unslash f._key) not in (post.tags || [])
+    potential_tags = (fetch "/tags").arr.filter (f) -> f not in (post.tags || [])
     max_suggestions = @props.max_suggestions ? 4
     # Setup default values in @local
     @local.selected_idx ?= -1
@@ -811,7 +799,6 @@ dom.FEEDS = ->
                     change_path newpath
                     save v
 
-                # TODO: How is an avatar rendered for something that isn't a user?
                 if type == "user"
                     AVATAR
                         user: feed._key

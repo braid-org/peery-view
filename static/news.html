@@ -98,7 +98,7 @@
 
         # Local copy of posts, ordered.
         c = fetch "/current_user"
-        posts = (fetch "/posts").all ? []
+        posts = (fetch "/posts").arr ? []
         #v = fetch "view"
 
         username = c?.user?.key ? "/user/default"
@@ -124,10 +124,11 @@
             when c?.logged_in then c.user.key
             else "/user/default"
         username = unslash username
-        
+       
+        tag = if v?.selected?.type == "tag" then unslash v.selected._key 
         params = 
             computed: true
-            tag: if v?.selected?.type == "tag" then unslash v.selected._key
+            tag: tag
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
@@ -140,7 +141,7 @@
                 max_avatar_radius: 60
                 read_only: (v?.selected?.type == "user") or !c.logged_in
                 onsave: (vote) =>
-                    delete vote.type
+                    delete vote.weight
                     copy = Object.assign {}, vote
                     copy.key = "/#{username}/vote/#{unslash vote.target}"
                     if tag

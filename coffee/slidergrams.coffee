@@ -7,20 +7,19 @@ color_negative = '#f46444'
 
 get_target_slide = (sldr, target_key, target) ->
     sldr = fetch sldr
-    res = null
-    for v in (sldr.values or [])
+    for v in (sldr.arr or [])
         if v[target_key] == target
-            res = v
-            break
-    res
+            return v
+    null
 
 dom.SLIDERGRAM_WITH_TAG = ->
     post = @props.post
     tag = @props.tag
     c = fetch "/current_user"
-    @props.sldr = "/votes_on#{post.key}/#{tag}"
+    kson = stringify_kson {tag}
+    @props.sldr = "/votes/#{unslash post.key}#{kson}"
     @props.onsave = (vote) =>
-        vote.key = "/votes/_#{unslash c.user.key}_#{unslash post.key}_#{tag}_"
+        vote.key = "#{c?.user?.key}/vote/#{unslash post.key}#{kson}"
         vote.target = post.key
         vote.tag = tag
         save vote
@@ -33,7 +32,7 @@ dom.SLIDERGRAM = ->
   local_sldr = fetch(shared_local_key(sldr))
 
   you = your_key()
-  has_opined = you in (o.user for o in (sldr.values or []))
+  has_opined = you in (o.user for o in (sldr.arr ? []))
 
   read_only = @props.read_only
 
@@ -208,7 +207,7 @@ start_slide = (sldr, slidergram_width, target, args) ->
         if args?.onsave
             args?.onsave?(the_vote, sldr)
         else
-            sldr.values.push the_vote
+            sldr.arr.push the_vote
             save sldr
 
 
@@ -370,18 +369,23 @@ dom.SLIDER_TOOLTIP = ->
 
 dom.HISTOGRAM = ->
   sldr = fetch @props.sldr
-  sldr.values ?= []
+  sldr.arr ?= []
   local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
 
+  {params: {tag}} = match_pattern "/votes/post/<pid>", sldr.key
+
   you = your_key?()
-  opinion_weights = fetch "/weights#{you ? '/user/default'}"
+  opinion_weights = {}
+  (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
+      fetch v
+      opinion_weights[slash v.target] = 2 * v.value - 1
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
   focus_on_dragging = local_sldr.dragging || local_sldr.tracking_mouse == 'activated'
 
-  DIV extend( props,
+  DIV extend(@props,
     ref: 'histo'
     className: 'histogram'
     style:
@@ -393,7 +397,7 @@ dom.HISTOGRAM = ->
 
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
-    for opinion in sldr.values
+    for opinion in sldr.arr
       continue if (opinion_weights and (unslash opinion.user) not of opinion_weights ) or (opinion.user == you) or !opinion[@props.vote_key]
       size = local_sldr.layout[opinion[@props.vote_key]]
 
@@ -456,21 +460,26 @@ dom.HISTOGRAM.refresh = ->
     local_sldr = fetch shared_local_key sldr
     you = your_key?()
 
-    opinion_weights = fetch "/weights#{you ? '/user/default'}"
+    {params: {tag}} = match_pattern "/votes/post/<pid>", sldr.key
+    opinion_weights = {}
+    (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
+        fetch v
+        opinion_weights[slash v.target] = 2 * v.value - 1
 
-    hash = (opinion_weights[unslash v.user] * v.value for v in sldr.values when (unslash v.user) of opinion_weights)
+    hash = (opinion_weights[unslash v.user] * v.value for v in sldr.arr when (unslash v.user) of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])
 
-    if sldr.values?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
+    if sldr.arr?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
         local_sldr.dirty_opinions = false
         save local_sldr
 
-        vals_weight = sldr.values
+        vals_weight = sldr.arr
             .filter (v) -> (v.user != you) and (unslash(v.user) of opinion_weights)
             .map (v) ->
-                # Can't modify the actual object!
-                vv = Object.assign { weight: Math.abs(opinion_weights[unslash v.user] * 0.9) + 0.1 }, v
-                vv
+                {
+                    weight: Math.abs(opinion_weights[unslash v.user] * 0.9) + 0.1
+                    v...
+                }
 
         packing_radius = @calcRadius(@props.width, @props.height, vals_weight, @props.max_avatar_radius)
 
@@ -644,7 +653,7 @@ positionAvatars = (args) ->
   ##############
   # Initialize positions of each node
   targets = {}
-  avatars = positions.values
+  avatars = positions.arr
   if radii
     avatars = (o for o in avatars when o[vote_key] of radii)
   avatars = avatars.filter (o) -> !ignore[o[vote_key]]
@@ -849,38 +858,9 @@ window.get_your_slide = (sldr) =>
 
   you = your_key()
   your_slide = null
-  for v in (sldr.values or [])
+  for v in (sldr.arr or [])
     if v?.user == you
       your_slide = v
       break
   your_slide
-
-# returns average score of the opinions on this slider,
-# weighted by current opinion weights
-window.get_average_value = (sldr) =>
-  weights = fetch('opinion').weights
-
-  sldr = fetch sldr 
-  return 0 if !sldr.values?
-
-  w = 0 # total opinion weight 
-  v = 0 # total opinion value
-  n = 0 # total users contributing to score
-
-  for slide in sldr.values 
-    if weights 
-      continue if slide.user not of weights 
-      w += weights[slide.user]
-      v += weights[slide.user] * slide.value
-    else 
-      w += 1 
-      v += slide.value 
-
-    n += 1
-
-  if n == 0 || w == 0 
-    -1 
-  else 
-    v / w
-
 

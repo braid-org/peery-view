@@ -14,7 +14,11 @@ sort_posts = (posts, user, tag) ->
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
 
-    weights = fetch "/weights#{me}"
+    weights = {}
+    (fetch "#{me}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
+        fetch v
+        weights[slash v.target] = 2 * v.value - 1
+    ###
     # Add tagged votes, which aren't seen in the weights
     if tag
         tagged_votes = fetch "/votes_by#{me}/#{unslash tag}"
@@ -22,20 +26,15 @@ sort_posts = (posts, user, tag) ->
                                      .forEach ([k, v]) =>
                                          fetch v
                                          weights[unslash k] = (2 * v.value) - 1
-
+    ###
+        
     if loading()
         return posts
 
     now = Date.now() / 1000
     
     scores = {}
-    was_tagged = {}
     posts.forEach (p) ->
-        if tag?.length
-            if (unslash tag) in (p.tags || [])
-                was_tagged[p.key] = true
-            else
-                return
         # Subscribe to the post
         p = fetch p
 
@@ -43,8 +42,7 @@ sort_posts = (posts, user, tag) ->
         sum_weights = 0
 
         # Subscribe to the post's votes
-        votes = (fetch "/votes_on#{p.key}#{tag || ''}").values ? []
-        votes.forEach (v) ->
+        (fetch "/votes/#{unslash p.key}#{stringify_kson {tag}}")?.arr?.forEach (v) ->
             # first subscribe to the vote
             if v.key then fetch v
             voter = unslash v.user
@@ -61,17 +59,17 @@ sort_posts = (posts, user, tag) ->
             score: sum_votes
             volume: sum_weights
 
-    # Should we save scores and weights to the local state?
+    # Should we save scores and weights to the local state? 
+    # ^ past me, that probably wouldn't do anything!
 
-    # Filter posts:              based on the minimum score       or we made this posts           only show posts with the selected tag
-    posts = posts.filter (v) -> (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
+    # Filter posts:              based on the minimum score       or we made this post           only show posts with the selected tag
+    posts.filter (v) -> (scores[v.key] > min_weight or slash(v.user) == me) and (!tag?.length or was_tagged[v.key])
     # Filter before sorting!!
-    posts.sort (a, b) -> scores[b.key] - scores[a.key]
-    posts
+        .sort (a, b) -> scores[b.key] - scores[a.key]
     
 
 make_post = (title, url, userkey) ->
-    get_id = () -> "/post/" + Math.random().toString(36)
+    get_id = () -> "/post/" + Math.random().toString(36).substr(2)
     id = get_id()
     ###
     # Check for ID collision -- usually this won't happen
@@ -80,7 +78,7 @@ make_post = (title, url, userkey) ->
         forget id
         id = get_id()
     ###
-    v = fetch "view"
+    #v = fetch "view"
     post =
         key: id
         user: userkey
