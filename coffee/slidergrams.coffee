@@ -23,7 +23,7 @@ dom.SLIDERGRAM_WITH_TAG = ->
         vote.target_key = post.key
         vote.tag = tag
         save vote
-    @props.vote_key = "user"
+    @props.vote_key = "user_key"
     @props.read_only = !c.logged_in
     SLIDERGRAM @props
 
@@ -373,7 +373,7 @@ dom.HISTOGRAM = ->
   local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
 
-  {params: {tag}} = match_pattern "/votes/post/<pid>", sldr.key
+  {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
 
   you = your_key?()
   opinion_weights = {}
@@ -460,7 +460,7 @@ dom.HISTOGRAM.refresh = ->
     local_sldr = fetch shared_local_key sldr
     you = your_key?()
 
-    {params: {tag}} = match_pattern "/votes/post/<pid>", sldr.key
+    {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
     opinion_weights = {}
     (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
         fetch v

@@ -62,6 +62,9 @@ dom.AVATAR = ->
 
 dom.AVATAR_WITH_SLIDER = ->
 
+    c = fetch "/current_user"
+    # Check the view?
+
     SPAN
         style: {
             @props.style...,
@@ -74,7 +77,7 @@ dom.AVATAR_WITH_SLIDER = ->
         if @props.clickable
             # When clicked, we want to display the slider
             onClick: (e) =>
-                @local.user_slide = !(@local.user_slide ? false)
+                @local.modal = !(@local.modal ? false)
                 save @local
             # When hovered, we want to show a slider icon
             onMouseOver: (e) =>
@@ -87,20 +90,47 @@ dom.AVATAR_WITH_SLIDER = ->
         AVATAR
             key: "the-avatar"
             user: @props.user
-            hide_tooltip: @local.user_slide
+            hide_tooltip: @local.modal
             style:
                 width: @props.width
                 height: @props.height
                 borderRadius: "50%"
 
-        if @local.user_slide
-            # How do we put a slider here??? lmao
-            DIV
-                key: "individual-user-slider"
-                position: "relative"
-                zIndex: 3
-                whiteSpace: "nowrap"
-                "This should be a slider..."
+            
+        DIV
+            key: "modal"
+            ref: "modal"
+
+            display: "none" unless @local.user_modal
+
+            marginTop: 5
+            position: "relative"
+            transform: "translateX(-50%)"
+
+            zIndex: 5
+            padding: 5
+            background: "white"
+            boxShadow: "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+
+
+            register_window_event "close-slider-#{@props.user.key}", "mousedown", (e) =>
+                # should we preventdefault?
+                unless @refs.modal.getDOMNode().contains e.target
+                    @local.user_slide = false
+                    save @local
+
+            SLIDERGRAM
+                key: "slidergram"
+                sldr: "/votes#{@props.user.key}"
+                width: 300
+                height: 24
+                max_avatar_radius: 12
+                read_only: !c.logged_in
+                vote_key: "user_key"
+                onsave: (vote) =>
+                    vote.key = "#{c.user.key}/vote#{@props.user.key}"
+                    vote.target_key = @props.user.key
+                    save vote
 
 #        SPAN
 #            key: "hover-icon"

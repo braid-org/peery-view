@@ -127,7 +127,7 @@
                     copy = Object.assign {}, vote
                     copy.key = "#{username}/vote/#{unslash vote.target_key}"
                     copy.depth = 1
-                    if tag
+                    if tag?
                         copy.key = "#{copy.key}(tag:#{tag})"
                         copy.tag = tag
                     save copy

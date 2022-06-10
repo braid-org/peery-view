@@ -784,7 +784,7 @@ dom.FEEDS = ->
 
 
         tags.map (t) -> {type: 'tag', name: t, tag: t}
-            .concat ( users.map (u) -> {type: 'user', name: user.name, user_key: user.key} )
+            .concat ( users.map (u) -> {type: 'user', name: u.name, user_key: u.key} )
             .map (feed) =>
                 selected = switch feed.type
                     when 'tag' then v.tag == feed.tag
@@ -809,7 +809,7 @@ dom.FEEDS = ->
                         change_path newpath
                         save v
 
-                    if type == "user"
+                    if feed.type == "user"
                         AVATAR
                             user: feed.user_key
                             key: "icon"

@@ -18,7 +18,7 @@ bus = require('statebus').serve
             # 4. A client is adding a tag to an existing post
 
             # New post
-            unless old.user?
+            unless old.user_key?
                 # Is the user logged in and making a post under their own name?
                 unless c.logged_in and (c.user.key == val.user_key)
                     return t.abort()
@@ -95,18 +95,22 @@ bus = require('statebus').serve
             # Permission and integrity checking
             c = client.fetch "current_user"
             unless type == "user" or type == "post"
+                console.log "Bad type '#{type}'"
                 return t.abort()
             # Check that user has the right to change the key
             unless c.logged_in and c.user.key == user == val.user_key
+                console.log "User #{c.user.key}, #{user} in url, #{val.user_key} in state"
                 return t.abort()
             # Check that the key matches the contents
             unless target == val.target_key
+                console.log "Bad target ('#{target}' in url, '#{val.target_key}' in state)"
                 return t.abort()
             # Check that the vote has an associated value between 0 and 1
             unless 0 <= val.value <= 1
                 return t.abort()
             # Check that the tag is right
             if tag != val.tag
+                console.log "Bad tag ('#{tag}' in url, '#{val.tag}' in state)"
                 return t.abort()
             # Alright, looks good.
             
@@ -141,6 +145,11 @@ bus = require('statebus').serve
         
 ########## main bus handlers #########
 bus_parser = parse.PPPParser bus
+
+# safety check for state that should return an array
+default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
+
+
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 MAX_DEPTH = 5
@@ -242,9 +251,7 @@ bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
 
         }
     else
-        all_votes = bus.cache[key] ?= {key: key}
-        all_votes.arr ?= []
-        all_votes
+        default_arr key
 
 bus_parser('user/<username>/votes').to_fetch = (key, t) ->
     {username} = t._path
@@ -259,9 +266,7 @@ bus_parser('user/<username>/votes').to_fetch = (key, t) ->
                 c
         }
     else
-        all_votes = bus.cache[key] ?= {key: key}
-        all_votes.arr ?= []
-        all_votes
+        default_arr key
 
 bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
     {username, target} = t._path
@@ -310,9 +315,9 @@ bus_parser('posts').to_fetch = (key, t) ->
                 c
         }
     else
-        all_posts = bus.cache[key] ?= {key: key}
-        all_posts.arr ?= []
-        all_posts
+        default_arr key
+
+bus('tags').to_fetch = (key) -> default_arr key
 
 
 
