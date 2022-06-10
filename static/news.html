@@ -52,27 +52,16 @@
         history.pushState {}, '', u
 
     window.parse_path = (path) ->
-        # TODO: Refactor this shit!
-        ###
-        path = unslash unescape path
+        path = slash unescape path
         v = fetch "view"
-        v.selected = switch
-            when path.startsWith "tag"
-                tagname = (path.substr 4)
-                {
-                    _key: "/#{tagname}",
-                    name: tagname,
-                    type: "tag"
-                }
-            when path.startsWith "user"
-                {
-                    _key: slash(path),
-                    type: "user"
-                }
-            else
-                null
+        switch
+            when path.startsWith "/tag/"
+                v.tag = path.substr 5
+                v.user_key = null
+            when path.startsWith "/user/"
+                v.user_key = path
+                v.tag = null
         save v
-        ###
 
     window.load_path = (path) ->
         change_path path
@@ -99,15 +88,12 @@
         # Local copy of posts, ordered.
         c = fetch "/current_user"
         posts = (fetch "/posts").arr ? []
-        #v = fetch "view"
+        v = fetch "view"
 
-        username = c?.user?.key ? "/user/default"
+        username = v.user_key ? c?.user?.key ? "/user/default"
+
+        ordered = sort_posts posts, username, v.tag
         
-        ordered = switch
-            when v?.selected?.type == "user" then sort_posts posts, v.selected._key
-            when v?.selected?.type == "tag" then sort_posts posts, username, v.selected._key
-            else sort_posts posts, username
-
         DIV 
             key: "post-list"
             ordered.map (post) =>
@@ -118,16 +104,13 @@
 
     dom.BIG_MULTIGRAM = ->
         c = fetch "/current_user"
-        #v = fetch "view"
-        username = switch
-            when v?.selected?.type == "user" then v.selected._key
-            when c?.logged_in then c.user.key
-            else "/user/default"
+        v = fetch "view"
+
+        username = v.user_key ? c?.user?.key ? "/user/default"
        
-        tag = if v?.selected?.type == "tag" then unslash v.selected._key 
         params = 
             computed: true
-            tag: tag
+            tag: v.tag
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
@@ -138,7 +121,7 @@
                 width: body_width - 2 * margin_left 
                 height: 130
                 max_avatar_radius: 60
-                read_only: (v?.selected?.type == "user") or !c.logged_in
+                read_only: (v.user_key) or !c.logged_in
                 onsave: (vote) =>
                     # Wait, why do we need to do this on a copy?
                     copy = Object.assign {}, vote

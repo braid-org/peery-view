@@ -78,14 +78,14 @@ make_post = (title, url, userkey) ->
         forget id
         id = get_id()
     ###
-    #v = fetch "view"
+    v = fetch "view"
     post =
         key: id
         user_key: userkey
         title: title
         url: url
         time: Math.floor (Date.now() / 1000)
-        tags: if v?.selected?.type == "tag" then [unslash v.selected._key]
+        tags: if v.tag then [v.tag]
 
     save post
 

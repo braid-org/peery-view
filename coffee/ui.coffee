@@ -89,11 +89,11 @@ dom.POST = ->
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
-                if v?.selected?.type == "tag"
+                if v.tag
                     SLIDERGRAM_WITH_TAG
                         key: "slidergram"
                         post: post
-                        tag: unslash v.selected._key
+                        tag: unslash v.tag
                         width: slider_width
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
@@ -316,16 +316,15 @@ dom.HEADER = ->
     v = fetch "view"
     c = fetch "/current_user"
 
-    if v?.selected?.type == "user" and not v?.selected?.name
-        v.selected.name = (fetch v.selected._key).name
-        save v
+    if v.user_key
+        user_name = (fetch v.user_key).name
 
     feed_perspective = switch
-        when v?.selected?.type == "user" then "#{v.selected.name}'s view"
+        when v.user_key then "#{user_name}'s view"
         when c.logged_in then "Your view"
         else "Overview"
     feed_content = switch
-        when v?.selected?.type == "tag" then titlecase v.selected.name
+        when v.tag then titlecase v.tag
         else "everything"
    
     DIV
@@ -752,7 +751,9 @@ dom.SETTINGS = ->
 dom.FEEDS = ->
     c = fetch "/current_user"
     v = fetch "view"
-    feeds = (fetch "/feeds").all
+    tags = (fetch "/tags").arr
+    users = (fetch "/users").all
+    ###
     weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
     # sort feeds to put the selected one first...
     feeds = feeds.sort((a, b) => 
@@ -766,6 +767,8 @@ dom.FEEDS = ->
         #    when a.key == v.selected then -10
         #    when b.key == v.selected then 10
         #    else (weights[a.key] ? 0) - (weights[b.key] ? 0)
+    ###
+
     DIV
         ref: "feeds"
         maxHeight: 200
@@ -780,48 +783,55 @@ dom.FEEDS = ->
         alignItems: "center"
 
 
-        feeds.map (feed) =>
-            selected = v.selected?._key == feed._key
-            type = feed.type
+        tags.map (t) -> {type: 'tag', name: t, tag: t}
+            .concat ( users.map (u) -> {type: 'user', name: user.name, user_key: user.key} )
+            .map (feed) =>
+                selected = switch feed.type
+                    when 'tag' then v.tag == feed.tag
+                    when 'user' then v.user_key == feed.user_key
 
-            DIV
-                key: "feed-#{type}-#{feed._key}"
-                display: "contents"
-                cursor: "pointer"
-                color: if selected then "#179"
-                onClick: () =>
-                    v.selected = if selected then false else feed
-                    # Update the url... todo: find a better way of doing this?
-                    newpath = switch v?.selected?.type
-                        when "user" then feed._key
-                        when "tag" then "/tag#{feed._key}"
-                        else "/"
-                    change_path newpath
-                    save v
+                DIV
+                    key: "feed-#{feed.type}-#{feed.user_key || feed.tag}"
+                    display: "contents"
+                    cursor: "pointer"
+                    color: if selected then "#179"
+                    onClick: () =>
+                        if selected
+                            v.tag = v.user_key = null
+                        else
+                            v.tag = feed.tag
+                            v.user_key = feed.user_key
+                        # Update the url... todo: find a better way of doing this?
+                        newpath = switch feed.type
+                            when "user" then feed.user_key
+                            when "tag" then "/tag/#{feed.tag}"
+                            else "/"
+                        change_path newpath
+                        save v
 
-                if type == "user"
-                    AVATAR
-                        user: feed._key
-                        key: "icon"
-                        hide_tooltip: true
-                        style:
+                    if type == "user"
+                        AVATAR
+                            user: feed.user_key
+                            key: "icon"
+                            hide_tooltip: true
+                            style:
+                                width: 24
+                                height: 24
+                                borderRadius: "50%"
+                    else
+                        DIV
+                            key: "tagvatar"
                             width: 24
-                            height: 24
-                            borderRadius: "50%"
-                else
-                    DIV
-                        key: "tagvatar"
-                        width: 24
-                        textAlign: "center"
-                        "#"
+                            textAlign: "center"
+                            "#"
 
-                SPAN
-                    key: "type"
-                    fontWeight: "bold"
-                    textTransform: "capitalize"
-                    "#{type}:"
+                    SPAN
+                        key: "type"
+                        fontWeight: "bold"
+                        textTransform: "capitalize"
+                        "#{feed.type}:"
 
-                SPAN
-                    key: "name"
-                    textTransform: if type == "tag" then "capitalize"
-                    feed.name
+                    SPAN
+                        key: "name"
+                        textTransform: if feed.type == "tag" then "capitalize"
+                        feed.name

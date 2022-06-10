@@ -134,6 +134,9 @@ bus = require('statebus').serve
             bus.save val
             t.done val
 
+        client('users').to_fetch = (t) ->
+            bus.fetch 'users'
+
         client.shadows bus
         
 ########## main bus handlers #########
@@ -259,6 +262,30 @@ bus_parser('user/<username>/votes').to_fetch = (key, t) ->
         all_votes = bus.cache[key] ?= {key: key}
         all_votes.arr ?= []
         all_votes
+
+bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
+    {username, target} = t._path
+    {computed, tag} = t._params
+
+    if computed
+        raw = bus.fetch "user/#{username}/vote/user/#{target}#{parse.stringify_kson {tag}}"
+        # If the raw vote actually exists
+        # This is kind of an arbitrary way to check for a vote existing
+        if raw.user_key
+            raw.key = key
+            raw
+        else
+            # Call into the weights computation
+            # The weights computation outputs an array that contains (ie, modifies) the state we're currently to_fetch'ing...
+            # Is there weird statebus magic we have to do?
+            wot = bus.fetch "user/#{username}/votes/people#{parse.stringify_kson t._params}"
+            for vote of wot.arr
+                if vote.key == key
+                    return vote
+
+    else
+        bus.cache[key] ?= {key: key}
+
 
 bus_parser('user/<username>/posts').to_fetch = (key, t) ->
     {username} = t._path
