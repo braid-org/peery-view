@@ -779,7 +779,7 @@ dom.FEEDS = ->
                             v.tag = feed.tag
                             v.user_key = feed.user_key
                         newpath = switch
-                            when v.tag then "/tag/#{v.tag}"
+                            when v.tag then "/#{v.tag}"
                             when v.user_key then v.user_key
                             else "/"
                         save v

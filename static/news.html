@@ -55,12 +55,14 @@
         path = slash unescape path
         v = fetch "view"
         switch
-            when path.startsWith "/tag/"
-                v.tag = path.substr 5
-                v.user_key = null
             when path.startsWith "/user/"
                 v.user_key = path
                 v.tag = null
+            when path.length > 2
+                v.tag = unslash path
+                v.user_key = null
+            else
+                v.tag = v.user_key = null
         save v
 
     window.load_path = (path) ->
