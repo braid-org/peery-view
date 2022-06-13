@@ -388,6 +388,7 @@ dom.HISTOGRAM = ->
     # by the physics sim
     for opinion in sldr.arr
       continue if (opinion_weights and (opinion.user_key not of opinion_weights )) or (opinion.user_key == you)
+      fetch opinion
       size = local_sldr.layout[opinion[@props.vote_key]]
 
       props =

@@ -76,8 +76,8 @@ dom.AVATAR_WITH_SLIDER = ->
 
     SPAN
         style: {
-            @props.style...,
-            position: "relative",
+            @props.style...
+            position: "relative"
             width: @props.width
             height: @props.height
             cursor: if @props.clickable then "pointer"
