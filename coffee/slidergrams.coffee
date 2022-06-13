@@ -469,7 +469,7 @@ dom.HISTOGRAM.refresh = ->
     hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])
 
-    if sldr.arr?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions) && !@loading()
+    if sldr.arr?.length > 0 && (cache_key != @last_cache || local_sldr.dirty_opinions)# && !@loading()
         local_sldr.dirty_opinions = false
         save local_sldr
 

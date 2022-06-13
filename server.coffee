@@ -85,43 +85,57 @@ bus = require('statebus').serve
 
             t.abort()
 
+
+        parser('user/<userid>/votes').to_save = (t) ->
+            t.abort()
+
+        parser('user/<userid>/votes/<type>').to_save = (t) ->
+            t.abort()
+
+        parser('votes/<type>/<target>').to_save = (t) ->
+            t.abort()
+
         # If an individual vote is saved, put it in the arrays if necessary.
         parser('user/<userid>/vote/<type>/<targetid>').to_save = (key, val, old, t) ->
             {userid, type, targetid} = t._path
-            {tag} = t._params
+            {computed, tag} = t._params
             user = "user/#{userid}"
             target = "#{type}/#{targetid}"
 
             # Permission and integrity checking
             c = client.fetch "current_user"
             unless type == "user" or type == "post"
-                console.log "Bad type '#{type}'"
                 return t.abort()
             # Check that user has the right to change the key
             unless c.logged_in and c.user.key == user == val.user_key
-                console.log "User #{c.user.key}, #{user} in url, #{val.user_key} in state"
                 return t.abort()
             # Check that the key matches the contents
             unless target == val.target_key
-                console.log "Bad target ('#{target}' in url, '#{val.target_key}' in state)"
                 return t.abort()
             # Check that the vote has an associated value between 0 and 1
             unless 0 <= val.value <= 1
                 return t.abort()
             # Check that the tag is right
             if tag != val.tag
-                console.log "Bad tag ('#{tag}' in url, '#{val.tag}' in state)"
+                return t.abort()
+            # Don't bother trying to save a computed vote
+            if computed == true
                 return t.abort()
             # Alright, looks good.
-            
+           
+            # User votes should be given depth 1
+            if type == "user"
+                val.depth = 1
+            bus.save.sync val
+
             # Is this a new vote?
-            unless old.value?
+            unless old.user_key?
                 # Put this vote into the necessary arrays.
                 # We only put it into the untagged arrays -- the tagged (ie, filtered) views of these arrays are computed automatically
                 ["#{user}/votes", "votes/#{target}"].forEach (k) ->
                     s = bus.fetch k
                     (s.arr ?= []).push val
-                    bus.save s
+                    bus.save.sync s
 
             # Add the tag-type if necessary
             if tag
@@ -135,7 +149,6 @@ bus = require('statebus').serve
                     all_tags.arr.push tag
                 bus.save all_tags
             
-            bus.save val
             t.done val
 
         client('users').to_fetch = (t) ->
@@ -173,7 +186,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
         queue_cur = {}
         queue_cur[userkey] = [1.0]
         queue_next = {}
-        while Object.keys(queue_cur).length
+        while Object.keys(queue_cur).length and depth < 5
             for target, paths of queue_cur
 
                 vote_computed = depth != 1
@@ -208,9 +221,10 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                         queue_next[t].push (2 * v.value - 1) * Math.max w, 0
 
             # We've processed all nodes at depth n. Now we'll swap our buffers and process the next depth.
-            if ++depth <= 5
-                queue_cur = queue_next
-                queue_next = {}
+            queue_cur = queue_next
+            queue_next = {}
+            if ++depth >= 5
+                break
             # We want to fallback a vote on the default user at depth 2, so that it'll be considered computed.
             # So the "naive" way would be to queue it at depth 2 if the conditions are right. But we might not make it to depth 2!
             # So at depth 1, if the queue is empty, we'll jump to depth 2.
@@ -219,7 +233,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
             # Now if we're at depth 2 and we don't have a depth=1 vote on default
             if (depth == 2) and "user/default" not of votes
                 queue_cur["user/default"] = [1.0]
-                
+               
         # Votes is a hash so that we can quickly check membership,
         # but we need to return an array of votes.
         {
@@ -261,7 +275,7 @@ bus_parser('user/<username>/votes').to_fetch = (key, t) ->
         all_votes = bus.fetch "user/#{username}/votes"
         {
             key: key
-            arr: all_votes.arr.filter (v) ->
+            arr: all_votes.arr.filter (v) =>
                 if c = tag == v.tag then bus.fetch v
                 c
         }

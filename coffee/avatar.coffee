@@ -65,6 +65,15 @@ dom.AVATAR_WITH_SLIDER = ->
     c = fetch "/current_user"
     # Check the view?
 
+    if @props.clickable
+        register_window_event "close-slider-#{@props.user.key}", "mousedown", (e) =>
+            # should we preventdefault?
+            if @refs.avatar.getDOMNode().contains e.target
+                @local.modal = !(@local.modal ? false)
+            else unless @refs.modal.getDOMNode().contains e.target
+                @local.modal = false
+            save @local
+
     SPAN
         style: {
             @props.style...,
@@ -76,9 +85,9 @@ dom.AVATAR_WITH_SLIDER = ->
 
         if @props.clickable
             # When clicked, we want to display the slider
-            onClick: (e) =>
-                @local.modal = !(@local.modal ? false)
-                save @local
+            #onClick: (e) =>
+            #    @local.modal = !(@local.modal ? false)
+            #    save @local
             # When hovered, we want to show a slider icon
             onMouseOver: (e) =>
                 @local.hover = true
@@ -89,6 +98,7 @@ dom.AVATAR_WITH_SLIDER = ->
 
         AVATAR
             key: "the-avatar"
+            ref: "avatar"
             user: @props.user
             hide_tooltip: @local.modal
             style:
@@ -101,28 +111,23 @@ dom.AVATAR_WITH_SLIDER = ->
             key: "modal"
             ref: "modal"
 
-            display: "none" unless @local.user_modal
+            display: "none" unless @local.modal
 
             marginTop: 5
             position: "relative"
-            transform: "translateX(-50%)"
+            width: "fit-content"
+            transform: "translateX(calc(#{@props.width / 2}px - 50%))"
 
             zIndex: 5
-            padding: 5
+            padding: "8px 15px"
             background: "white"
             boxShadow: "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
 
 
-            register_window_event "close-slider-#{@props.user.key}", "mousedown", (e) =>
-                # should we preventdefault?
-                unless @refs.modal.getDOMNode().contains e.target
-                    @local.user_slide = false
-                    save @local
-
             SLIDERGRAM
                 key: "slidergram"
                 sldr: "/votes#{@props.user.key}"
-                width: 300
+                width: @props.slider_width ? 150
                 height: 24
                 max_avatar_radius: 12
                 read_only: !c.logged_in

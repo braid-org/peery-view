@@ -93,6 +93,7 @@ dom.MULTIHISTOGRAM = ->
     for opinion in sldr.arr
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.depth == 0
+        fetch opinion
 
         size = local_sldr.layout[opinion.target_key]
         
