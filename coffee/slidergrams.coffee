@@ -29,7 +29,7 @@ dom.SLIDERGRAM_WITH_TAG = ->
 
 dom.SLIDERGRAM = ->
   sldr = fetch @props.sldr
-  local_sldr = fetch(shared_local_key(sldr))
+  local_sldr = fetch shared_local_key sldr
 
   you = your_key()
   has_opined = you in (o.user_key for o in (sldr.arr ? []))
@@ -43,7 +43,7 @@ dom.SLIDERGRAM = ->
 
     # These two handle ghosted slides
     onMouseEnter: if !read_only then (e) =>
-        if !has_opined && !local_sldr.tracking_mouse
+        if !has_opined && !local_sldr.tracking_mouse && !local_sldr.disable_tracking
             x_entry = mouseX - @refs.opinion_area.getDOMNode().getBoundingClientRect().left
             start_slide sldr, @props.width, you,
                 type: "tracking"
@@ -153,7 +153,7 @@ start_slide = (sldr, slidergram_width, target, args) ->
         register_window_event "slide-#{local.key}", 'touchstart', mousedown
 
     # Mouse MOVE events
-    mousemove = (e) ->
+    mousemove = (e) =>
         e.preventDefault()
         x = mouseX
         y = mouseY
@@ -202,6 +202,8 @@ start_slide = (sldr, slidergram_width, target, args) ->
         # Delete a bunch of data from local
         local.x_adjustment = local.mouse_positions = local.dragging = null
         local.tracking_mouse = local.live = local.dragging = null
+        # Tell the slidergram not to immediately start a new track
+        local.disable_tracking = true
         save local
 
         if args?.onsave
