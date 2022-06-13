@@ -18,13 +18,13 @@ window.set_style = function(sty, id) {
 window.mouseX = window.mouseY = null;
 
 onMouseUpdate = function(e) {
-  window.mouseX = e.screenX;
-  return window.mouseY = e.screenY;
+  window.mouseX = e.clientX;
+  return window.mouseY = e.clientY;
 };
 
 onTouchUpdate = function(e) {
-  window.mouseX = e.touches[0].screenX;
-  return window.mouseY = e.touches[0].screenY;
+  window.mouseX = e.touches[0].clientX;
+  return window.mouseY = e.touches[0].clientY;
 };
 
 document.addEventListener('mousemove', onMouseUpdate, false);
