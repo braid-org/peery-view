@@ -234,8 +234,10 @@ implements_slide_draggable = (sldr, props, target, width, args) ->
 ##
 # A little feedback on the slider that shows where you're dragging
 dom.SLIDER_BOTTOM = ->
+
+    val = 0
     if @props.feedback
-        local_sldr = fetch shared_local_key(@props.sldr)
+        local_sldr = fetch shared_local_key @props.sldr
 
         val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live?
                 local_sldr.live
@@ -244,6 +246,7 @@ dom.SLIDER_BOTTOM = ->
 
         val = 2 * val - 1
         color = if val >= 0 then color_positive else color_negative
+
 
     width = @props.width
     side = width/2
@@ -264,19 +267,6 @@ dom.SLIDER_BOTTOM = ->
             key: "triangle"
             fill: @props.slider_color or SLIDER_COLOR
             points: "-4,5 0,0 4,5"
-        ###
-        G
-            fill: @props.slider_color or SLIDER_COLOR
-          
-            POLYGON
-                points: "#{-side},0 #{-side},5 #{8 - side},5"
-
-            POLYGON
-                points: "#{side},0 #{side},5 #{side - 8},5"
-
-            POLYGON
-                points: "-4,5 0,0 4,5"
-        ###
 
         POLYLINE
             key: "empty-line"
@@ -286,7 +276,7 @@ dom.SLIDER_BOTTOM = ->
 
         G
             key: "dynamic-stuff"
-            opacity: 0 unless val?
+            opacity: 0 unless @props.feedback
             POLYLINE
                 key: "filled-line"
                 points: "#{side * Math.min val, 0},5 #{side * Math.max val, 0},5"
