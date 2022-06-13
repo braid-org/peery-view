@@ -162,13 +162,12 @@ bus_parser = parse.PPPParser bus
 # safety check for state that should return an array
 default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
 
-
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 MAX_DEPTH = 5
 bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
     {username, type} = t._path
-    {computed, tag} = t._params
+    {computed, tag, untagged} = t._params
     userkey = "user/#{username}"
     
     # Compute weights through the network
@@ -247,38 +246,39 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
         {
             key: key
             arr: all_votes.arr.filter (v) ->
+                unless v.target_key.startsWith prefix
+                    return false
+                bus.fetch v
 
-                if c = (!tag or tag == v.tag) and v.target_key.startsWith prefix then bus.fetch v
-                c
+                (tag and tag == v.tag) or (untagged and not v.tag) or not (untagged or tag)
         }
 # Here's a bunch of boring filtering code...    
 bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
     {type, targetid} = t._path
-    {computed, tag} = t._params
-    if tag
+    {computed, tag, untagged} = t._params
+    if tag or untagged
         # Fetching here instead of accessing cache makes us reactive
         all_votes = bus.fetch "votes/#{type}/#{targetid}"
         {
             key: key
             arr: all_votes.arr.filter (v) ->
-                if c = tag == v.tag then bus.fetch v
-                c
-
+                bus.fetch v
+                (tag and tag == v.tag) or (untagged and not v.tag?)
         }
     else
         default_arr key
 
 bus_parser('user/<username>/votes').to_fetch = (key, t) ->
     {username} = t._path
-    {computed, tag} = t._params
-    if tag
+    {computed, tag, untagged} = t._params
+    if tag or untagged
         # Fetching here instead of accessing cache makes us reactive
         all_votes = bus.fetch "user/#{username}/votes"
         {
             key: key
             arr: all_votes.arr.filter (v) =>
-                if c = tag == v.tag then bus.fetch v
-                c
+                bus.fetch v
+                (tag and tag == v.tag) or (untagged and not v.tag?)
         }
     else
         default_arr key
@@ -312,25 +312,28 @@ bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
 
 bus_parser('user/<username>/posts').to_fetch = (key, t) ->
     {username} = t._path
-    {computed, tag} = t._params
+    {computed, tag, untagged} = t._params
     all_posts = bus.fetch "posts"
     userkey = "user/#{username}"
     {
         key: key
         arr: all_posts.arr.filter (p) ->
-            if c = !tag or tag in p.tags and userkey == p.user_key then bus.fetch p
-            c
+            unless userkey == p.user_key
+                return false
+            bus.fetch p
+            (tag and tag in p.tags) or (untagged and not p.tags.length) or not (untagged or tag)
+                
     }
 
 bus_parser('posts').to_fetch = (key, t) ->
-    {computed, tag} = t._params
-    if tag
+    {computed, tag, untagged} = t._params
+    if tag or untagged
         all_posts = bus.fetch "posts"
         {
             key: key
             arr: all_posts.arr.filter (p) ->
-                if c = tag in p.tags then bus.fetch p
-                c
+                bus.fetch p
+                (tag and tag in (p.tags ? [])) or (untagged and not p?.tags?.length)
         }
     else
         default_arr key

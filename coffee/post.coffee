@@ -29,6 +29,8 @@ sort_posts = (posts, user, tag) ->
         return posts
 
     now = Date.now() / 1000
+
+    kson = stringify_kson tag: tag, untagged: !tag
     
     scores = {}
     posts.forEach (p) ->
@@ -39,7 +41,7 @@ sort_posts = (posts, user, tag) ->
         sum_weights = 0
 
         # Subscribe to the post's votes
-        (fetch "/votes/#{unslash p.key}#{stringify_kson {tag}}")?.arr?.forEach (v) ->
+        (fetch "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
             # first subscribe to the vote
             if v.key then fetch v
             voter = v.user_key

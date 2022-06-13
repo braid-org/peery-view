@@ -87,8 +87,8 @@
 
         # Local copy of posts, ordered.
         c = fetch "/current_user"
-        posts = (fetch "/posts").arr ? []
         v = fetch "view"
+        posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
 
         username = v.user_key ? c?.user?.key ? "/user/default"
 

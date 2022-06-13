@@ -35,8 +35,6 @@ dom.POST = ->
         functional_url = ""
     
     time_string = prettyDate(post.time * 1000)
-
-
     user_clickable = c.logged_in and (c.user.key != author.key)
 
     DIV
@@ -100,7 +98,7 @@ dom.POST = ->
                 else
                     SLIDERGRAM
                         key: "slidergram"
-                        sldr: "/votes/#{unslash post.key}"
+                        sldr: "/votes/#{unslash post.key}(untagged)"
                         width: slider_width
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
