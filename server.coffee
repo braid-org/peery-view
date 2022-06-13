@@ -291,16 +291,19 @@ bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
         # If the raw vote actually exists
         # This is kind of an arbitrary way to check for a vote existing
         if raw.user_key
-            raw.key = key
-            raw
+            {
+                raw...
+                key: key
+            }
         else
             # Call into the weights computation
             # The weights computation outputs an array that contains (ie, modifies) the state we're currently to_fetch'ing...
             # Is there weird statebus magic we have to do?
             wot = bus.fetch "user/#{username}/votes/people#{parse.stringify_kson t._params}"
-            for vote of wot.arr
+            for vote in wot.arr
                 if vote.key == key
                     return vote
+            return { key: key }
 
     else
         bus.cache[key] ?= {key: key}
