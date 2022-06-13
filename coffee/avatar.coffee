@@ -68,9 +68,9 @@ dom.AVATAR_WITH_SLIDER = ->
     if @props.clickable
         register_window_event "close-slider-#{@props.user.key}", "mousedown", (e) =>
             # should we preventdefault?
-            if @refs.avatar.getDOMNode().contains e.target
+            if @refs.avatar?.getDOMNode().contains e.target
                 @local.modal = !(@local.modal ? false)
-            else unless @refs.modal.getDOMNode().contains e.target
+            else unless @refs.modal?.getDOMNode().contains e.target
                 @local.modal = false
             save @local
 
@@ -106,7 +106,6 @@ dom.AVATAR_WITH_SLIDER = ->
                 height: @props.height
                 borderRadius: "50%"
 
-            
         DIV
             key: "modal"
             ref: "modal"
