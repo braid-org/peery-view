@@ -59,7 +59,6 @@ dom.POST = ->
                 height: margin_left - 10
                 style:
                     gridArea: "icon"
-                    zIndex: 5
                     alignSelf: "center"
 
             A
