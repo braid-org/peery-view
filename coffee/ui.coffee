@@ -207,7 +207,7 @@ dom.POST_DETAILS = ->
                                         v.value = @local.typed
                                     else
                                         # Otherwise, set the textbox value to the right name
-                                        v.value = @local.tagsearch[@local.selected_idx].name
+                                        v.value = @local.tagsearch[@local.selected_idx]
                             # Tab 
                             when 9
                                 e.preventDefault()
@@ -216,7 +216,7 @@ dom.POST_DETAILS = ->
                     onInput: (e) =>
                         v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
                         @local.typed = v
-                        @local.tagsearch = potential_tags.filter((t) => t.name.startsWith v)
+                        @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
                                                          .slice 0, max_suggestions
                         @local.selected_idx = -1
                         unless v.length then @local.tagsearch = []
@@ -255,7 +255,7 @@ dom.POST_DETAILS = ->
             @local.tagsearch.map (suggested, i) =>
                 selected = i == @local.selected_idx
                 DIV
-                    key: "#{suggested._key}-res"
+                    key: "#{suggested}-res"
                     display: "contents"
 
                     SPAN key: "dummy1"
@@ -269,11 +269,11 @@ dom.POST_DETAILS = ->
                         background: if selected then "#eee"
                         onClick: (e) =>
                             # Save text of the selected result in the widget state
-                            @refs.addlabel.getDOMNode().value = suggested.name
+                            @refs.addlabel.getDOMNode().value = suggested
                             @local.selected_idx = i
                             save @local
 
-                        suggested.name
+                        suggested
 
                     SPAN key: "dummy2"
 
@@ -547,6 +547,10 @@ dom.SUBMIT_POST = ->
 # Login Form
 dom.LOGIN = ->
     c = fetch "/current_user"
+    if c.logged_in and @local.login_attempted
+        @local.login_attempted = false
+        save @local
+        @props.close?()
     button_style =
         justifySelf: "center"
         minWidth: "80%"
@@ -561,7 +565,6 @@ dom.LOGIN = ->
         grid: '"error error" auto
                "name name" 32px
                "pw pw" 32px
-               "email email" 32px
                "register login" 24px
                 / auto auto'
         gap: "6px"
@@ -585,13 +588,6 @@ dom.LOGIN = ->
             placeholder: "Password"
             gridArea: "pw"
             type: "password"
-        INPUT
-            key: "login-email"
-            id: "login-email"
-            ref: "login-email"
-            placeholder: "Email"
-            gridArea: "email"
-            type: "email"
 
         BUTTON {
             key: "register"
@@ -601,21 +597,17 @@ dom.LOGIN = ->
             onClick: (e) =>
                 name = @refs["login-name"].getDOMNode().value
                 pw = @refs["login-pw"].getDOMNode().value
-                em = @refs["login-email"].getDOMNode().value
                 c.create_account =
                     name: name
                     pass: pw
-                    email: em
                 save c
-
-                # I want to also log in here. But doing it naively will cause a race condition,
-                # Maybe we can set a one-time to_save handler?
-                #c.login_as =
-                #    name: name
-                #    pass: pw
-                #save c
-
-                @props.close?()
+                delete c.create_account
+                c.login_as =
+                    name: name
+                    pass: pw
+                @local.login_attempted = true
+                save c
+                save @local
             },
             "Register"
 
@@ -629,9 +621,9 @@ dom.LOGIN = ->
                 c.login_as =
                     name: name
                     pass: pw
+                @local.login_attempted = true
                 save c
-
-                @props.close?()
+                save @local
 
             },
             "Login"
@@ -752,21 +744,9 @@ dom.FEEDS = ->
     v = fetch "view"
     tags = (fetch "/tags").arr
     users = (fetch "/users").all
-    ###
-    weights = fetch "/weights/#{unslash (c.user?.key ? 'user/default')}"
-    # sort feeds to put the selected one first...
-    feeds = feeds.sort((a, b) => 
-        switch
-            when a.type == "tag" and b.type == "tag" then 0
-            when a.type == "tag" then -1
-            when b.type == "tag" then 1
-            else (weights[a._key] ? 0) - (weights[b._key] ? 0)
-        ).filter (a) => a._key != c.user?.key
-        #switch
-        #    when a.key == v.selected then -10
-        #    when b.key == v.selected then 10
-        #    else (weights[a.key] ? 0) - (weights[b.key] ? 0)
-    ###
+    weights = fetch "weights#{c.user?.key ? 'user/default'}"
+    users = users.sort (a, b) -> (weights[a.key] ? 0) - (weights[b.key] ? 0)
+        .filter (a) -> a.key != c?.user?.key
 
     DIV
         ref: "feeds"
@@ -784,7 +764,7 @@ dom.FEEDS = ->
 
         tags.map (t) -> {type: 'tag', name: t, tag: t}
             .concat ( users.map (u) -> {type: 'user', name: u.name, user_key: u.key} )
-            .map (feed) =>
+            .map (feed) ->
                 selected = switch feed.type
                     when 'tag' then v.tag == feed.tag
                     when 'user' then v.user_key == feed.user_key
@@ -794,19 +774,18 @@ dom.FEEDS = ->
                     display: "contents"
                     cursor: "pointer"
                     color: if selected then "#179"
-                    onClick: () =>
+                    onClick: () ->
                         if selected
                             v.tag = v.user_key = null
                         else
                             v.tag = feed.tag
                             v.user_key = feed.user_key
-                        # Update the url... todo: find a better way of doing this?
-                        newpath = switch feed.type
-                            when "user" then feed.user_key
-                            when "tag" then "/tag/#{feed.tag}"
+                        newpath = switch
+                            when v.tag then "/tag/#{v.tag}"
+                            when v.user_key then v.user_key
                             else "/"
-                        change_path newpath
                         save v
+                        change_path newpath
 
                     if feed.type == "user"
                         AVATAR

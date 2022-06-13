@@ -376,10 +376,7 @@ dom.HISTOGRAM = ->
   {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
 
   you = your_key?()
-  opinion_weights = {}
-  (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
-      fetch v
-      opinion_weights[v.target_key] = 2 * v.value - 1
+  opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag}}"
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -418,7 +415,7 @@ dom.HISTOGRAM = ->
       AVATAR props
 
 
-    your_vote = get_your_slide(sldr)
+    your_vote = get_your_slide sldr
     if @props.show_ghosted_user or your_vote
 
       r = @props.height / 3
@@ -461,10 +458,7 @@ dom.HISTOGRAM.refresh = ->
     you = your_key?()
 
     {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
-    opinion_weights = {}
-    (fetch "#{you ? '/user/default'}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
-        fetch v
-        opinion_weights[v.target_key] = 2 * v.value - 1
+    opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag}}"
 
     hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])

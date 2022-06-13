@@ -14,10 +14,7 @@ sort_posts = (posts, user, tag) ->
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
 
-    weights = {}
-    (fetch "#{me}/votes/people#{stringify_kson computed: true, tag: tag}")?.arr?.forEach (v) ->
-        fetch v
-        weights[v.target_key] = 2 * v.value - 1
+    weights = fetch "weights/#{unslash me}#{stringify_kson {tag}}"
     ###
     # Add tagged votes, which aren't seen in the weights
     if tag
@@ -62,8 +59,8 @@ sort_posts = (posts, user, tag) ->
     # Should we save scores and weights to the local state? 
     # ^ past me, that probably wouldn't do anything!
 
-    # Filter posts:              based on the minimum score       or we made this post           only show posts with the selected tag
-    posts.filter (v) -> (scores[v.key] > min_weight or v.user == me) and (!tag?.length or was_tagged[v.key])
+    # Filter posts:              based on the minimum score       or we made this post
+    posts.filter (v) -> (scores[v.key] > min_weight or v.user == me)
     # Filter before sorting!!
         .sort (a, b) -> scores[b.key] - scores[a.key]
     

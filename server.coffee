@@ -34,36 +34,36 @@ bus = require('statebus').serve
            
             # Deleting post
             unless val.user_key?
-                # TODO
-                return t.abort()
-                
                 unless c.logged_in and (c.user.key == old.user_key)
                     return t.abort()
                 # Everything looks good. So we need to do four things.
                 # 1. Remove the post from `posts`
-                # 2. Delete `votes_on/post/<id>`
+                # 2. Delete `votes/post/<id>`
                 # 3. Delete every vote on the post
                 #   a. Remove the vote from votes_by
                 #   b. Delete the vote itself
                 # 4. Delete the actual post.
                 
-                # TODO: Also delete the tagged votes
                 
                 # Fetch the votes and make a static copy
-                votes = JSON.parse(JSON.stringify(bus.fetch "votes_on/post/#{star}")).values ? []
+                votes = JSON.parse(JSON.stringify(bus.fetch "votes/post/#{postid}")).arr ? []
+                voters = o.user_key for o in votes
+                voters = voters.filter (u, i) -> i == voters.indexOf u
 
                 # Remove the post from `posts`
-                all_posts.all = all_posts.all.filter (p) -> p.key != val.key
+                all_posts.arr = all_posts.arr.filter (p) -> p.key != val.key
                 bus.save all_posts
 
-                # Delete `votes_on`
-                bus.save {key: "votes_on/post/#{star}"}
+                # Delete `votes/...`
+                bus.save {key: "votes/post/#{postid}"}
                 
-                # Remove from `votes_by/` and delete the vote key itself
-                votes.forEach (v) ->
-                    votes_by = bus.fetch "votes_by/#{v.user_key}"
-                    delete votes_by[val.key]
+                # Remove from `<user>/votes`
+                voters.forEach (u) ->
+                    votes_by = bus.fetch "#{u}/votes"
+                    votes_by.arr = votes_by.arr.filter (v) -> v.target_key != val.key
                     bus.save votes_by
+                # Delete all the individual votes
+                votes.forEach (v) ->
                     bus.save {key: v.key}
                                 
                 # Finally delete the actual post
@@ -204,6 +204,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                         target_key: target
                         value: (w + 1) / 2
                         depth: depth
+                        tag: tag
 
                 if Math.abs(w) <= MIN_WEIGHT
                     continue

@@ -106,8 +106,7 @@
         c = fetch "/current_user"
         v = fetch "view"
 
-        username = v.user_key ? c?.user?.key ? "/user/default"
-       
+        username = v.user_key ? c?.user?.key ? "/user/default" 
         params = 
             computed: true
             tag: v.tag
@@ -122,15 +121,34 @@
                 height: 130
                 max_avatar_radius: 60
                 read_only: (v.user_key) or !c.logged_in
-                onsave: (vote) =>
+                onsave: (vote) ->
                     # Wait, why do we need to do this on a copy?
                     copy = Object.assign {}, vote
                     copy.key = "#{username}/vote/#{unslash vote.target_key}"
                     copy.depth = 1
-                    if tag?
-                        copy.key = "#{copy.key}(tag:#{tag})"
-                        copy.tag = tag
+                    if v.tag?
+                        copy.key = "#{copy.key}(tag:#{v.tag})"
+                        copy.tag = v.tag
                     save copy
+
+    r = () ->
+        parser = PPPParser bus
+        parser("weights/user/<userid>").to_fetch = (key, t) ->
+            {userid} = t._path
+            {tag} = t._params
+            blob = stringify_kson {computed: true, tag: tag}
+
+            votes = fetch "/user/#{userid}/votes/people#{blob}"
+            weights_ret = {key: key}
+            (votes.arr ? []).forEach (v) ->
+                fetch v
+                weights_ret[v.target_key] = 2 * v.value - 1
+            weights_ret
+
+    if document.readyState == "complete"
+        r()
+    else
+        window.addEventListener("DOMContentLoaded", () => r())
 
 
 </script>
