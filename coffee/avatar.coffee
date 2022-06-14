@@ -137,7 +137,8 @@ dom.AVATAR_WITH_SLIDER = ->
                 onsave: (vote) =>
                     vote.key = "#{c.user.key}/vote#{@props.user.key}#{vote_params}"
                     vote.target_key = @props.user.key
-                    vote.tag = view.tag
+                    if view.tag?
+                        vote.tag = view.tag
                     save vote
 
 #        SPAN
