@@ -47,14 +47,19 @@ dom.AVATAR = ->
         else
             name = "#{name[0][0]}"
 
-    SPAN @props,
+    SPAN {
+            display: "flex"
+            justifyContent: "center"
+            alignItems: "center"
+            @props...
+        },
     
         SPAN
             key: 'initials'
             className: 'initials'
             style:
                 fontSize: (@props.style?.width ? 50) / 2
-                lineHeight: 2
+                lineHeight: "1em"
                 display: "block"
                 opacity: unless add_initials then 0
             name
