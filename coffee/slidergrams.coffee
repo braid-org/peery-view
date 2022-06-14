@@ -365,10 +365,10 @@ dom.HISTOGRAM = ->
   local_sldr = fetch shared_local_key sldr
   local_sldr.layout ?= {}
 
-  {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
-
   you = your_key?()
-  opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag}}"
+  view = fetch "view"
+  opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
+
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -450,8 +450,8 @@ dom.HISTOGRAM.refresh = ->
     local_sldr = fetch shared_local_key sldr
     you = your_key?()
 
-    {params: {tag}} = match_pattern "/votes/<type>/<pid>", sldr.key
-    opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag}}"
+    view = fetch "view"
+    opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
     hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])

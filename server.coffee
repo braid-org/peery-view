@@ -189,7 +189,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
             for target, paths of queue_cur
 
                 vote_computed = depth != 1
-                vote_key =  "#{userkey}/vote/#{target}#{parse.stringify_kson {computed: vote_computed, tag: tag}}"
+                vote_key =  "#{userkey}/vote/#{target}#{parse.stringify_kson {computed: vote_computed, tag}}"
 
                 unless vote_computed
                     votes[target] = bus.fetch vote_key
@@ -208,7 +208,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                 if Math.abs(w) <= MIN_WEIGHT
                     continue
 
-                bus.fetch "#{target}/votes/people#{parse.stringify_kson {tag: tag}}"
+                bus.fetch "#{target}/votes/people#{parse.stringify_kson {tag, untagged}}"
                     ?.arr
                     ?.filter (v) -> (v.target_key not of votes) and (v.target_key not of queue_cur)
                     ?.forEach (v) ->
@@ -341,6 +341,98 @@ bus_parser('posts').to_fetch = (key, t) ->
 bus('tags').to_fetch = (key) -> default_arr key
 
 
+migrate = (state) ->
+    m = state.fetch "migrations"
+    unless m.june13
+        console.log "MIGRATION J13: June 13th New Standard"
+        console.log "MIGRATION J13: Consider making a manual backup of the database..."
+
+        # in `posts` and `tags`: the array should be key.arr instead of key.all or key.tags
+        console.log "MIGRATION J13: Storing arrays on `key.arr`."
+        state.save.sync 
+            key: "tags"
+            arr: (state.fetch "tags").tags ? []
+        state.save.sync
+            key: "posts"
+            arr: (state.fetch "posts").all ? []
+
+        # each post need to have user replaced by user_key.
+        console.log "MIGRATION J13: Changing `user` field to `user_key` on all posts."
+        Object.keys state.cache
+            .filter (k) -> k.startsWith "post"
+            .forEach (k) ->
+                p = state.fetch k
+                p.user_key = parse.unslash p.user
+                delete p.user
+                state.save.sync p
+
+        # Delete all votes_on keys
+        console.log "MIGRATION J13: Deleting `votes_on` arrays."
+        Object.keys state.cache
+            .filter (k) -> k.startsWith "votes_on"
+            .forEach (k) -> state.delete k
+        
+        # Now find all keys that match votes_by/user/<userid>/<tag> and votes_by/user/<userid>
+        # These things are objects with key value pairs representing (key, vote).
+        # Each of these votes should be moved to a new key, should have user_key replaced by target_key, should have depth=1 added
+        # NOTE: a vote on the default user with value 1 should just be deleted.
+        console.log "MIGRATION J13: Reformatting votes."
+        Object.keys state.cache
+            .filter (k) -> k.startsWith "votes_by/user/"
+            .forEach (k) ->
+                userid = k.substr 14
+                kson_blob = ""
+
+                slash_ind = userid.indexOf "/"
+                # Figure out if these are tagged or untagged votes
+                if slash_ind != -1
+                    tag = userid[1 + slash_ind..]
+                    userid = userid[...slash_ind]
+                    kson_blob = "(tag:#{tag})"
+
+                # The new key where the votes will be stored
+                votes_new = state.fetch "user/#{userid}/votes"
+                votes_new.arr ?= []
+                # Fetch the current list of votes and iterate over it
+                votes_old = state.fetch k
+                Object.values votes_old
+                    .filter (v) -> v.key? and v.user? and v.target?
+                    .forEach (v) ->
+                        new_vote = 
+                            key: "user/#{userid}/vote/#{parse.unslash v.target}#{kson_blob}"
+                            user_key: "user/#{userid}"
+                            target_key: parse.unslash v.target
+                            value: v.value
+                            updated: v.updated
+                            depth: 1
+                            tag: tag
+                        state.save.sync new_vote
+                        # Delete the original vote
+                        state.delete v
+
+                        # Put it in the array for the target
+                        target_votes = state.fetch "votes/#{new_vote.target_key}"
+                        (target_votes.arr ?= []).push new_vote
+                        state.save.sync target_votes 
+
+                        # Put it in the array for the user
+                        votes_new.arr.push new_vote
+
+                state.save.sync votes_new
+                state.delete votes_old
+
+        # Trim the DB by cleaning up cached weights objects.
+        console.log "MIGRATION J13: Cleaning up cached WoT."
+        Object.keys state.cache
+            .filter (k) -> k.startsWith "weights"
+            .forEach (k) -> state.delete k
+
+        console.log "MIGRATION J13: Migration complete."
+        m.june13 = true
+        state.save m
+
+migrate bus
+
 
 ###### Sending static content over HTTP ##############
 express = require 'express'
@@ -403,7 +495,7 @@ bus.http.get '/client.js', (req, res) ->
 old_bodify = bus.to_http_body
 bus.to_http_body = (o) ->
     if o.key == 'posts'
-        JSON.stringify o.all
+        JSON.stringify o.arr
     else
         old_bodify o 
 

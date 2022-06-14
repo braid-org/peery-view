@@ -112,6 +112,7 @@
         params = 
             computed: true
             tag: v.tag
+            untagged: !v.tag
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
@@ -137,8 +138,8 @@
         parser = PPPParser bus
         parser("weights/user/<userid>").to_fetch = (key, t) ->
             {userid} = t._path
-            {tag} = t._params
-            blob = stringify_kson {computed: true, tag: tag}
+            {tag, untagged} = t._params
+            blob = stringify_kson {computed: true, tag: tag, untagged}
 
             votes = fetch "/user/#{userid}/votes/people#{blob}"
             weights_ret = {key: key}

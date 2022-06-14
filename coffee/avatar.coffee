@@ -63,7 +63,7 @@ dom.AVATAR = ->
 dom.AVATAR_WITH_SLIDER = ->
 
     c = fetch "/current_user"
-    # Check the view?
+    view = @props.view ? fetch "view"
 
     if @props.clickable
         register_window_event "close-slider-#{@props.user.key}", "mousedown", (e) =>
@@ -73,6 +73,9 @@ dom.AVATAR_WITH_SLIDER = ->
             else unless @refs.modal?.getDOMNode().contains e.target
                 @local.modal = false
             save @local
+
+    sldr_params = stringify_kson tag: view.tag, untagged: !view.tag
+    vote_params = stringify_kson tag: view.tag
 
     SPAN
         style: {
@@ -125,15 +128,16 @@ dom.AVATAR_WITH_SLIDER = ->
 
             SLIDERGRAM
                 key: "slidergram"
-                sldr: "/votes#{@props.user.key}"
+                sldr: "/votes#{@props.user.key}#{sldr_params}"
                 width: @props.slider_width ? 150
                 height: 24
                 max_avatar_radius: 12
                 read_only: !c.logged_in
                 vote_key: "user_key"
                 onsave: (vote) =>
-                    vote.key = "#{c.user.key}/vote#{@props.user.key}"
+                    vote.key = "#{c.user.key}/vote#{@props.user.key}#{vote_params}"
                     vote.target_key = @props.user.key
+                    vote.tag = view.tag
                     save vote
 
 #        SPAN
