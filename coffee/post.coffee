@@ -7,59 +7,20 @@ compute_score = (p) ->
     att = att_curve p.age
     sqsc + att + att * (sqsc + p.author)
     
-
 sort_posts = (posts, user, tag) ->
     c = fetch "/current_user"
-    # The user whose perspective we should be sorting from
+
     me = slash (user ? c.user?.key ? "/user/default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
-
-    weights = fetch "weights/#{unslash me}#{stringify_kson {tag}}"
-    ###
-    # Add tagged votes, which aren't seen in the weights
-    if tag
-        tagged_votes = fetch "/votes_by#{me}/#{unslash tag}"
-        (Object.entries tagged_votes).filter( ([k, v]) => (unslash k).startsWith "user")
-                                     .forEach ([k, v]) =>
-                                         fetch v
-                                         weights[unslash k] = (2 * v.value) - 1
-    ###
         
     if loading()
         return posts
 
-    now = Date.now() / 1000
-
-    kson = stringify_kson tag: tag, untagged: !tag
-    
+    kson = stringify_kson tag: tag, user: me
     scores = {}
     posts.forEach (p) ->
-        # Subscribe to the post
-        p = fetch p
-
-        sum_votes = 0
-        sum_weights = 0
-
-        # Subscribe to the post's votes
-        (fetch "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
-            # first subscribe to the vote
-            if v.key then fetch v
-            voter = v.user_key
-            # Keep track of the total weight of votes, and of the weighted sum of votes.
-            sum_weights += Math.abs(weights[voter] ? 0)
-            sum_votes   += (2 * v.value - 1) * (weights[voter] ? 0)
-
-        # Our network-weight on the author
-        author_weight = weights[p.user_key] ? 0
-
-        scores[p.key] = compute_score
-            age: now - p.time
-            author: author_weight
-            score: sum_votes
-            volume: sum_weights
-
-    # Should we save scores and weights to the local state? 
-    # ^ past me, that probably wouldn't do anything!
+        score = fetch "score#{p.key}#{kson}"
+        scores[p.key] = score.value ? 0
 
     # Filter posts:              based on the minimum score       or we made this post
     posts.filter (v) -> (scores[v.key] > min_weight or v.user == me)

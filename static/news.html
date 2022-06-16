@@ -113,6 +113,7 @@
             computed: true
             tag: v.tag
             untagged: !v.tag
+
         DIV
             width: body_width
             padding: "0 #{margin_left}px 0 #{margin_left}px"
@@ -147,6 +148,50 @@
                 fetch v
                 weights_ret[v.target_key] = 2 * v.value - 1
             weights_ret
+
+        parser("score/post/<postid>").to_fetch = (key, t) ->
+            {postid} = t._path
+            {user, tag} = t._params
+
+            user ?= "/user/default"
+
+            weights = fetch "weights/#{unslash user}#{stringify_kson {tag}}"
+                
+            now = Date.now() / 1000
+
+            kson = stringify_kson
+                tag: tag
+                untagged: !tag
+        
+            #// Subscribe to the post
+            p = fetch "/post/#{postid}"
+
+            sum_votes = 0
+            sum_weights = 0
+
+            #// Subscribe to the post's votes
+            (fetch "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
+                # first subscribe to the vote
+                if v.key then fetch v
+                voter = v.user_key
+                # Keep track of the total weight of votes, and of the weighted sum of votes.
+                sum_weights += Math.abs(weights[voter] ? 0)
+                sum_votes   += (2 * v.value - 1) * (weights[voter] ? 0)
+
+            #// Our network-weight on the author
+            author_weight = weights[p.user_key] ? 0
+
+            res = compute_score
+                age: now - p.time
+                author: author_weight
+                score: sum_votes
+                volume: sum_weights
+
+            {
+                key: key,
+                value: res
+            }
+
 
     if document.readyState == "complete"
         r()
