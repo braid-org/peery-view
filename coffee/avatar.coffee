@@ -20,7 +20,7 @@ dom.AVATAR = ->
     @props.style["--label"] = "\"#{name}\""
     @props.style.color ?= "white"
 
-    name = name.split(' ')
+    name = name.trim().split(' ')
     if @props.hide_tooltip && !user.key == your_key()
         @props.title = name
 
