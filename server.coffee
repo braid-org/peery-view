@@ -348,9 +348,7 @@ bus_parser('posts').to_fetch = (key, t) ->
 
 bus_parser('user/<userid>').to_save = (key, val, old, t) ->
     unless old.joined
-        join_date = Date.now()
-        console.log "Giving user a join date of #{join_date}"
-        val.joined = join_date
+        val.joined = Date.now()
     bus.cache[key] = val
     t.done val
 bus('tags').to_fetch = (key) -> default_arr key
