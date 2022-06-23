@@ -34,6 +34,14 @@
     .hover-select:hover {
         background-color: #eee;
     }
+    /* Hide scrollbar on webkit */
+    .hide-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scroll {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 
 </style>
 

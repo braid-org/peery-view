@@ -377,23 +377,9 @@ dom.POST_DETAILS = ->
 #TODO: sometimes, The first time a vote on a slidergram is changed, it takes two clicks to show up
 
 
+# The BEEG header
 dom.HEADER = ->
-    # view state contains information about whatever the current view is
-    # In the future, we'll create a type of state that can be "viewed" (such as a project, user, or tag), and the HEADER will recieve that as a paremeter...
-    v = fetch "view"
     c = fetch "/current_user"
-
-    if v.user_key
-        user_name = (fetch v.user_key).name
-
-    feed_perspective = switch
-        when v.user_key then "#{user_name}'s view"
-        when c.logged_in then "Your view"
-        else "Overview"
-    feed_content = switch
-        when v.tag then titlecase v.tag
-        when v.page == "users" then "users"
-        else "everything"
    
     DIV
         ref: "headercontainer"
@@ -410,11 +396,9 @@ dom.HEADER = ->
             color: "#444"
             zIndex: 5
 
-            SPAN
-                key: "title"
-                fontSize: 24
+            X_OF_Y
+                key: "title-dropdown"
                 flexGrow: 1
-                "#{feed_perspective} of #{feed_content}"
 
             SPAN
                 key: "home"
@@ -528,7 +512,143 @@ dom.HEADER = ->
                 when "feeds" then FEEDS
                     key: "feeds-modal"
 
+dom.X_OF_Y = ->
+    c = fetch "/current_user"
+    v = fetch "view"
+    users = fetch("/users").all ? []
+    tags = fetch("/tags").arr ? []
 
+    n = 0
+    scrollOffset = (props) -> SPAN {
+            key: "dummy-scroll-offset-#{n++}"
+            whiteSpace: "pre"
+            pointerEvents: "none"
+            style: scrollSnapAlign: "start"
+            props...
+        }, " "
+
+    DIV {
+            display: "flex"
+            flexDirection: "row"
+            justifyContent: "left"
+            alignItems: "flex-start"
+            height: "1em"
+            fontSize: 22
+            @props...
+        },
+
+        if @local.pers
+
+            close_pers = () =>
+                selected = users[@local.scroll_index ? 0]
+                load_path selected.key
+
+                @local.pers = false
+                save @local
+            # register_window_event prevents a new handler from being added when the element is re-rendered
+            register_window_event "x-of-y-pers", "mousedown", (e) =>
+                # should we preventdefault?
+                unless @refs?.pers_dropdown?.getDOMNode?()?.contains e.target
+                    close_pers()
+            DIV
+                key: "pers-dropdown"
+                ref: "pers_dropdown"
+                className: "hide-scroll"
+                display: "flex"
+                flexDirection: "column"
+                height: "6em"
+                transform: "translateY(-2.4em)"
+                lineHeight: 1.2
+                overflowY: "auto"
+                scrollBehavior: "smooth"
+                style: scrollSnapType: "y mandatory"
+                onScroll: () =>
+                    @local.scroll_index = Math.round @refs.pers_dropdown?.getDOMNode?()?.scrollTop / (22 * 1.2)
+                    if @local.scrolled
+                        @local.scroll_index -= 3
+                    @local.scrolled = true
+                    save @local
+                    # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
+               
+                SPAN
+                    key: "dummy-scroll-bounce-top-live"
+                    whiteSpace: "pre"
+                    lineHeight: 3.6
+                    pointerEvents: "none"
+                    display: unless @local.scrolled then "none"
+                    " "
+
+                scrollOffset()
+                scrollOffset()
+               
+                n_users = 10
+                users[..10].map (user, i) =>
+                    selected = (@local.scroll_index ? 0) == i
+                    DIV
+                        key: unslash user.key
+                        display: "flex"
+                        flexDirection: "row"
+                        justifyContent: "left"
+                        style: if i < n_users - 1 then scrollSnapAlign: "start"
+
+                        cursor: "pointer"
+                        # TODO: Make this not fucking SPASTIC!!
+                        onClick: () =>
+                            if selected
+                                close_pers()
+                            else
+                                # 22px fontsize * 1.2 lineheight * i elements
+                                scrolltop = i * 22 * 1.2
+                                if @local.scrolled
+                                    # scroll-bounce-top-live has 22px fontsize and 3 lineheight
+                                    scrolltop += 22 * 3.6
+                                @refs.pers_dropdown?.getDOMNode?()?.scrollTo top: scrolltop
+
+                        AVATAR
+                            key: "avatar"
+                            user: user
+                            width: 20
+                            height: 20
+                            marginRight: 8
+                            clickable: false
+                            hide_tooltip: true
+                            style:
+                                alignSelf: "center"
+                                borderRadius: "50%"
+                            
+                        SPAN
+                            key: "name"
+                            color: if selected then "#681"
+                            user.name ? user.key[6..]
+
+                SPAN
+                    key: "dummy-scroll-bounce-bot"
+                    whiteSpace: "pre"
+                    lineHeight: 4.5
+                    pointerEvents: "none"
+                    " "
+        else
+            SPAN
+                key: "pers-text"
+                color: "#681"
+                cursor: "pointer"
+                onClick: () =>
+                    @local.pers = !(@local.pers ? false)
+                    @local.scrolled = false
+                    # TODO: Find the right scroll here based on view
+                    @local.scroll_index = 0
+                    save @local
+                v.user_key ? "your"
+
+        SPAN
+            key: "of-spacer"
+            whiteSpace: "pre"
+            " view of "
+
+        SPAN
+            key: "content-dropdown"
+            color: "#c5b"
+            "everything"
 
 dom.SUBMIT_POST = ->
 
@@ -924,7 +1044,7 @@ dom.USERS = ->
                 SPAN
                     key: s
                     textTransform: "capitalize"
-                    fontSize: 18
+                    fontSize: 20
                     color: if @local.sort == s then "black" else "#999"
                     cursor: "pointer" unless @local.sort == s
                     onClick: () =>
