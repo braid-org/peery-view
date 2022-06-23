@@ -48,7 +48,7 @@ dom.POSTS = ->
                 DIV
                     key: "dummy1"
                     flexGrow: 1
-                    height: 2
+                    height: 1.5
                     background: "#36a"
                     borderRadius: 1
 
@@ -61,7 +61,7 @@ dom.POSTS = ->
                 DIV
                     key: "dummy2"
                     flexGrow: 1
-                    height: 2
+                    height: 1.5
                     background: "#36a"
                     borderRadius: 1
 
