@@ -151,6 +151,13 @@ bus = require('statebus').serve
             
             t.done val
 
+        parser('user/<userid>').to_save = (key, val, old, t) ->
+            # The client can't change their join date
+            unless old.joined == val.joined
+                return t.abort()
+            bus.save val
+            t.done val
+
         client('users').to_fetch = (t) ->
             bus.fetch 'users'
 
@@ -338,6 +345,14 @@ bus_parser('posts').to_fetch = (key, t) ->
     else
         default_arr key
 
+
+bus_parser('user/<userid>').to_save = (key, val, old, t) ->
+    unless old.joined
+        join_date = Date.now()
+        console.log "Giving user a join date of #{join_date}"
+        val.joined = join_date
+    bus.cache[key] = val
+    t.done val
 bus('tags').to_fetch = (key) -> default_arr key
 
 
@@ -430,6 +445,19 @@ migrate = (state) ->
         console.log "MIGRATION J13: Migration complete."
         m.june13 = true
         state.save m
+
+    unless m.joindate
+        console.log "MIGRATION UJD: User Join Date."
+        console.log "MIGRATION UJD: Inferring user join order from their position in user array."
+        users = state.fetch "users"
+        users.all.forEach (v, i) ->
+            unless v.joined
+                v.joined = i * 5000 + 1500000000000
+                state.save.sync v
+        console.log "MIGRATION UJD: Migration complete."
+        m.joindate = true
+        state.save m
+
 
 migrate bus
 
