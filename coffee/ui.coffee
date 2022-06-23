@@ -5,6 +5,71 @@ margin_left = 40
 post_width = 525
 slider_width = body_width - 2*margin_left - post_width - 10
 
+# The list of posts
+dom.POSTS = ->
+    c = fetch "/current_user"
+    v = fetch "view"
+    posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
+
+    username = v.user_key ? c?.user?.key ? "/user/default"
+    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+    score_kson = stringify_kson tag: v.tag, user: username
+
+    two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
+    # Recent posts with a positive score, sorted by time
+    posts_recent = posts.filter (p) ->
+            (p.time > two_weeks_ago) and 
+            (fetch("score#{p.key}#{score_kson}").value ? 0) > 0.1 # TODO: Tune this
+        .sort (a, b) -> b.time - a.time
+
+    # Older posts, sorted by score
+    posts_old = posts.filter (p) -> 
+            (p.time <= two_weeks_ago) and 
+            # Cut the list off at some point. TODO: Paging
+            (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
+        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
+    
+    DIV
+        key: "posts"
+        posts_recent.map (post) ->
+            POST
+                post: post.key
+                key: unslash post.key
+
+        # If there were no recent posts, don't show the time separator
+        if posts_recent.length
+            DIV
+                key: "sort-separator"
+                display: "flex"
+                flexDirection: "row"
+                justifyContent: "stretch"
+                alignItems: "center"
+
+                DIV
+                    key: "dummy1"
+                    flexGrow: 1
+                    height: 2
+                    background: "#36a"
+                    borderRadius: 1
+
+                SPAN
+                    key: "text"
+                    color: "#36a"
+                    margin: "0px 1ch"
+                    "Two weeks ago"
+
+                DIV
+                    key: "dummy2"
+                    flexGrow: 1
+                    height: 2
+                    background: "#36a"
+                    borderRadius: 1
+
+        posts_old.map (post) ->
+            POST
+                post: post.key
+                key: unslash post.key
+
 # The layout for a single post, including slidergram and such
 dom.POST = ->
     post = @props.post
@@ -822,6 +887,56 @@ dom.FEEDS = ->
                         textTransform: if feed.type == "tag" then "capitalize"
                         feed.name
 
+
+# The list of all users
+dom.USERS = ->
+    c = fetch "/current_user"
+    # //TODO: allow viewing users with tags?
+
+    # //Default to New sorting
+    # // My IDE thinks i'm in JS, and sometimes @local breaks the syntax highlighting lmaoo
+    this.local.sort ?= "top"
+    save @local
+
+    if @local.sort == "top"
+        user = c?.user?.key ? "/user/default"
+        weights = fetch "weights/#{unslash user}"
+
+    sort_func = switch @local.sort
+        when "new" then (a, b) -> (b.joined ? 0) - (a.joined ? 0)
+        when "old" then (a, b) -> (a.joined ? 0) - (b.joined ? 0)
+        when "top" then (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
+        else (a, b) -> 0
+
+    users = ((fetch "/users").all ? [])
+        .filter (u) -> u.key != c?.user?.key
+        .sort sort_func
+    DIV
+        key: "users"
+        DIV
+            key: "sort-select"
+            display: "flex"
+            flexDirection: "row"
+            justifyContent: "space-evenly"
+
+            ["top", "new", "old"].map (s) =>
+                SPAN
+                    key: s
+                    textTransform: "capitalize"
+                    fontSize: 24
+                    color: if @local.sort == s then "black" else "#999"
+                    cursor: "pointer" unless @local.sort == s
+                    onClick: () =>
+                        @local.sort = s
+                        save @local
+                    s
+
+        DIV
+            key: "user-list"
+            users.map (user) =>
+                USER
+                    user: user.key
+                    key: unslash user.key
 
 # The layout for a user in a user feed
 dom.USER = ->
