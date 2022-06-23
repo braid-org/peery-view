@@ -58,7 +58,7 @@ dom.AVATAR = ->
             key: 'initials'
             className: 'initials'
             style:
-                fontSize: (@props.style?.width ? 50) / 2
+                fontSize: (@props.style?.width ? @props.width ? 50) / 2
                 lineHeight: "1em"
                 display: "block"
                 opacity: unless add_initials then 0

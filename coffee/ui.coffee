@@ -9,7 +9,7 @@ slider_width = body_width - 2*margin_left - post_width - 10
 dom.POST = ->
     post = @props.post
     # Subscribe to the post
-    if post.key then fetch post
+    if post?.key or typeof post == "string" then post = fetch post
     unless post.user_key?
         # The post has actually just been deleted.
         return
@@ -238,7 +238,11 @@ dom.POST_DETAILS = ->
                     box = @refs.addlabel.getDOMNode()
                     if @local.addtagvisible and box.value.length
                         post.tags ||= []
-                        post.tags.push box.value.toString().toLowerCase()
+                        new_tag = box.value.toString().toLowerCase()
+                        # Disable adding certain tags.
+                        # In the future, we should make this check serverside so it can't be bypassed.
+                        if new_tag.indexOf("/") == -1 and new_tag != "users"
+                            post.tags.push new_tag
                         box.value = ""
                         save post
                     
@@ -322,6 +326,7 @@ dom.HEADER = ->
         else "Overview"
     feed_content = switch
         when v.tag then titlecase v.tag
+        when v.page == "users" then "users"
         else "everything"
    
     DIV
@@ -349,8 +354,7 @@ dom.HEADER = ->
                 key: "home"
                 margin: 10
                 cursor: "pointer"
-                onClick: () =>
-                    load_path "/"
+                onClick: () -> load_path "/"
                 "Home"
 
             SPAN
@@ -369,6 +373,12 @@ dom.HEADER = ->
                 # Is there a better way to guess when to preload the feeds?
                 onMouseEnter: () -> fetch "/feeds"
                 "Feeds"
+            SPAN
+                key: "users"
+                margin: 10
+                cursor: "pointer"
+                onClick: () -> load_path "/users"
+                "Users"
 
             SPAN
                 key: "post"
@@ -811,3 +821,90 @@ dom.FEEDS = ->
                         key: "name"
                         textTransform: if feed.type == "tag" then "capitalize"
                         feed.name
+
+
+# The layout for a user in a user feed
+dom.USER = ->
+    user = @props.user
+    # Subscribe to the user
+    if user?.key or typeof user == "string" then user = fetch user
+    c = fetch "/current_user"
+
+    joined_string = prettyDate(user.joined ? 0)
+
+    DIV
+        margin: "5px 0"
+        padding: "5px 10px"
+        #boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        DIV
+            key: "user-main"
+            display: "grid"
+            grid: "\"icon name slider more\" auto
+                   \"icon joined slider more\" 16px
+                    / #{margin_left}px #{post_width}px 1fr #{margin_left}px"
+            alignItems: "center"
+
+            AVATAR
+                key: "avatar"
+                user: user
+                width: margin_left - 10
+                height: margin_left - 10
+                style:
+                    gridArea: "icon"
+                    alignSelf: "center"
+                    borderRadius: "50%"
+
+            SPAN
+                key: "name"
+                gridArea: "name"
+                fontSize: "18px"
+                paddingRight: "10px"
+                lineHeight: "#{margin_left - 10}px"
+                justifySelf: "stretch"
+                user.name ? user.key[6..]
+
+            SPAN
+                key: "joined"
+                gridArea: "joined"
+                fontSize: "12px"
+                color: "#999"
+                whiteSpace: "nowrap"
+                overflowX: "hidden"
+                "Joined #{joined_string}"
+           
+            DIV
+                key: "user-votes-slider"
+                gridArea: "slider"
+                alignSelf: "start"
+                height: margin_left - 10
+                # TODO: Create a UI for viewing users wrt a tag
+                SLIDERGRAM
+                    key: "slidergram"
+                    sldr: "/votes/#{unslash user.key}(untagged)"
+                    width: slider_width
+                    height: margin_left - 5
+                    max_avatar_radius: (margin_left - 5) / 2
+                    read_only: !c.logged_in
+                    vote_key: "user_key"
+                    onsave: (vote) =>
+                        vote.key = "#{c.user.key}/vote/#{unslash user.key}"
+                        vote.target_key = user.key
+                        save vote
+
+            SPAN
+                key: "more"
+                gridArea: "more"
+                color: "#999"
+                className: "material-icons md-dark"
+                fontSize: "24px"
+                cursor: "pointer"
+                textAlign: "center"
+                onClick: () => 
+                    @local.expanded = !@local.expanded
+                    save @local
+                if @local.expanded then "expand_less" else "expand_more"
+
+        if @local.expanded
+            POST_DETAILS
+                key: "details-dropdown"
+                post: user

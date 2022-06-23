@@ -53,16 +53,21 @@
 
     window.parse_path = (path) ->
         path = slash unescape path
+        if path.endsWith "/"
+            path = path[...-1]
         v = fetch "view"
+        v.tag = v.user_key = v.page = null
         switch
+            when path == "/users"
+                v.page = "users"
             when path.startsWith "/user/"
                 v.user_key = path
-                v.tag = null
+                v.page = "posts"
             when path.length > 2
                 v.tag = unslash path
-                v.user_key = null
+                v.page = "posts"
             else
-                v.tag = v.user_key = null
+                v.page = "posts"
         save v
 
     window.load_path = (path) ->
@@ -73,6 +78,7 @@
     parse_path ((new URL window.location.href).pathname)
 
     dom.BODY = ->
+        v = fetch "view"
         DIV
             width: body_width
             margin: "auto"
@@ -81,8 +87,13 @@
                 key: "header"
             BIG_MULTIGRAM
                 key: "multigram"
-            POSTS
-                key: "posts"
+
+            if v?.page == "users"
+                USERS
+                    key: "users"
+            else
+                POSTS
+                    key: "posts"
             
 
     dom.POSTS = ->
@@ -96,12 +107,62 @@
 
         ordered = sort_posts posts, username, v.tag
         
-        DIV 
-            key: "post-list"
+        DIV
+            key: "posts"
             ordered.map (post) =>
                 POST
-                    post: post
+                    post: post.key
                     key: unslash post.key
+
+        
+    dom.USERS = ->
+        c = fetch "/current_user"
+        # //TODO: allow viewing users with tags?
+
+        # //Default to New sorting
+        # // My IDE thinks i'm in JS, and sometimes @local breaks the syntax highlighting lmaoo
+        this.local.sort ?= "top"
+        save @local
+
+        if @local.sort == "top"
+            user = c?.user?.key ? "/user/default"
+            weights = fetch "weights/#{unslash user}"
+
+        sort_func = switch @local.sort
+            when "new" then (a, b) -> (b.joined ? 0) - (a.joined ? 0)
+            when "old" then (a, b) -> (a.joined ? 0) - (b.joined ? 0)
+            when "top" then (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
+            else (a, b) -> 0
+
+        users = ((fetch "/users").all ? [])
+            .filter (u) -> u.key != c?.user?.key
+            .sort sort_func
+        DIV
+            key: "users"
+            DIV
+                key: "sort-select"
+                display: "flex"
+                flexDirection: "row"
+                justifyContent: "space-evenly"
+
+                ["top", "new", "old"].map (s) =>
+                    SPAN
+                        key: s
+                        textTransform: "capitalize"
+                        fontSize: 24
+                        color: if @local.sort == s then "black" else "#999"
+                        cursor: "pointer" unless @local.sort == s
+                        onClick: () =>
+                            @local.sort = s
+                            save @local
+                        s
+
+            DIV
+                key: "user-list"
+                users.map (user) =>
+                    USER
+                        user: user.key
+                        key: unslash user.key
 
 
     dom.BIG_MULTIGRAM = ->
@@ -113,15 +174,16 @@
             computed: true
             tag: v.tag
             untagged: !v.tag
+        w = body_width - 2 * margin_left
 
         DIV
-            width: body_width
+            width: w
             padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
                 key: "multigram-inner"
                 sldr: "#{username}/votes/people#{stringify_kson params}"
-                width: body_width - 2 * margin_left 
+                width: w
                 height: 130
                 max_avatar_radius: 60
                 read_only: (v.user_key) or !c.logged_in
