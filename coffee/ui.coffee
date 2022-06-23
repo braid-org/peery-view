@@ -334,6 +334,7 @@ dom.POST_DETAILS = ->
                         lineHeight: "24px"
                         color: "#444"
                         background: if selected then "#eee"
+                        textTransform: "capitalize"
                         onClick: (e) =>
                             # Save text of the selected result in the widget state
                             @refs.addlabel.getDOMNode().value = suggested
@@ -923,7 +924,7 @@ dom.USERS = ->
                 SPAN
                     key: s
                     textTransform: "capitalize"
-                    fontSize: 24
+                    fontSize: 18
                     color: if @local.sort == s then "black" else "#999"
                     cursor: "pointer" unless @local.sort == s
                     onClick: () =>
