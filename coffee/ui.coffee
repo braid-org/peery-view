@@ -654,7 +654,7 @@ dom.ROLODEX = ->
         className: "hide-scroll"
         display: "flex"
         flexDirection: "column"
-        height: "6em"
+        height: "6.65em"
         transform: "translateY(-2.4em)"
         lineHeight: 1.2
         overflowY: "auto"
@@ -685,7 +685,7 @@ dom.ROLODEX = ->
                 height: 24
 
 
-        scrollOffset lineHeight: 4.5
+        scrollOffset lineHeight: 5
 
 # We use refresh to set the dropdown's scroll position the first time it renders
 dom.ROLODEX.refresh = ->
