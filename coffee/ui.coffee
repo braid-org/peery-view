@@ -513,132 +513,19 @@ dom.HEADER = ->
                     key: "feeds-modal"
 
 dom.X_OF_Y = ->
-    c = fetch "/current_user"
-    v = fetch "view"
-    users = fetch("/users").all ? []
-    tags = fetch("/tags").arr ? []
-
-    n = 0
-    scrollOffset = (props) -> SPAN {
-            key: "dummy-scroll-offset-#{n++}"
-            whiteSpace: "pre"
-            pointerEvents: "none"
-            style: scrollSnapAlign: "start"
-            props...
-        }, " "
 
     DIV {
             display: "flex"
             flexDirection: "row"
             justifyContent: "left"
             alignItems: "flex-start"
-            height: "1em"
-            fontSize: 22
+            height: "1.3em"
+            lineHeight: 1.2
+            fontSize: 20
             @props...
         },
-
-        if @local.pers
-
-            close_pers = () =>
-                selected = users[@local.scroll_index ? 0]
-                load_path selected.key
-
-                @local.pers = false
-                save @local
-            # register_window_event prevents a new handler from being added when the element is re-rendered
-            register_window_event "x-of-y-pers", "mousedown", (e) =>
-                # should we preventdefault?
-                unless @refs?.pers_dropdown?.getDOMNode?()?.contains e.target
-                    close_pers()
-            DIV
-                key: "pers-dropdown"
-                ref: "pers_dropdown"
-                className: "hide-scroll"
-                display: "flex"
-                flexDirection: "column"
-                height: "6em"
-                transform: "translateY(-2.4em)"
-                lineHeight: 1.2
-                overflowY: "auto"
-                scrollBehavior: "smooth"
-                style: scrollSnapType: "y mandatory"
-                onScroll: () =>
-                    @local.scroll_index = Math.round @refs.pers_dropdown?.getDOMNode?()?.scrollTop / (22 * 1.2)
-                    if @local.scrolled
-                        @local.scroll_index -= 3
-                    @local.scrolled = true
-                    save @local
-                    # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
-               
-                SPAN
-                    key: "dummy-scroll-bounce-top-live"
-                    whiteSpace: "pre"
-                    lineHeight: 3.6
-                    pointerEvents: "none"
-                    display: unless @local.scrolled then "none"
-                    " "
-
-                scrollOffset()
-                scrollOffset()
-               
-                n_users = 10
-                users[..10].map (user, i) =>
-                    selected = (@local.scroll_index ? 0) == i
-                    DIV
-                        key: unslash user.key
-                        display: "flex"
-                        flexDirection: "row"
-                        justifyContent: "left"
-                        style: if i < n_users - 1 then scrollSnapAlign: "start"
-
-                        cursor: "pointer"
-                        # TODO: Make this not fucking SPASTIC!!
-                        onClick: () =>
-                            if selected
-                                close_pers()
-                            else
-                                # 22px fontsize * 1.2 lineheight * i elements
-                                scrolltop = i * 22 * 1.2
-                                if @local.scrolled
-                                    # scroll-bounce-top-live has 22px fontsize and 3 lineheight
-                                    scrolltop += 22 * 3.6
-                                @refs.pers_dropdown?.getDOMNode?()?.scrollTo top: scrolltop
-
-                        AVATAR
-                            key: "avatar"
-                            user: user
-                            width: 20
-                            height: 20
-                            marginRight: 8
-                            clickable: false
-                            hide_tooltip: true
-                            style:
-                                alignSelf: "center"
-                                borderRadius: "50%"
-                            
-                        SPAN
-                            key: "name"
-                            color: if selected then "#681"
-                            user.name ? user.key[6..]
-
-                SPAN
-                    key: "dummy-scroll-bounce-bot"
-                    whiteSpace: "pre"
-                    lineHeight: 4.5
-                    pointerEvents: "none"
-                    " "
-        else
-            SPAN
-                key: "pers-text"
-                color: "#681"
-                cursor: "pointer"
-                onClick: () =>
-                    @local.pers = !(@local.pers ? false)
-                    @local.scrolled = false
-                    # TODO: Find the right scroll here based on view
-                    @local.scroll_index = 0
-                    save @local
-                v.user_key ? "your"
+        PERS_DROPDOWN
+            key: "pers-dropdown"
 
         SPAN
             key: "of-spacer"
@@ -649,6 +536,140 @@ dom.X_OF_Y = ->
             key: "content-dropdown"
             color: "#c5b"
             "everything"
+
+
+dom.PERS_DROPDOWN = ->
+    c = fetch "/current_user"
+    v = fetch "view"
+
+    if @local.pers
+
+        users = fetch("/users").all ? []
+        tags = fetch("/tags").arr ? []
+
+        n = 0
+        scrollOffset = (props) -> SPAN {
+                key: "dummy-scroll-offset-#{n++}"
+                whiteSpace: "pre"
+                pointerEvents: "none"
+                style: scrollSnapAlign: "start"
+                props...
+            }, " "
+
+
+        close_pers = () =>
+            selected = users[@local.scroll_index ? 0] ? users[0]
+            load_path selected.key
+
+            @local.pers = false
+            save @local
+
+        # register_window_event prevents a new handler from being added when the element is re-rendered
+        register_window_event "x-of-y-pers", "mousedown", (e) =>
+            # should we preventdefault?
+            unless @refs?.pers_dropdown?.getDOMNode?()?.contains e.target
+                close_pers()
+        DIV
+            key: "pers-dropdown"
+            ref: "pers_dropdown"
+            className: "hide-scroll"
+            display: "flex"
+            flexDirection: "column"
+            height: "6em"
+            transform: "translateY(-2.4em)"
+            lineHeight: 1.2
+            overflowY: "auto"
+            scrollBehavior: "smooth"
+            style: scrollSnapType: "y mandatory"
+            onScroll: () =>
+                @local.scroll_index = Math.round @refs.pers_dropdown?.getDOMNode?()?.scrollTop / (20 * 1.2)
+                @local.scroll_index -= 3
+                save @local
+                # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
+           
+            SPAN
+                key: "dummy-scroll-bounce-top-live"
+                whiteSpace: "pre"
+                lineHeight: 3.6
+                pointerEvents: "none"
+                " "
+
+            scrollOffset()
+            scrollOffset()
+           
+            n_users = 10
+            users[..10].map (user, i) =>
+                selected = (@local.scroll_index ? 0) == i
+                DIV
+                    key: unslash user.key
+                    display: "flex"
+                    flexDirection: "row"
+                    justifyContent: "left"
+                    style: if i < n_users - 1 then scrollSnapAlign: "start"
+
+                    cursor: "pointer"
+                    onClick: () =>
+                        if selected
+                            close_pers()
+                        else
+                            # 20px fontsize * 1.2 lineheight * (i + 3) elements
+                            scrolltop = (i + 3) * 20 * 1.2
+                            @refs.pers_dropdown?.getDOMNode?()?.scrollTo top: scrolltop
+
+                    AVATAR
+                        key: "avatar"
+                        user: user
+                        width: 20
+                        height: 20
+                        marginRight: 8
+                        clickable: false
+                        hide_tooltip: true
+                        style:
+                            alignSelf: "center"
+                            borderRadius: "50%"
+                        
+                    SPAN
+                        key: "name"
+                        color: if selected then "#681"
+                        textOverflow: "ellipsis"
+                        overflow: "hidden"
+                        maxWidth: "12ch"
+                        whiteSpace: "nowrap"
+                        user.name ? user.key[6..]
+
+            SPAN
+                key: "dummy-scroll-bounce-bot"
+                whiteSpace: "pre"
+                lineHeight: 4.5
+                pointerEvents: "none"
+                " "
+    else
+        SPAN
+            key: "pers-text"
+            color: "#681"
+            cursor: "pointer"
+            onClick: () =>
+                @local.pers = !(@local.pers ? false)
+                save @local
+            if v.user_key?
+                name = fetch(v.user_key)?.name
+                if @loading()
+                    name = "User"
+                "#{name}'s"
+            else
+                "Your"
+
+dom.PERS_DROPDOWN.refresh = ->
+    el = @refs.pers_dropdown?.getDOMNode?()
+    # Hmmm, now this can cause weird snapping if you scroll too far up with a trackpad. 
+    # Add some local state to keep track of if the element was just rendered?
+    if el? and el.scrollTop < 1
+        v = fetch "view"
+        users = fetch("/users").all ? []
+        unless @loading()
+            index = users.findIndex (u) -> v?.user_key == u.key
+            el.scrollTo top: 20 * 1.2 * (3 + Math.max index, 0), behavior: "instant"
+
 
 dom.SUBMIT_POST = ->
 
@@ -939,8 +960,9 @@ dom.FEEDS = ->
     tags = (fetch "/tags").arr
     users = (fetch "/users").all
     weights = fetch "weights#{c.user?.key ? 'user/default'}"
-    users = users.sort (a, b) -> (weights[a.key] ? 0) - (weights[b.key] ? 0)
+    users = users
         .filter (a) -> a.key != c?.user?.key
+        .sort (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
 
     DIV
         ref: "feeds"
