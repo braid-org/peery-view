@@ -5,14 +5,18 @@ margin_left = 40
 post_width = 525
 slider_width = body_width - 2*margin_left - post_width - 10
 
-# The list of posts
+
+
+### === POST FEED === ###
 dom.POSTS = ->
     c = fetch "/current_user"
     v = fetch "view"
     posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
 
+    # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+    # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
 
     two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
@@ -31,6 +35,7 @@ dom.POSTS = ->
     
     DIV
         key: "posts"
+        # Recent posts are displayed at the top
         posts_recent.map (post) ->
             POST
                 post: post.key
@@ -45,6 +50,7 @@ dom.POSTS = ->
                 justifyContent: "stretch"
                 alignItems: "center"
 
+                # Blue line on the left
                 DIV
                     key: "dummy1"
                     flexGrow: 1
@@ -58,6 +64,7 @@ dom.POSTS = ->
                     margin: "0px 1ch"
                     "Two weeks ago"
 
+                # Blue line on the right
                 DIV
                     key: "dummy2"
                     flexGrow: 1
@@ -65,6 +72,7 @@ dom.POSTS = ->
                     background: "#36a"
                     borderRadius: 1
 
+        # Older posts are displayed below the separator
         posts_old.map (post) ->
             POST
                 post: post.key
@@ -151,6 +159,7 @@ dom.POST = ->
                 gridArea: "slider"
                 alignSelf: "start"
                 height: margin_left - 10
+                # If we're viewing with respect to a tag, apply the tag to the slidergram
                 if v.tag
                     SLIDERGRAM_WITH_TAG
                         key: "slidergram"
@@ -192,6 +201,7 @@ dom.POST = ->
                 key: "details-dropdown"
                 post: post
 
+# A post's comments, tags, etc.
 dom.POST_DETAILS = ->
     post = fetch @props.post
     c = fetch "/current_user"
@@ -199,6 +209,7 @@ dom.POST_DETAILS = ->
     potential_tags = (fetch "/tags").arr.filter (f) -> f not in (post.tags || [])
     max_suggestions = @props.max_suggestions ? 4
     # Setup default values in @local
+    # These values are used for the tag search box
     @local.selected_idx ?= -1
     @local.tagsearch ?= []
     @local.typed ?= ""
@@ -279,6 +290,8 @@ dom.POST_DETAILS = ->
                     onInput: (e) =>
                         v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
                         @local.typed = v
+                        # Get the tags that start with the query
+                        # In the future, could do a fuzzy search
                         @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
                                                          .slice 0, max_suggestions
                         @local.selected_idx = -1
@@ -345,6 +358,7 @@ dom.POST_DETAILS = ->
 
                     SPAN key: "dummy2"
 
+        # The tags that are actually on the post, plus their sliders
         DIV
             key: "tags-grid"
             display: "grid"
@@ -374,9 +388,10 @@ dom.POST_DETAILS = ->
                         read_only: !c.logged_in
 
 
-#TODO: sometimes, The first time a vote on a slidergram is changed, it takes two clicks to show up
 
 
+
+### === HEADER AND POPUPS === ###
 # The BEEG header
 dom.HEADER = ->
     c = fetch "/current_user"
@@ -498,7 +513,8 @@ dom.HEADER = ->
                 # should we preventdefault?
                 unless @refs.headercontainer.getDOMNode().contains e.target
                     close()
-            
+           
+            # Display one of various popups
             switch @local.modal
                 when "post" then SUBMIT_POST
                     close: close
@@ -512,8 +528,11 @@ dom.HEADER = ->
                 when "feeds" then FEEDS
                     key: "feeds-modal"
 
+# The view text, with rolodex view selectors
 dom.X_OF_Y = ->
 
+    v = fetch "view"
+    c = fetch "/current_user"
     DIV {
             display: "flex"
             flexDirection: "row"
@@ -524,153 +543,183 @@ dom.X_OF_Y = ->
             fontSize: 20
             @props...
         },
-        PERS_DROPDOWN
-            key: "pers-dropdown"
+
+        if @local.pers
+            users = fetch("/users").all ? []
+            if c.user
+                users = [c.user, users.filter((u) -> u.key != c.user.key)...]
+            selected_user = users.findIndex (u) -> u.key == v.user_key
+            ROLODEX
+                key: "pers-rolo"
+                # The array of data to be rendered
+                arr: users
+                # The index of the initially chosen element
+                selected: Math.max selected_user, 0
+                # Callback for when an entry has been chosen
+                close: (chosen) =>
+                    if @local.pers
+                        load_path if chosen then (users[chosen].key ? "") else ""
+                    @local.pers = false
+                    save @local
+                # Function to render each element
+                render: (user, selected, el_props) ->
+                    DIV {
+                            key: unslash user.key
+                            display: "flex"
+                            flexDirection: "row"
+                            justifyContent: "left"
+                            cursor: "pointer"
+                            el_props...
+                        },
+
+                        AVATAR
+                            key: "avatar"
+                            user: user
+                            width: 20
+                            height: 20
+                            marginRight: 8
+                            clickable: false
+                            hide_tooltip: true
+                            style:
+                                alignSelf: "center"
+                                borderRadius: "50%"
+                            
+                        SPAN
+                            key: "name"
+                            color: if selected then "#681"
+                            textOverflow: "ellipsis"
+                            overflow: "hidden"
+                            maxWidth: "12ch"
+                            whiteSpace: "nowrap"
+                            # Put "You" instead of your own username
+                            switch user.key
+                                when c?.user?.key then "You"
+                                else user.name ? user.key[6..]
+
+        else
+            SPAN
+                key: "pers-text"
+                color: "#681"
+                cursor: "pointer"
+                onClick: () =>
+                    @local.pers = true
+                    save @local
+                if v.user_key?
+                    "#{fetch(v.user_key)?.name ? 'User'}'s"
+                else
+                    "Your"
 
         SPAN
             key: "of-spacer"
             whiteSpace: "pre"
-            " view of "
+            "  view of  "
 
-        SPAN
-            key: "content-dropdown"
-            color: "#c5b"
-            "everything"
+        if @local.cont
+            tags = ["Everything", (fetch("/tags").arr ? [])...]
+            selected_tag = tags.indexOf v.tag
+            ROLODEX
+                key: "cont-rolo"
+                arr: tags
+                selected: Math.max selected_tag, 0
+                close: (chosen) =>
+                    if @local.cont
+                        load_path if chosen then (tags[chosen] ? "") else ""
+                    @local.cont = false
+                    save @local
+                # Function to render each element
+                render: (tag, selected, el_props) ->
+                    DIV {
+                            key: tag
+                            cursor: "pointer"
+                            el_props...
+                        },
+
+                        SPAN
+                            key: "the_tag"
+                            color: if selected then "#c5b"
+                            textOverflow: "ellipsis"
+                            overflow: "hidden"
+                            maxWidth: "12ch"
+                            whiteSpace: "nowrap"
+                            textTransform: "capitalize"
+                            tag
+
+        else
+            SPAN
+                key: "cont-text"
+                color: "#c5b"
+                cursor: "pointer"
+                textTransform: "capitalize"
+                onClick: () =>
+                    @local.cont = true
+                    save @local
+                v.tag ? "everything"
 
 
-dom.PERS_DROPDOWN = ->
-    c = fetch "/current_user"
-    v = fetch "view"
+dom.ROLODEX = ->
+    n = 0
+    scrollOffset = (props) -> SPAN {
+            key: "dummy-scroll-offset-#{n++}"
+            whiteSpace: "pre"
+            pointerEvents: "none"
+            props...
+        }, " "
 
-    if @local.pers
+    close = () => @props.close?(@local.scroll_index ? 0)
 
-        users = fetch("/users").all ? []
-        tags = fetch("/tags").arr ? []
-
-        n = 0
-        scrollOffset = (props) -> SPAN {
-                key: "dummy-scroll-offset-#{n++}"
-                whiteSpace: "pre"
-                pointerEvents: "none"
-                style: scrollSnapAlign: "start"
-                props...
-            }, " "
-
-
-        close_pers = () =>
-            selected = users[@local.scroll_index ? 0] ? users[0]
-            load_path selected.key
-
-            @local.pers = false
+    # register_window_event prevents a new handler from being added when the element is re-rendered
+    register_window_event "#{@props.key}-dropdown", "mousedown", (e) =>
+        # should we preventdefault?
+        unless @refs?.dropdown?.getDOMNode?()?.contains e.target
+            close()
+    DIV
+        ref: "dropdown"
+        className: "hide-scroll"
+        display: "flex"
+        flexDirection: "column"
+        height: "6em"
+        transform: "translateY(-2.4em)"
+        lineHeight: 1.2
+        overflowY: "auto"
+        scrollBehavior: "smooth"
+        style: scrollSnapType: "y mandatory"
+        onScroll: () =>
+            @local.scroll_index = Math.round @refs.dropdown?.getDOMNode?()?.scrollTop / (20 * 1.2)
+            @local.scroll_index -= 3
             save @local
+            # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
+      
+        scrollOffset lineHeight: 3.6
+        scrollOffset style: scrollSnapAlign: "start"
+        scrollOffset style: scrollSnapAlign: "start"
 
-        # register_window_event prevents a new handler from being added when the element is re-rendered
-        register_window_event "x-of-y-pers", "mousedown", (e) =>
-            # should we preventdefault?
-            unless @refs?.pers_dropdown?.getDOMNode?()?.contains e.target
-                close_pers()
-        DIV
-            key: "pers-dropdown"
-            ref: "pers_dropdown"
-            className: "hide-scroll"
-            display: "flex"
-            flexDirection: "column"
-            height: "6em"
-            transform: "translateY(-2.4em)"
-            lineHeight: 1.2
-            overflowY: "auto"
-            scrollBehavior: "smooth"
-            style: scrollSnapType: "y mandatory"
-            onScroll: () =>
-                @local.scroll_index = Math.round @refs.pers_dropdown?.getDOMNode?()?.scrollTop / (20 * 1.2)
-                @local.scroll_index -= 3
-                save @local
-                # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
-           
-            SPAN
-                key: "dummy-scroll-bounce-top-live"
-                whiteSpace: "pre"
-                lineHeight: 3.6
-                pointerEvents: "none"
-                " "
+        n_users = @props.arr.length
+        @props.arr.map (data, i) =>
+            selected = (@local.scroll_index ? 0) == i
+            @props.render data, selected,
+                onClick: () =>
+                    if selected
+                        close()
+                    else
+                        # 20px fontsize * 1.2 lineheight * (i + 3) elements
+                        scrolltop = (i + 3) * 20 * 1.2
+                        @refs.dropdown?.getDOMNode?()?.scrollTo top: scrolltop
+                style: if i < n_users - 2 then scrollSnapAlign: "start"
+                height: 24
 
-            scrollOffset()
-            scrollOffset()
-           
-            n_users = 10
-            users[..10].map (user, i) =>
-                selected = (@local.scroll_index ? 0) == i
-                DIV
-                    key: unslash user.key
-                    display: "flex"
-                    flexDirection: "row"
-                    justifyContent: "left"
-                    style: if i < n_users - 1 then scrollSnapAlign: "start"
 
-                    cursor: "pointer"
-                    onClick: () =>
-                        if selected
-                            close_pers()
-                        else
-                            # 20px fontsize * 1.2 lineheight * (i + 3) elements
-                            scrolltop = (i + 3) * 20 * 1.2
-                            @refs.pers_dropdown?.getDOMNode?()?.scrollTo top: scrolltop
+        scrollOffset lineHeight: 4.5
 
-                    AVATAR
-                        key: "avatar"
-                        user: user
-                        width: 20
-                        height: 20
-                        marginRight: 8
-                        clickable: false
-                        hide_tooltip: true
-                        style:
-                            alignSelf: "center"
-                            borderRadius: "50%"
-                        
-                    SPAN
-                        key: "name"
-                        color: if selected then "#681"
-                        textOverflow: "ellipsis"
-                        overflow: "hidden"
-                        maxWidth: "12ch"
-                        whiteSpace: "nowrap"
-                        user.name ? user.key[6..]
-
-            SPAN
-                key: "dummy-scroll-bounce-bot"
-                whiteSpace: "pre"
-                lineHeight: 4.5
-                pointerEvents: "none"
-                " "
-    else
-        SPAN
-            key: "pers-text"
-            color: "#681"
-            cursor: "pointer"
-            onClick: () =>
-                @local.pers = !(@local.pers ? false)
-                save @local
-            if v.user_key?
-                name = fetch(v.user_key)?.name
-                if @loading()
-                    name = "User"
-                "#{name}'s"
-            else
-                "Your"
-
-dom.PERS_DROPDOWN.refresh = ->
-    el = @refs.pers_dropdown?.getDOMNode?()
+# We use refresh to set the dropdown's scroll position the first time it renders
+dom.ROLODEX.refresh = ->
+    el = @refs.dropdown?.getDOMNode?()
     # Hmmm, now this can cause weird snapping if you scroll too far up with a trackpad. 
     # Add some local state to keep track of if the element was just rendered?
     if el? and el.scrollTop < 1
-        v = fetch "view"
-        users = fetch("/users").all ? []
-        unless @loading()
-            index = users.findIndex (u) -> v?.user_key == u.key
-            el.scrollTo top: 20 * 1.2 * (3 + Math.max index, 0), behavior: "instant"
+        el.scrollTo top: 20 * 1.2 * (3 + @props.selected), behavior: "instant"
 
 
+# The submit-post modal
 dom.SUBMIT_POST = ->
 
     @local.typed ?= false
@@ -759,9 +808,11 @@ dom.SUBMIT_POST = ->
 
 
 
-# Login Form
+# The login/register modal
 dom.LOGIN = ->
     c = fetch "/current_user"
+    # We use this check to keep the modal open if login failed
+    # More precisely, only close it if login succeeded.
     if c.logged_in and @local.login_attempted
         @local.login_attempted = false
         save @local
@@ -843,6 +894,7 @@ dom.LOGIN = ->
             },
             "Login"
 
+# The modal for the logged-in user's settings
 dom.SETTINGS = ->
     c = fetch "/current_user"
     unless c.logged_in
@@ -953,7 +1005,7 @@ dom.SETTINGS = ->
                 @props.close?()
             "Save"
 
-# TODO: Figure out how to "prefetch" things?
+# The modal for the views that can be selected
 dom.FEEDS = ->
     c = fetch "/current_user"
     v = fetch "view"
@@ -1031,6 +1083,9 @@ dom.FEEDS = ->
                         feed.name
 
 
+
+
+### === ALL USER DISPLAY === ###
 # The list of all users
 dom.USERS = ->
     c = fetch "/current_user"
