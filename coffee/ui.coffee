@@ -525,13 +525,13 @@ dom.X_OF_Y = ->
             users = fetch("/users").all ? []
             if c.user
                 users = [c.user, users.filter((u) -> u.key != c.user.key)...]
-            selected_user = users.findIndex (u) -> u.key == v.user_key
+            selected_user = if v.user_key then users.findIndex (u) -> u.key == v.user_key else 0
             ROLODEX
                 key: "pers-rolo"
                 # The array of data to be rendered
                 arr: users
                 # The index of the initially chosen element
-                selected: Math.max selected_user, 0
+                selected: selected_user
                 # Callback for when an entry has been chosen
                 close: (chosen) =>
                     if @local.pers
@@ -593,11 +593,11 @@ dom.X_OF_Y = ->
 
         if @local.cont
             tags = ["Everything", (fetch("/tags").arr ? [])...]
-            selected_tag = tags.indexOf v.tag
+            selected_tag = if v.tag then tags.indexOf v.tag else 0
             ROLODEX
                 key: "cont-rolo"
                 arr: tags
-                selected: Math.max selected_tag, 0
+                selected: selected_tag
                 close: (chosen) =>
                     if @local.cont
                         load_path if chosen then (tags[chosen] ? "/") else "/"
@@ -642,7 +642,11 @@ dom.ROLODEX = ->
             props...
         }, " "
 
-    close = () => @props.close?(@local.scroll_index ? 0)
+    close = () =>
+        @props.close?(@local.scroll_index ? 0)
+
+        @local.has_jumped_to_initial = false
+        save @local
 
     # register_window_event prevents a new handler from being added when the element is re-rendered
     register_window_event "#{@props.key}-dropdown", "mousedown", (e) =>
@@ -692,8 +696,12 @@ dom.ROLODEX.refresh = ->
     el = @refs.dropdown?.getDOMNode?()
     # Hmmm, now this can cause weird snapping if you scroll too far up with a trackpad. 
     # Add some local state to keep track of if the element was just rendered?
-    if el? and el.scrollTop < 1
-        el.scrollTo top: 20 * 1.2 * (3 + @props.selected), behavior: "instant"
+    if el? and !@local.has_jumped_to_initial and @props.selected != -1
+        top = 20 * 1.2 * (3 + @props.selected)
+        el.scrollTo top: top, behavior: "instant"
+        el.scrollTop = top
+        @local.has_jumped_to_initial = true
+        save @local
 
 
 # The submit-post modal
