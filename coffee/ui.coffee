@@ -423,22 +423,6 @@ dom.HEADER = ->
                 "Home"
 
             SPAN
-                key: "feeds"
-                ref: "feeds"
-                margin: 10
-                cursor: "pointer"
-                onClick: () => 
-                    bbox_feeds = @refs.feeds.getDOMNode().getBoundingClientRect()
-                    bbox_header = @refs.header.getDOMNode().getBoundingClientRect()
-                    @local.offset = bbox_header.right - bbox_feeds.right
-                    @local.modal = if @local.modal == "feeds" then false else "feeds"
-                    save @local
-                # "Preload" the list of feeds:
-                # Otherwise the popup will be blank while waiting for the server...
-                # Is there a better way to guess when to preload the feeds?
-                onMouseEnter: () -> fetch "/feeds"
-                "Feeds"
-            SPAN
                 key: "users"
                 margin: 10
                 cursor: "pointer"
@@ -451,7 +435,6 @@ dom.HEADER = ->
                 cursor: "pointer"
                 onClick: () => 
                     @local.modal = if @local.modal == "post" then false else "post"
-                    @local.offset = 0
                     save @local
                 "Post"
 
@@ -462,7 +445,6 @@ dom.HEADER = ->
                     display: "contents"
                     onClick: () => 
                         @local.modal = if @local.modal == "settings" then false else "settings"
-                        @local.offset = 0
                         save @local
 
                     SPAN
@@ -485,7 +467,6 @@ dom.HEADER = ->
                     cursor: "pointer"
                     onClick: () => 
                         @local.modal = if @local.modal == "login" then false else "login"
-                        @local.offset = 0
                         save @local
                     "Login"
 
@@ -496,9 +477,6 @@ dom.HEADER = ->
             display: "none" unless @local.modal 
             position: "absolute"
             zIndex: 6
-            # Sometimes, we want the popup to be close to the button that opened it
-            # So we can compute and specify a horizontal offset.
-            right: @local.offset ? 0
             marginTop: 10
             padding: 10
             background: "white"
@@ -525,8 +503,6 @@ dom.HEADER = ->
                 when "login" then LOGIN
                     close: close
                     key: "login-modal"
-                when "feeds" then FEEDS
-                    key: "feeds-modal"
 
 # The view text, with rolodex view selectors
 dom.X_OF_Y = ->
@@ -558,7 +534,7 @@ dom.X_OF_Y = ->
                 # Callback for when an entry has been chosen
                 close: (chosen) =>
                     if @local.pers
-                        load_path if chosen then (users[chosen].key ? "") else ""
+                        load_path if chosen then (users[chosen]?.key ? "/") else "/"
                     @local.pers = false
                     save @local
                 # Function to render each element
@@ -623,7 +599,7 @@ dom.X_OF_Y = ->
                 selected: Math.max selected_tag, 0
                 close: (chosen) =>
                     if @local.cont
-                        load_path if chosen then (tags[chosen] ? "") else ""
+                        load_path if chosen then (tags[chosen] ? "/") else "/"
                     @local.cont = false
                     save @local
                 # Function to render each element
@@ -1004,83 +980,6 @@ dom.SETTINGS = ->
                 # Close the settings box
                 @props.close?()
             "Save"
-
-# The modal for the views that can be selected
-dom.FEEDS = ->
-    c = fetch "/current_user"
-    v = fetch "view"
-    tags = (fetch "/tags").arr
-    users = (fetch "/users").all
-    weights = fetch "weights#{c.user?.key ? 'user/default'}"
-    users = users
-        .filter (a) -> a.key != c?.user?.key
-        .sort (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
-
-    DIV
-        ref: "feeds"
-        maxHeight: 200
-        overflowY: "auto"
-        paddingLeft: 5
-        paddingRight: 20
-        display: "grid"
-        gridTemplateColumns: "24px auto 1fr"
-        gridTemplateRows: "24px"
-        gridAutoRows: "24px"
-        gridGap: "10px 4px"
-        alignItems: "center"
-
-
-        tags.map (t) -> {type: 'tag', name: t, tag: t}
-            .concat ( users.map (u) -> {type: 'user', name: u.name, user_key: u.key} )
-            .map (feed) ->
-                selected = switch feed.type
-                    when 'tag' then v.tag == feed.tag
-                    when 'user' then v.user_key == feed.user_key
-
-                DIV
-                    key: "feed-#{feed.type}-#{feed.user_key || feed.tag}"
-                    display: "contents"
-                    cursor: "pointer"
-                    color: if selected then "#179"
-                    onClick: () ->
-                        if selected
-                            v.tag = v.user_key = null
-                        else
-                            v.tag = feed.tag
-                            v.user_key = feed.user_key
-                        newpath = switch
-                            when v.tag then "/#{v.tag}"
-                            when v.user_key then v.user_key
-                            else "/"
-                        save v
-                        change_path newpath
-
-                    if feed.type == "user"
-                        AVATAR
-                            user: feed.user_key
-                            key: "icon"
-                            hide_tooltip: true
-                            style:
-                                width: 24
-                                height: 24
-                                borderRadius: "50%"
-                    else
-                        DIV
-                            key: "tagvatar"
-                            width: 24
-                            textAlign: "center"
-                            "#"
-
-                    SPAN
-                        key: "type"
-                        fontWeight: "bold"
-                        textTransform: "capitalize"
-                        "#{feed.type}:"
-
-                    SPAN
-                        key: "name"
-                        textTransform: if feed.type == "tag" then "capitalize"
-                        feed.name
 
 
 
