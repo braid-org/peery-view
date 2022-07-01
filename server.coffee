@@ -186,7 +186,6 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
         #    return Sum_{i=1}^{|P|} Product_{j=1}^l (P_i)_j
         # Then W(x) = { (y, w(x, y)) }
         # Note that *votes* have their values scaled from 0 to 1, while this choice of algorithm scales votes from -1 to 1
-        # Just a choice.
         votes = {}
         depth = 0
         queue_cur = {}

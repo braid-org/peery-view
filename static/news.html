@@ -148,6 +148,14 @@
             (votes.arr ? []).forEach (v) ->
                 fetch v
                 weights_ret[v.target_key] = 2 * v.value - 1
+
+
+            if tag
+                ((fetch "/user/#{userid}/votes/people(computed,untagged)").arr ? []).forEach (v) ->
+                    unless weights_ret[v.target_key]?
+                        fetch v
+                        weights_ret[v.target_key] = 2 * v.value - 1
+
             weights_ret
 
         parser("score/post/<postid>").to_fetch = (key, t) ->
