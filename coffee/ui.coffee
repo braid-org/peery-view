@@ -476,6 +476,7 @@ dom.HEADER = ->
             key: "dropdown"
             display: "none" unless @local.modal 
             position: "absolute"
+            right: 0
             zIndex: 6
             marginTop: 10
             padding: 10
