@@ -462,6 +462,7 @@ migrate bus
 ###### Sending static content over HTTP ##############
 express = require 'express'
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
+bus.http.use '/about', send_file '/static/about.html'
 bus.http.use('/*', (req, res, next) ->
   if req.headers.accept.includes('html')
     res.sendFile(__dirname + '/static/news.html')

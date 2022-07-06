@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=UTF-8>
+    <title>About PeeryView</title>
+    <style>
+        body {
+            margin: min(4vw, 25px);
+            font-family: Lato, sans-serif;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .material-icons { user-select: none; }
+        /* Rules for using icons as black on a light background. */
+        .material-icons.md-dark { color: rgba(0, 0, 0, 0.54); }
+        .material-icons.md-dark.md-inactive { color: rgba(0, 0, 0, 0.26); }
+
+        /* Rules for using icons as white on a dark background. */
+        .material-icons.md-light { color: rgba(255, 255, 255, 1); }
+        .material-icons.md-light.md-inactive { color: rgba(255, 255, 255, 0.3); }
+
+        .header, .content {
+            width: 700px;
+            padding: 10px 50px;
+            display: flex;
+        }
+        .header {
+            height: 45px;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            background: #def;
+            color: #444;
+        }
+        .header-title {
+            height: 1.3em;
+            line-height: 1.2;
+            font-size: 20px;
+        }
+        .header-link {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .content {
+            flex-direction: column;
+            align-items: center;
+        }
+        .content p {
+            line-height: 1.5;
+            margin: 7px 0;
+        }
+        .la {
+            text-align: left;
+            align-self: flex-start;
+        }
+        .bold {
+            font-weight: bold;
+        }
+
+    </style>
+
+    <!-- Google Fonts: Lato -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg" sizes="any">
+</head>
+
+<body>
+
+        <div class="header">
+            <span class="header-title">About PeeryView</span>
+            <a style="margin-right: 40px" class="header-link" href="/">Home</a>
+        </div>
+
+        <div class="content">
+            <h2 class=la>A New Type of Publishing</h2>
+            <p>
+                Welcome to PeeryView! PeeryView is a new concept for scientific publishing: subjective, decentralized, and interoperable.
+            </p>
+            <p>
+                <span class=bold>Subjective: </span>
+                When you weight (vote on) another user, that user becomes part of your network.
+                Other users that <i>they've</i> weighted become part of your extended network.
+                Your view of site content, such as which posts you see and in what order, and the ratings and comments you see in posts, depends entirely on the users in your network.
+            </p>
+
+            <p>
+                <span class=bold>Decentralized: </span>
+                Moderation of site content is achieved by users weighting each other.
+                We don't use black-box algorithms to determine what you see, so you can vote down a user and be assured you'll never see their content.
+                And because votes are publicly visible by default, users have an incentive to post good content.
+            </p>
+
+            <p>
+                <span class=bold>Interoperable: </span>
+                The site is <a href="https://github.com/braid-org/braid-news">completely open-source.</a> Moreover, data stored on the site follows a <a href="https://wickie.invisible.college/peery/state">standardized format</a>, and is served over the Braid protocol.
+                This means that you have no obligation to use the site just because your friends are: if you don't like the frontend, you can host your own customized instance and set it to pull posts and data from anywhere else.
+            </p>
+
+            <h2 class=la>Site Tutorial</h2>
+
+            <p>
+                The first thing you'll notice when you load the site is the <span class=bold>omnigram</span>.
+                <img src="/static/images/omnigram.png" width=700 alt="A diagram showing the user-weighting sliders."> 
+                The omnigram shows the users in your network and extended network, arranged as bubbles on a scale. Users in your extended network appear greyed out. Their relative position indicates your rating of them. Users on the left are negatively weighted, users in the middle are neutral, and users on the right are positively weighted.
+                <img style="margin-top: 10px" src="/static/images/omnigram-pos-neg.png" width=700 alt="Positively and negatively weighted users."> 
+                You can drag users around to change your vote on them. Dragging a user in your extended network will create a vote on them, therefore adding them to your network.
+                <!-- Should I have a picture of dragging a user here? -->
+            </p>
+
+            <p>
+                Below the usergram is a list of posts, sorted based on post votes. Like reddit or hackernews, a post is just a link and a title. On the right, you'll notice a <span class=bold>slidergram</span>, which is similar to the omnigram.
+                The slidergram shows everyone's votes on the post. Users who you've weighted higher have a larger bubble. Click on the slidergram anywhere to place your own vote, or drag your vote to change it.
+                <img style="margin: 10px 0" src="/static/images/post-layout.png" width=700 alt="A post.">
+
+
+                Expand a post to see more information by clicking the arrow on the right. In the details, you can see all of the tags on the post, with a slidergram for each. This allows you to vote not only on the quality of a post, but its relevance to certain topics.
+                <img style="margin: 10px 0" src="/static/images/post-details.png" width=700 alt="A post, expanded to see its tags.">
+
+                Clicking on the author's profile picture pops up a slider showing everyone's vote on that user, and allowing you to change or create yours.
+                <img src="/static/images/user-slidergram.png" width=700 alt="A slidergram for a specific user">
+                In the future, this expanded section is where you'll read and make comments on posts.
+            </p>
+
+            <p>
+                You can also view content relating to a specific tag, or see content from another users' network. 
+                <img style="margin-top: 10px" src="/static/images/view-selector.png" width=700 alt="The view selection header.">
+                Clicking on "Your" or "Everything" brings up a scrolling menu, where you can select a user or a tag respectively.
+                <img style="margin: 10px 0" src="/static/images/rolodex.png" width=700 alt="Selecting a tag to view">
+                When in a tagged view, you'll only see posts that have the relevant tag, and posts will be sorted according to tagged votes. You'll also see a special omnigram, allowing you to view, make, and change tagged votes on users.
+            </p>
+
+        </div>
+</body>
+</html>

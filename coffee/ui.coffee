@@ -422,6 +422,14 @@ dom.HEADER = ->
                 onClick: () -> load_path "/"
                 "Home"
 
+            A
+                key: "about"
+                margin: 10
+                href: "/about"
+                color: "inherit"
+                textDecoration: "none"
+                "About"
+
             SPAN
                 key: "users"
                 margin: 10
