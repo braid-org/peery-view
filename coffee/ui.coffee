@@ -433,6 +433,7 @@ dom.HEADER = ->
                 key: "post"
                 margin: 10
                 cursor: "pointer"
+                display: unless c.logged_in then "none"
                 onClick: () => 
                     @local.modal = if @local.modal == "post" then false else "post"
                     save @local
@@ -522,9 +523,14 @@ dom.X_OF_Y = ->
         },
 
         if @local.pers
-            users = fetch("/users").all ? []
-            if c.user
-                users = [c.user, users.filter((u) -> u.key != c.user.key)...]
+            viewing_user = c?.user?.key ? "/user/default"
+            weights = fetch "weights/#{unslash viewing_user}"
+
+            users = (fetch("/users").all ? [])
+                .filter (u) -> u.key != viewing_user
+                .sort (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
+            users.unshift fetch viewing_user
+
             selected_user = if v.user_key then users.findIndex (u) -> u.key == v.user_key else 0
             ROLODEX
                 key: "pers-rolo"
@@ -997,11 +1003,10 @@ dom.SETTINGS = ->
 # The list of all users
 dom.USERS = ->
     c = fetch "/current_user"
-    # //TODO: allow viewing users with tags?
+    # TODO: allow viewing users with tags?
 
-    # //Default to New sorting
-    # // My IDE thinks i'm in JS, and sometimes @local breaks the syntax highlighting lmaoo
-    this.local.sort ?= "top"
+    # Default to New sorting
+    @local.sort ?= "top"
     save @local
 
     if @local.sort == "top"
