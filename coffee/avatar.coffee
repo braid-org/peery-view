@@ -31,7 +31,7 @@ dom.AVATAR = ->
             src = "#{default_path}/#{src}"
         @props.style.backgroundImage = "url(\"#{src}\")"
         @props.style.backgroundColor ?= "white"
-        @props.style.backgroundClip ?= "content-box"
+        @props.style.backgroundClip ?= "padding-box"
         @props.style.zIndex ?= 2
     else
         # Generate a pseudorandom background color
@@ -115,37 +115,38 @@ dom.AVATAR_WITH_SLIDER = ->
                 height: @props.height
                 borderRadius: "50%"
 
-        DIV
-            key: "modal"
-            ref: "modal"
+        if @local.modal
+            DIV
+                key: "modal"
+                ref: "modal"
 
-            display: "none" unless @local.modal
+                #display: "none" unless @local.modal
 
-            marginTop: 5
-            position: "relative"
-            width: "fit-content"
-            transform: "translateX(calc(#{@props.width / 2}px - 50%))"
+                marginTop: 5
+                position: "relative"
+                width: "fit-content"
+                transform: "translateX(calc(#{@props.width / 2}px - 50%))"
 
-            zIndex: 5
-            padding: "8px 15px"
-            background: "white"
-            boxShadow: "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+                zIndex: 5
+                padding: "8px 15px"
+                background: "white"
+                boxShadow: "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
 
 
-            SLIDERGRAM
-                key: "slidergram"
-                sldr: "/votes#{@props.user.key}#{sldr_params}"
-                width: @props.slider_width ? 150
-                height: 24
-                max_avatar_radius: 12
-                read_only: !c.logged_in
-                vote_key: "user_key"
-                onsave: (vote) =>
-                    vote.key = "#{c.user.key}/vote#{@props.user.key}#{vote_params}"
-                    vote.target_key = @props.user.key
-                    if view.tag?
-                        vote.tag = view.tag
-                    save vote
+                SLIDERGRAM
+                    key: "slidergram"
+                    sldr: "/votes#{@props.user.key}#{sldr_params}"
+                    width: @props.slider_width ? 150
+                    height: 24
+                    max_avatar_radius: 12
+                    read_only: !c.logged_in
+                    vote_key: "user_key"
+                    onsave: (vote) =>
+                        vote.key = "#{c.user.key}/vote#{@props.user.key}#{vote_params}"
+                        vote.target_key = @props.user.key
+                        if view.tag?
+                            vote.tag = view.tag
+                        save vote
 
 #        SPAN
 #            key: "hover-icon"
