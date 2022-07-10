@@ -9,6 +9,7 @@ bus = require('statebus').serve
         parser = parse.PPPParser client
 
         parser('post/<postid>').to_save = (key, val, old, t) ->
+            {postid} = t._path
             c = client.fetch "current_user"
             all_posts = bus.fetch "posts"
             # So there's a few cases here. 
@@ -47,7 +48,7 @@ bus = require('statebus').serve
                 
                 # Fetch the votes and make a static copy
                 votes = JSON.parse(JSON.stringify(bus.fetch "votes/post/#{postid}")).arr ? []
-                voters = o.user_key for o in votes
+                voters = votes.map (o) -> o.user_key
                 voters = voters.filter (u, i) -> i == voters.indexOf u
 
                 # Remove the post from `posts`
@@ -60,11 +61,13 @@ bus = require('statebus').serve
                 # Remove from `<user>/votes`
                 voters.forEach (u) ->
                     votes_by = bus.fetch "#{u}/votes"
-                    votes_by.arr = votes_by.arr.filter (v) -> v.target_key != val.key
+                    votes_by.arr = votes_by.arr?.filter (v) -> v.target_key != val.key
                     bus.save votes_by
                 # Delete all the individual votes
                 votes.forEach (v) ->
                     bus.save {key: v.key}
+
+                # Delete the comments
                                 
                 # Finally delete the actual post
                 val = {key: val.key}
@@ -83,6 +86,47 @@ bus = require('statebus').serve
                 bus.save old
                 return t.done old
 
+            t.abort()
+
+        parser('post/<postid>/comment/<commentid>').to_save = (key, val, old, t) ->
+            {postid, _} = t._path
+            post_key = "post/#{postid}"
+            post = fetch post_key
+
+            c = client.fetch "current_user"
+            # Check that user has the right to change the key
+            unless c.logged_in and c.user.key == val.user_key
+                return t.abort()
+            # Check that the key matches the contents
+            unless post_key == val.post_key
+                return t.abort()
+            # Check that the comment has a non-empty body
+            unless val?.body?.length
+                return t.abort()
+            # Alright, looks good.
+            
+            # Is this an old comment being edited?
+            if old?.user_key
+                # Make sure the user isn't like, stealing someone else's comment
+                unless val.user_key == old.user_key
+                    return t.abort()
+                # Make sure the user hasn't changed the chaining
+                unless val.parent_key == old.parent_key
+                    return t.abort()
+                # Alright, the edit was fine.
+                bus.save val
+            # Ok, this a new comment
+            else
+                bus.save.sync val
+                # Put it in the relevant array.
+                post_comments = fetch "post/#{postid}/comments"
+                (post_comments.arr ?= []).push val
+                bus.save post_comments
+
+            t.done val
+
+
+        parser('post/<postid>/comments').to_save = (t) ->
             t.abort()
 
 
@@ -264,10 +308,10 @@ bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
     {computed, tag, untagged} = t._params
     if tag or untagged
         # Fetching here instead of accessing cache makes us reactive
-        all_votes = bus.fetch "votes/#{type}/#{targetid}"
+        all_votes = (bus.fetch "votes/#{type}/#{targetid}").arr ? []
         {
             key: key
-            arr: all_votes.arr.filter (v) ->
+            arr: all_votes.filter (v) ->
                 bus.fetch v
                 (tag and tag == v.tag) or (untagged and not v.tag?)
         }
