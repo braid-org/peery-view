@@ -114,11 +114,15 @@ dom.POST = ->
         margin: "5px 0"
         padding: "5px 10px"
         boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        position: "relative"
+        zIndex: if @local.expanded then 5
+
         DIV
             key: "post-main"
             display: "grid"
             grid: "\"icon title slider more\" auto
                    \"icon domain_time slider more\" 16px
+                   \".  delete . .\" auto
                     / #{margin_left}px #{post_width}px 1fr #{margin_left}px"
             alignItems: "center"
 
@@ -143,6 +147,16 @@ dom.POST = ->
                 textDecoration: "none"
                 href: if functional_url.length then functional_url
                 "#{post.title}"
+
+            SPAN
+                key: "delete-btn"
+                gridArea: "delete"
+                color: "#999"
+                fontSize: "12px"
+                cursor: "pointer"
+                display: unless c?.user?.key == post?.user_key and @local.expanded then "none"
+                onClick: () -> delete_post post
+                "Delete post"
 
             SPAN
                 key: "url_time"
@@ -187,7 +201,7 @@ dom.POST = ->
                 key: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons md-dark"
+                className: "material-icons-outlined md-dark"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"
@@ -195,6 +209,7 @@ dom.POST = ->
                     @local.expanded = !@local.expanded
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
+
 
         if @local.expanded
             POST_DETAILS
@@ -215,6 +230,16 @@ dom.POST_DETAILS = ->
     @local.typed ?= ""
     @local.addtagvisible ?= false
     save @local
+
+    # /\  Post title!            OO  0 oo O   \ /
+    # \/  url.com - date       {-----^-----}   V
+    #    (Delete Post)   | tag:{---o-O--O00}
+    #  o  comment!       | etc:{---O-()-o0-}
+    #  o  commenting     |    Add Tag +
+    #                    |   [Add tag dropdown overflows]
+
+    comments_arr = (fetch "#{post.key}/comments").arr ? []
+
     DIV
         padding: "10px #{margin_left/2}px"
         margin: "4px #{margin_left/2}px"
@@ -223,103 +248,151 @@ dom.POST_DETAILS = ->
         justifyContent: "space-between"
         alignContent: "stretch"
 
-        
-        if c?.user?.key == post?.user_key then SPAN
-            key: "delete-btn"
-            color: "#999"
-            className: "material-icons md-dark"
-            fontSize: "24px"
-            cursor: "pointer"
-            textAlign: "center"
-            alignSelf: "center"
-            onClick: () =>
-                delete_post(post)
-            "delete"
-        
+       
         DIV
-            key: "add-tag"
-            display: "grid"
-            gridTemplateColumns: "1fr auto 1fr"
-            gridAutoRows: "24px"
-            width: "50%"
-            alignSelf: "center"
-            alignItems: "stretch"
+            key: "comments"
+            display: "flex"
+            flexDirection: "column"
+            alignContent: "stretch"
+            flexGrow: 1
+            marginRight: 15
 
-            # Grid will look like this:
-            # . SEARCHBOX  CONFIRM
-            # . SUGGESTION .
-            # . SUGGESTION .
-            # .   ...      .
-            SPAN key: "dummy"
+            if c.logged_in
+                # Post-a-comment
+                DIV
+                    key: "post-comment"
+                    display: "flex"
+                    flexDirection: "row"
+                    alignContent: "stretch"
+
+                    AVATAR
+                        key: "my-avatar"
+                        user: c.user.key
+                        hide_tooltip: yes
+                        style:
+                            borderRadius: "50%"
+                            width: 24
+                            height: 24
+
+                    TEXTAREA
+                        key: "comment"
+                        ref: "comment"
+                        margin: "0 8px"
+                        rows: 3
+                        flexGrow: 1
+                        flexShrink: 0
+                        resize: "none"
+                        placeholder: "Write a comment..."
+
+                    SPAN
+                        key: "add"
+                        className: "material-icons-outlined md-dark"
+                        cursor: "pointer"
+                        onClick: () =>
+                            box = @refs.comment?.getDOMNode()
+                            if box.value
+                                uid = Math.random().toString(36).substr(2)
+                                # Check for collision.?
+                                body = box.value.toString()
+                                box.value = ""
+                                save
+                                    key: "#{post.key}/comment/#{uid}"
+                                    body: body
+                                    post_key: post.key
+                                    user_key: c.user.key
+                                    # TODO: Enable replying to comments
+                                    #parent_key: null
+                                    # Store post time in seconds, not ms
+                                    time: Math.floor (Date.now() / 1000)
+
+                        "add_comment"
 
             DIV
-                key: "input-and-suggestions"
-                INPUT
-                    key: "textbox"
-                    ref: "addlabel"
-                    placeholder: "Relevant tag..."
-                    display: unless @local.addtagvisible then "none"
-                    width: slider_width
-                    # Handle arrow keys, enter, etc
-                    onKeyDown: (e) =>
-                        switch e.keyCode
-                            # Enter
-                            when 13
-                                e.preventDefault()
-                            # Up/down
-                            when 38, 40
-                                e.preventDefault()
-                                v = @refs.addlabel.getDOMNode()
-                                # Up arrow is 38, down arrow is 40
-                                di = e.keyCode - 39
-                                # Increment or decrement the index
-                                @local.selected_idx += di
-                                switch @local.selected_idx
-                                    # If we scrolled past the last one, or up from the 1st/0th, unselect
-                                    when @local.tagsearch.length, -1, -2
-                                        @local.selected_idx = -1
-                                        v.value = @local.typed
-                                    else
-                                        # Otherwise, set the textbox value to the right name
-                                        v.value = @local.tagsearch[@local.selected_idx]
-                            # Tab 
-                            when 9
-                                e.preventDefault()
-                        save @local
-                    # Handle actual text entry
-                    onInput: (e) =>
-                        v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
-                        @local.typed = v
-                        # Get the tags that start with the query
-                        # In the future, could do a fuzzy search
-                        @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
-                                                         .slice 0, max_suggestions
-                        @local.selected_idx = -1
-                        unless v.length then @local.tagsearch = []
-                        save @local
+                key: "comments-iter"
+                display: "contents"
 
-                        
-                SPAN
-                    key: "textbox-replacement"
-                    display: if @local.addtagvisible then "none"
-                    color: "#999"
-                    "Add Tag"
+                comments_arr.map (com, i) =>
+                    fetch com
+                    DIV
+                        key: com.key
+                        display: "flex"
+                        flexDirection: "row"
+                        alignContent: "stretch"
+                        padding: "5px 0"
+                        # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
+                        position: "relative"
+                        zIndex: comments_arr.length - i
+
+                        AVATAR
+                            key: "comment-author"
+                            user: com.user_key
+                            style:
+                                borderRadius: "50%"
+                                width: 24
+                                height: 24
+                                # Since we set flexGrow on the body, the avatar needs flexShrink: 0 or it will get squished
+                                flexShrink: 0
+                                # Anchors tooltip position
+                                position: "relative"
+
+                        DIV
+                            key: "comment-body"
+                            flexGrow: 1
+                            marginLeft: 8
+                            com.body
+
+        DIV
+            key: "right-pane"
+            display: "flex"
+            flexDirection: "column"
+            alignContent: "stretch"
+
+            # The tags that are actually on the post, plus their sliders
+            DIV
+                key: "tags-grid"
+                flexGrow: 1
+                display: "grid"
+                gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
+                gridColumnGap: 10
+                gridAutoRows: margin_left
+                alignItems: "center"
+                marginBottom: if post?.tags?.length then 8
+
+                for tag in (post.tags || [])
+                    DIV
+                        key: "tag-#{tag}"
+                        display: "contents"
+                        SPAN
+                            key: "tag-text"
+                            fontSize: 16
+                            lineHeight: 1.1
+                            textTransform: "capitalize"
+                            color: "#444"
+                            "#{tag}:"
+
+                        SLIDERGRAM_WITH_TAG
+                            key: "tag-slidergram"
+                            post: post
+                            tag: tag
+                            width: slider_width
+                            height: margin_left - 5
+                            max_avatar_radius: (margin_left - 5) / 2
+                            read_only: !c.logged_in
 
             SPAN
-                key: "addbutton"
-                color: "#999"
-                className: "material-icons md-dark"
-                fontSize: "24px"
-                cursor: "pointer"
-                marginLeft: 6
-                onClick: () => 
+                key: "add-tag"
+                overflowY: "visible"
+                height: 24
+                alignSelf: "center"
+
+                confirm_add = () =>
                     box = @refs.addlabel.getDOMNode()
                     if @local.addtagvisible and box.value.length
                         post.tags ||= []
                         new_tag = box.value.toString().toLowerCase()
                         # Disable adding certain tags.
                         # In the future, we should make this check serverside so it can't be bypassed.
-                        if new_tag.indexOf("/") == -1 and new_tag != "users"
+                        if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
                             post.tags.push new_tag
                         box.value = ""
                         save post
@@ -328,67 +401,112 @@ dom.POST_DETAILS = ->
                     @local.tagsearch = []
                     save @local
 
-                # Have an X instead when the field is empty?
-                if @local.addtagvisible then "done" else "add_box"
-
-            # Using map instead of for ... in prevents scoping issues, and allows access to the index
-            @local.tagsearch.map (suggested, i) =>
-                selected = i == @local.selected_idx
                 DIV
-                    key: "#{suggested}-res"
-                    display: "contents"
+                    key: "input-and-suggestions"
+                    display: "inline-flex"
+                    flexDirection: "row"
+                    alignItems: "center"
+                    # So that the dropdown suggestions can align with the search bar
+                    marginLeft: 4
 
-                    SPAN key: "dummy1"
-
-                    SPAN
-                        key: "res"
-                        cursor: "pointer"
-                        className: "hover-select"
-                        lineHeight: "24px"
-                        color: "#444"
-                        background: if selected then "#eee"
-                        textTransform: "capitalize"
-                        onClick: (e) =>
-                            # Save text of the selected result in the widget state
-                            @refs.addlabel.getDOMNode().value = suggested
-                            @local.selected_idx = i
+                    INPUT
+                        key: "textbox"
+                        ref: "addlabel"
+                        placeholder: "Relevant tag..."
+                        display: unless @local.addtagvisible then "none"
+                        width: slider_width
+                        border: "none"
+                        # Handle arrow keys, enter, etc
+                        onKeyDown: (e) =>
+                            switch e.keyCode
+                                # Enter
+                                when 13
+                                    e.preventDefault()
+                                    confirm_add()
+                                # Up/down, tab
+                                when 38, 40, 9
+                                    e.preventDefault()
+                                    v = @refs.addlabel.getDOMNode()
+                                    # Up arrow is 38, down arrow is 40, tab is 9
+                                    di = switch e.keyCode
+                                        when 38 then -1
+                                        when 40 then 1
+                                        when 9 then 1
+                                    # Increment or decrement the index
+                                    @local.selected_idx += di
+                                    switch @local.selected_idx
+                                        # If we scrolled past the last one, or up from the 1st/0th, unselect
+                                        when @local.tagsearch.length, -1, -2
+                                            @local.selected_idx = -1
+                                            v.value = @local.typed
+                                        else
+                                            # Otherwise, set the textbox value to the right name
+                                            v.value = @local.tagsearch[@local.selected_idx]
+                                # Escape
+                                when 27
+                                    @local.tagsearch = []
+                            save @local
+                        # Handle actual text entry
+                        onInput: (e) =>
+                            v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
+                            @local.typed = v
+                            # Get the tags that start with the query
+                            # In the future, could do a fuzzy search
+                            @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
+                                                             .slice 0, max_suggestions
+                            @local.selected_idx = -1
+                            unless v.length then @local.tagsearch = []
                             save @local
 
-                        suggested
-
-                    SPAN key: "dummy2"
-
-        # The tags that are actually on the post, plus their sliders
-        DIV
-            key: "tags-grid"
-            display: "grid"
-            gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
-            gridColumnGap: 10
-            gridAutoRows: margin_left
-            alignItems: "center"
-
-            for tag in (post.tags || [])
-                DIV
-                    key: "tag-#{tag}"
-                    display: "contents"
+                            
                     SPAN
-                        key: "tag-text"
-                        fontSize: 20
-                        textTransform: "capitalize"
-                        color: "#444"
-                        "#{tag}:"
-
-                    SLIDERGRAM_WITH_TAG
-                        key: "tag-slidergram"
-                        post: post
-                        tag: tag
-                        width: slider_width
-                        height: margin_left - 5
-                        max_avatar_radius: (margin_left - 5) / 2
-                        read_only: !c.logged_in
+                        key: "textbox-replacement"
+                        display: if @local.addtagvisible then "none"
+                        color: "#999"
+                        marginLeft: 40
+                        "Add Tag"
 
 
+                    SPAN
+                        key: "addbutton"
+                        ref: "addbutton"
+                        color: "#999"
+                        className: "material-icons-outlined md-dark"
+                        fontSize: "24px"
+                        cursor: "pointer"
+                        marginLeft: 6
+                        onClick: confirm_add
 
+                        # Have an X instead when the field is empty?
+                        if @local.addtagvisible then "done" else "add_box"
+
+                DIV
+                    key: "results-overflow"
+                    marginTop: 5
+                    overflowY: "visible"
+                    background: "white"
+                    boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
+                    # match the input box width, with the symmetrical padding
+                    width: slider_width + 4
+                    # Using map instead of for ... in prevents scoping issues, and allows access to the index
+                    @local.tagsearch.map (suggested, i) =>
+                        DIV
+                            key: "#{suggested}-res"
+                            cursor: "pointer"
+                            className: "hover-select"
+                            fontSize: 16
+                            lineHeight: 1
+                            color: "#444"
+                            padding: 4
+                            background: if i == @local.selected_idx then "#eee"
+                            textTransform: "capitalize"
+                            onClick: (e) =>
+                                # Save text of the selected result in the widget state
+                                @refs.addlabel.getDOMNode().value = suggested
+                                @local.selected_idx = i
+                                save @local
+
+                            suggested
 
 
 ### === HEADER AND POPUPS === ###
@@ -799,7 +917,7 @@ dom.SUBMIT_POST = ->
             height: margin_left - 10
             textAlign: "center"
             alignSelf: "center"
-            className: "material-icons md-dark"
+            className: "material-icons-outlined md-dark"
             fontSize: "24px"
             onClick: form_submit
             cursor: "pointer"
@@ -1129,7 +1247,7 @@ dom.USER = ->
                 key: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons md-dark"
+                className: "material-icons-outlined md-dark"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"

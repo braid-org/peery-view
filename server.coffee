@@ -91,7 +91,7 @@ bus = require('statebus').serve
         parser('post/<postid>/comment/<commentid>').to_save = (key, val, old, t) ->
             {postid, _} = t._path
             post_key = "post/#{postid}"
-            post = fetch post_key
+            post = bus.fetch post_key
 
             c = client.fetch "current_user"
             # Check that user has the right to change the key
@@ -119,7 +119,7 @@ bus = require('statebus').serve
             else
                 bus.save.sync val
                 # Put it in the relevant array.
-                post_comments = fetch "post/#{postid}/comments"
+                post_comments = bus.fetch "post/#{postid}/comments"
                 (post_comments.arr ?= []).push val
                 bus.save post_comments
 
@@ -128,7 +128,6 @@ bus = require('statebus').serve
 
         parser('post/<postid>/comments').to_save = (t) ->
             t.abort()
-
 
         parser('user/<userid>/votes').to_save = (t) ->
             t.abort()
