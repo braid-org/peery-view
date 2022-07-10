@@ -352,13 +352,11 @@ dom.POST_DETAILS = ->
             # The tags that are actually on the post, plus their sliders
             DIV
                 key: "tags-grid"
-                flexGrow: 1
                 display: "grid"
                 gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
                 gridColumnGap: 10
                 gridAutoRows: margin_left
                 alignItems: "center"
-                marginBottom: if post?.tags?.length then 8
 
                 for tag in (post.tags || [])
                     DIV
@@ -383,6 +381,7 @@ dom.POST_DETAILS = ->
 
             SPAN
                 key: "add-tag"
+                marginTop: 8
                 overflowY: "visible"
                 height: 24
                 alignSelf: "center"
