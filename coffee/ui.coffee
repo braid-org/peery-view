@@ -2,8 +2,8 @@
 # TODO: Should UI elements fetch global state or take arguments?
 body_width = 800
 margin_left = 40
-post_width = 525
-slider_width = body_width - 2*margin_left - post_width - 10
+post_width = 515
+slider_width = body_width - 2*margin_left - post_width - 20
 
 
 
