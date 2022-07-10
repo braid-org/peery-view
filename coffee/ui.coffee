@@ -142,7 +142,7 @@ dom.POST = ->
                 gridArea: "title"
                 fontSize: "18px"
                 paddingRight: "10px"
-                lineHeight: 1.15
+                lineHeight: 1.2
                 justifySelf: "stretch"
                 textDecoration: "none"
                 href: if functional_url.length then functional_url
@@ -340,6 +340,7 @@ dom.POST_DETAILS = ->
                             flexGrow: 1
                             fontSize: 14
                             marginLeft: 8
+                            whiteSpace: "pre-line"
                             com.body
 
         DIV
