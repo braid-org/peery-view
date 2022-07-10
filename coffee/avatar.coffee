@@ -31,6 +31,7 @@ dom.AVATAR = ->
             src = "#{default_path}/#{src}"
         @props.style.backgroundImage = "url(\"#{src}\")"
         @props.style.backgroundColor ?= "white"
+        @props.style.backgroundClip ?= "content-box"
         @props.style.zIndex ?= 2
     else
         # Generate a pseudorandom background color
