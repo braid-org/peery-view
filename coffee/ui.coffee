@@ -142,7 +142,7 @@ dom.POST = ->
                 gridArea: "title"
                 fontSize: "18px"
                 paddingRight: "10px"
-                lineHeight: "#{margin_left - 10}px"
+                lineHeight: 1.15
                 justifySelf: "stretch"
                 textDecoration: "none"
                 href: if functional_url.length then functional_url
@@ -338,6 +338,7 @@ dom.POST_DETAILS = ->
                         DIV
                             key: "comment-body"
                             flexGrow: 1
+                            fontSize: 14
                             marginLeft: 8
                             com.body
 
