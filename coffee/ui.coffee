@@ -424,7 +424,27 @@ dom.TAGS = ->
 dom.COMMENTS = ->
     c = fetch "/current_user"
     post = @props.post_key
+
     comments_arr = (fetch "#{post}/comments").arr ? []
+    # Arrange comments into a tree
+    children = post: []
+    comments_arr.forEach (com) ->
+        parent = com.parent_key ? "post"
+        (children[parent] ?= []).push com.key
+
+    # Flatten tree
+    # TODO: Deal with orphans
+    # TODO: Sort
+    # TODO: Incorporate weight
+    # TODO: Rather than increasing depth constantly, make it thready
+    flattened = []
+    explore = (key, depth) ->
+        if key != "post"
+            flattened.push {key, depth}
+        children[key]?.forEach (c) -> explore c, depth + 1
+
+    explore "post", -1
+
     DIV
         key: "comments"
         display: "flex"
@@ -444,15 +464,17 @@ dom.COMMENTS = ->
                     key: "my-avatar"
                     user: c.user.key
                     hide_tooltip: yes
+                    marginRight: "8px"
                     style:
                         borderRadius: "50%"
                         width: 24
                         height: 24
+                        flexShrink: 0
 
                 TEXTAREA
                     key: "comment"
                     ref: "comment"
-                    margin: "0 8px"
+                    marginRight: "5px"
                     rows: 3
                     flexGrow: 1
                     flexShrink: 0
@@ -475,25 +497,26 @@ dom.COMMENTS = ->
                                 body: body
                                 post_key: post
                                 user_key: c.user.key
-                                # TODO: Enable replying to comments
                                 #parent_key: null
                                 # Store post time in seconds, not ms
                                 time: Math.floor (Date.now() / 1000)
 
                     "add_comment"
 
+
         DIV
             key: "comments-iter"
             display: "contents"
 
-            comments_arr.map (com, i) ->
+            flattened.map ({key, depth}, i) ->
                 COMMENT
-                    key: com.key
-                    comment: com
+                    key: key
+                    comment: key
                     style:
                         # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
                         position: "relative"
-                        zIndex: comments_arr.length - i
+                        zIndex: flattened.length - i
+                        marginLeft: 24 * depth
 
 # A single comment in a thread.
 dom.COMMENT = ->
@@ -506,71 +529,207 @@ dom.COMMENT = ->
     time_string = prettyDate(com.time * 1000)
     edit_time_string = if com.edit_time then prettyDate(com.edit_time * 1000)
     DIV
-        display: "grid"
-        grid: "\"icon body body body\" auto
-               \"icon time reply modify\" 16px
-                / 24px auto auto 1fr "
-        gridColumnGap: "8px"
+        display: "flex"
+        flexDirection: "row"
+        alignContent: "stretch"
+
         padding: "5px 0"
         style: @props.style
 
         AVATAR
             key: "author"
-            gridArea: "icon"
             user: com.user_key
             style:
                 borderRadius: "50%"
                 width: 24
                 height: 24
+                marginRight: "8px"
+                # Since we set flexGrow on the right part, this needs to not shrink
+                flexShrink: 0
                 # Anchors tooltip position
                 position: "relative"
 
+
         DIV
-            key: "body"
-            gridArea: "body"
-            fontSize: 14
-            whiteSpace: "pre-line"
-            com.body
+            key: "right-side"
+            flexGrow: 1
+            display: "flex"
+            flexDirection: "column"
 
-        SPAN
-            key: "time"
-            gridArea: "time"
-            fontSize: "12px"
-            color: "#999"
-            whiteSpace: "nowrap"
-            overflowX: "hidden"
-            textOverflow: "ellipsis"
-            if edit_time_string then "#{time_string} (edited #{edit_time_string})" else time_string
+            unless @local.editing
+                # The actual post body, displayed normally
+                DIV
+                    key: "post-body"
+                    display: "grid"
+                    grid: "\"body body body\" auto
+                           \"time reply modify\" 16px
+                            / auto auto 1fr "
+                    gridColumnGap: "8px"
+                    DIV
+                        key: "body"
+                        gridArea: "body"
+                        fontSize: 14
+                        whiteSpace: "pre-line"
+                        com.body
 
-        SPAN
-            key: "reply"
-            gridArea: "reply"
-            fontSize: "12px"
-            color: "#999"
-            cursor: "pointer"
-            "reply"
-        
-        if c.user?.key == com.user_key
-            SPAN
-                key: "modify"
-                gridArea: "modify"
-                fontSize: "12px"
-                color: "#999"
+                    SPAN
+                        key: "time"
+                        gridArea: "time"
+                        fontSize: "12px"
+                        color: "#999"
+                        whiteSpace: "nowrap"
+                        overflowX: "hidden"
+                        textOverflow: "ellipsis"
+                        if edit_time_string then "#{time_string} (edited #{edit_time_string})" else time_string
 
-                SPAN
-                    key: "edit"
-                    cursor: "pointer"
-                    marginRight: "8px"
-                    onClick: () => 
-                        @local.editing = true
-                        save @local
-                    "edit"
+                    SPAN
+                        key: "reply"
+                        gridArea: "reply"
+                        fontSize: "12px"
+                        color: "#999"
+                        cursor: "pointer"
+                        onClick: () =>
+                            @local.replying = true
+                            @local.editing = false
+                            save @local
+                        "reply"
+                    
+                    if c.user?.key == com.user_key
+                        SPAN
+                            key: "modify"
+                            gridArea: "modify"
+                            fontSize: "12px"
+                            color: "#999"
 
-                SPAN
-                    key: "delete"
-                    cursor: "pointer"
-                    onClick: () -> del com.key
-                    "delete"
+                            SPAN
+                                key: "edit"
+                                cursor: "pointer"
+                                marginRight: "8px"
+                                onClick: () => 
+                                    @local.editing = true
+                                    @local.replying = false
+                                    # Is it necessary to load the comment body into local for editing?
+                                    save @local
+                                "edit"
+                            ###
+                            SPAN
+                                key: "delete"
+                                cursor: "pointer"
+                                onClick: () -> del com.key
+                                "delete"
+                            ###
+            else
+                # A textbox with the text of the post body
+                DIV
+                    key: "post-body"
+                    display: "grid"
+                    grid: "\"textbox cancel\" auto
+                           \"textbox save\" auto
+                           \"textbox .\" 1fr
+                            / 1fr auto"
+                    gridGap: "5px"
+
+                    TEXTAREA
+                        key: "editbox"
+                        ref: "editbox"
+                        gridArea: "textbox"
+                        rows: 3
+                        resize: "none"
+                        placeholder: "Edit your comment..."
+                        value: com.body
+
+                    SPAN
+                        key: "cancel"
+                        gridArea: "cancel"
+                        className: "material-icons-outlined md-dark"
+                        cursor: "pointer"
+                        onClick: () =>
+                            @local.editing = false
+                            save @local
+                        "close"
+
+                    SPAN
+                        key: "save"
+                        gridArea: "save"
+                        className: "material-icons-outlined md-dark"
+                        cursor: "pointer"
+                        onClick: () =>
+                            save {
+                                com...
+                                body: @refs.editbox.getDOMNode().value.toString()
+                                edit_time: Math.floor (Date.now() / 1000)
+                            }
+
+                            @local.editing = false
+                            save @local
+                        "done"
+
+            if @local.replying
+                # A textarea for the new comment
+                DIV
+                    key: "post-reply"
+                    display: "grid"
+                    grid: "\"avatar textbox cancel\" auto
+                           \"avatar textbox save\" auto
+                           \". textbox .\" 1fr
+                            / auto 1fr auto"
+                    gridGap: "3px"
+                    marginTop: "5px"
+
+                    AVATAR
+                        key: "my-avatar"
+                        gridArea: "avatar"
+                        user: c.user.key
+                        hide_tooltip: yes
+                        marginRight: "3px"
+                        style:
+                            borderRadius: "50%"
+                            width: 24
+                            height: 24
+
+                    TEXTAREA
+                        key: "comment"
+                        ref: "comment"
+                        gridArea: "textbox"
+                        rows: 3
+                        resize: "none"
+                        placeholder: "Write a reply..."
+
+                    SPAN
+                        key: "cancel"
+                        gridArea: "cancel"
+                        className: "material-icons-outlined md-dark"
+                        cursor: "pointer"
+                        onClick: () =>
+                            @local.replying = false
+                            save @local
+                        "close"
+
+                    SPAN
+                        key: "save"
+                        gridArea: "save"
+                        className: "material-icons-outlined md-dark"
+                        cursor: "pointer"
+                        onClick: () =>
+                            box = @refs.comment?.getDOMNode()
+                            if box.value
+                                uid = Math.random().toString(36).substr(2)
+                                # Check for collision.?
+                                body = box.value.toString()
+                                box.value = ""
+                                save
+                                    key: "#{com.post_key}/comment/#{uid}"
+                                    body: body
+                                    post_key: com.post_key
+                                    user_key: c.user.key
+                                    parent_key: com.key
+                                    # Store post time in seconds, not ms
+                                    time: Math.floor (Date.now() / 1000)
+
+                            @local.replying = false
+                            save @local
+                        "add_comment"
+
 
 
 ### === HEADER AND POPUPS === ###
