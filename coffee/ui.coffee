@@ -155,7 +155,7 @@ dom.POST = ->
                 fontSize: "12px"
                 cursor: "pointer"
                 display: unless c?.user?.key == post?.user_key and @local.expanded then "none"
-                onClick: () -> delete_post post
+                onClick: () -> del post.key
                 "Delete post"
 
             SPAN
@@ -495,35 +495,83 @@ dom.COMMENTS = ->
                         position: "relative"
                         zIndex: comments_arr.length - i
 
+# A single comment in a thread.
 dom.COMMENT = ->
     c = fetch "/current_user"
     com = fetch @props.comment
+    unless com.user_key?
+        # The comment has actually just been deleted.
+        return
+
+    time_string = prettyDate(com.time * 1000)
+    edit_time_string = if com.edit_time then prettyDate(com.edit_time * 1000)
     DIV
-        display: "flex"
-        flexDirection: "row"
-        alignContent: "stretch"
+        display: "grid"
+        grid: "\"icon body body body\" auto
+               \"icon time reply modify\" 16px
+                / 24px auto auto 1fr "
+        gridColumnGap: "8px"
         padding: "5px 0"
         style: @props.style
 
         AVATAR
-            key: "comment-author"
+            key: "author"
+            gridArea: "icon"
             user: com.user_key
             style:
                 borderRadius: "50%"
                 width: 24
                 height: 24
-                # Since we set flexGrow on the body, the avatar needs flexShrink: 0 or it will get squished
-                flexShrink: 0
                 # Anchors tooltip position
                 position: "relative"
 
         DIV
-            key: "comment-body"
-            flexGrow: 1
+            key: "body"
+            gridArea: "body"
             fontSize: 14
-            marginLeft: 8
             whiteSpace: "pre-line"
             com.body
+
+        SPAN
+            key: "time"
+            gridArea: "time"
+            fontSize: "12px"
+            color: "#999"
+            whiteSpace: "nowrap"
+            overflowX: "hidden"
+            textOverflow: "ellipsis"
+            if edit_time_string then "#{time_string} (edited #{edit_time_string})" else time_string
+
+        SPAN
+            key: "reply"
+            gridArea: "reply"
+            fontSize: "12px"
+            color: "#999"
+            cursor: "pointer"
+            "reply"
+        
+        if c.user?.key == com.user_key
+            SPAN
+                key: "modify"
+                gridArea: "modify"
+                fontSize: "12px"
+                color: "#999"
+
+                SPAN
+                    key: "edit"
+                    cursor: "pointer"
+                    marginRight: "8px"
+                    onClick: () => 
+                        @local.editing = true
+                        save @local
+                    "edit"
+
+                SPAN
+                    key: "delete"
+                    cursor: "pointer"
+                    onClick: () -> del com.key
+                    "delete"
+
 
 ### === HEADER AND POPUPS === ###
 # The BEEG header

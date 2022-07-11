@@ -11,10 +11,8 @@ bus = require('statebus').serve
         parser('post/<postid>').to_save = (key, val, old, t) ->
             {postid} = t._path
             c = client.fetch "current_user"
-            all_posts = bus.fetch "posts"
             # So there's a few cases here. 
             # 1. A client is making a new post
-            # 2. A client is deleting an existing post.
             # 3. A client is editing an existing post: this is not allowed!
             # 4. A client is adding a tag to an existing post
 
@@ -27,52 +25,14 @@ bus = require('statebus').serve
                 unless val.user_key and val.title and val.url and val.time \
                     and typeof(val.title) == "string" and typeof(val.url) == "string" and typeof(val.time) == "number"
                     return t.abort()
-                
+
+                bus.save.sync val                
                 # Ok, put it into the posts list
+                all_posts = bus.fetch "posts"
                 (all_posts.arr ?= []).push val
                 bus.save all_posts
                 return t.done val
            
-            # Deleting post
-            unless val.user_key?
-                unless c.logged_in and (c.user.key == old.user_key)
-                    return t.abort()
-                # Everything looks good. So we need to do four things.
-                # 1. Remove the post from `posts`
-                # 2. Delete `votes/post/<id>`
-                # 3. Delete every vote on the post
-                #   a. Remove the vote from votes_by
-                #   b. Delete the vote itself
-                # 4. Delete the actual post.
-                
-                
-                # Fetch the votes and make a static copy
-                votes = JSON.parse(JSON.stringify(bus.fetch "votes/post/#{postid}")).arr ? []
-                voters = votes.map (o) -> o.user_key
-                voters = voters.filter (u, i) -> i == voters.indexOf u
-
-                # Remove the post from `posts`
-                all_posts.arr = all_posts.arr.filter (p) -> p.key != val.key
-                bus.save all_posts
-
-                # Delete `votes/...`
-                bus.save {key: "votes/post/#{postid}"}
-                
-                # Remove from `<user>/votes`
-                voters.forEach (u) ->
-                    votes_by = bus.fetch "#{u}/votes"
-                    votes_by.arr = votes_by.arr?.filter (v) -> v.target_key != val.key
-                    bus.save votes_by
-                # Delete all the individual votes
-                votes.forEach (v) ->
-                    bus.save {key: v.key}
-
-                # Delete the comments
-                                
-                # Finally delete the actual post
-                val = {key: val.key}
-                bus.save val
-                return t.done val
 
             # Adding a tag: 
             if val?.tags?.length
@@ -87,6 +47,68 @@ bus = require('statebus').serve
                 return t.done old
 
             t.abort()
+
+        parser('post/<postid>').to_delete = (key, old, t) ->
+            {postid} = t._path
+            c = client.fetch "current_user"
+            all_posts = bus.fetch "posts"
+
+            unless c.logged_in and c.user.key == old.user_key
+                return t.abort()
+            # We need to do six things.
+            # 1. Remove the post from `posts`.
+            # 2. Delete `votes/post/<id>`.
+            # 3. Remove the post from `user/<uid>/votes` for everyone who's voted on it.
+            # 4. Delete the votes themselves.
+            # 5. Delete all the comments.
+            # 6. Delete the actual post.
+            
+            
+            # Fetch the votes and make a static copy
+            votes = JSON.parse(JSON.stringify(bus.fetch "votes/post/#{postid}")).arr ? []
+            voters = votes.map (o) -> o.user_key
+            voters = voters.filter (u, i) -> i == voters.indexOf u
+
+            # Remove the post from `posts`
+            all_posts.arr = all_posts.arr.filter (p) -> p.key != key
+            bus.save all_posts
+
+            # Delete `votes/...`
+            bus.delete "votes/post/#{postid}"
+            
+            # Remove from `<user>/votes`
+            voters.forEach (u) ->
+                votes_by = bus.fetch "#{u}/votes"
+                votes_by.arr = votes_by.arr?.filter (v) -> v.target_key != key
+                bus.save votes_by
+
+            # Delete all the individual votes
+            votes.forEach (v) -> bus.delete v.key
+
+            # Delete the comments
+            comments = JSON.parse(JSON.stringify(bus.fetch "post/#{postid}/comments")).arr ? []
+            bus.delete "post/#{postid}/comments"
+            comments.forEach (c) -> bus.delete c.key
+                            
+            # Finally delete the actual post
+            bus.delete key
+
+        parser('post/<postid>/comment/<commentid>').to_delete = (key, old, t) ->
+            {postid, commentid} = t._path
+            c = client.fetch "current_user"
+            # Make sure that the user has the right to delete
+            unless c.logged_in and c.user.key == old.user_key
+                return t.abort()
+            # Remove the comment from the relevant array
+            comments = bus.fetch "post/#{postid}/comments"
+            comments.arr = (comments.arr ? []).filter (c) -> c.key != key
+            bus.save.sync comments
+
+            # Now delete the key on the main bus
+            bus.delete key
+
+            # Hmm, what about if the comment has replies?
+
 
         parser('post/<postid>/comment/<commentid>').to_save = (key, val, old, t) ->
             {postid, _} = t._path
@@ -103,8 +125,11 @@ bus = require('statebus').serve
             # Check that the comment has a non-empty body
             unless val?.body?.length
                 return t.abort()
+            # Check that the comment has a submission time
+            unless val.time
+                return t.abort()
             # Alright, looks good.
-            
+
             # Is this an old comment being edited?
             if old?.user_key
                 # Make sure the user isn't like, stealing someone else's comment
@@ -112,6 +137,9 @@ bus = require('statebus').serve
                     return t.abort()
                 # Make sure the user hasn't changed the chaining
                 unless val.parent_key == old.parent_key
+                    return t.abort()
+                # Make sure the user hasn't changed the submission time
+                unless val.time == old.time
                     return t.abort()
                 # Alright, the edit was fine.
                 bus.save val
