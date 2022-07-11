@@ -486,37 +486,44 @@ dom.COMMENTS = ->
             key: "comments-iter"
             display: "contents"
 
-            comments_arr.map (com, i) =>
-                fetch com
-                DIV
+            comments_arr.map (com, i) ->
+                COMMENT
                     key: com.key
-                    display: "flex"
-                    flexDirection: "row"
-                    alignContent: "stretch"
-                    padding: "5px 0"
-                    # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
-                    position: "relative"
-                    zIndex: comments_arr.length - i
+                    comment: com
+                    style:
+                        # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
+                        position: "relative"
+                        zIndex: comments_arr.length - i
 
-                    AVATAR
-                        key: "comment-author"
-                        user: com.user_key
-                        style:
-                            borderRadius: "50%"
-                            width: 24
-                            height: 24
-                            # Since we set flexGrow on the body, the avatar needs flexShrink: 0 or it will get squished
-                            flexShrink: 0
-                            # Anchors tooltip position
-                            position: "relative"
+dom.COMMENT = ->
+    c = fetch "/current_user"
+    com = fetch @props.comment
+    DIV
+        display: "flex"
+        flexDirection: "row"
+        alignContent: "stretch"
+        padding: "5px 0"
+        style: @props.style
 
-                    DIV
-                        key: "comment-body"
-                        flexGrow: 1
-                        fontSize: 14
-                        marginLeft: 8
-                        whiteSpace: "pre-line"
-                        com.body
+        AVATAR
+            key: "comment-author"
+            user: com.user_key
+            style:
+                borderRadius: "50%"
+                width: 24
+                height: 24
+                # Since we set flexGrow on the body, the avatar needs flexShrink: 0 or it will get squished
+                flexShrink: 0
+                # Anchors tooltip position
+                position: "relative"
+
+        DIV
+            key: "comment-body"
+            flexGrow: 1
+            fontSize: 14
+            marginLeft: 8
+            whiteSpace: "pre-line"
+            com.body
 
 ### === HEADER AND POPUPS === ###
 # The BEEG header
