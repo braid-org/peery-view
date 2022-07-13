@@ -458,18 +458,17 @@ dom.COMMENTS = ->
     flattened = []
     too_many_comments = false
     explore = (key, depth) =>
-        if too_many_comments
-            return
         # Once we reach this many comments, stop the whole search
-        if flattened.length > (@props.max_comments ? 10)
-            too_many_comments = true
-            flattened.push {key, depth, etc: true}
+        if too_many_comments ||= (flattened.length >= (@props.max_comments ? 10))
+            return
+        # Add the comment
+        flattened.push {key, depth}
+        # If there's a cut-off thread, add an etc
+        if depth == (@props.max_depth ? 4) and children[key]?.length
+            flattened.push { key: "#{key}-etc", depth: depth + 1, etc: true }
+        # Otherwise explore
         else
-            flattened.push {key, depth}
-            if depth == (@props.max_depth ? 4) and children[key]?.length
-                flattened.push { key: "#{key}-etc", depth: depth + 1, etc: true }
-            else
-                children[key]?.forEach (c) -> explore c, depth + 1
+            children[key]?.forEach (c) -> explore c, depth + 1
 
     children.post?.forEach (c) -> explore c, 0
 
@@ -554,6 +553,13 @@ dom.COMMENTS = ->
                             position: "relative"
                             zIndex: flattened.length - i
                             marginLeft: 24 * depth
+            DIV
+                key: "too-many-comments"
+                display: unless too_many_comments then "none"
+                color: "#999"
+                fontSize: 14
+                "Further comments were truncated."
+                
 
 # A single comment in a thread.
 dom.COMMENT = ->
