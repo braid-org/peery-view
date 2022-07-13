@@ -254,6 +254,15 @@ dom.TAGS = ->
     @local.addtagvisible ?= false
     save @local
 
+    tags_shown = (post.tags || [])
+    max_tags = @props.max_tags ? 5
+    too_many_tags = false
+    if tags_shown.length > max_tags
+        tags_shown = tags_shown[...max_tags]
+        # Save some state indicating that the post display is too long
+        too_many_tags = true
+        
+
     DIV
         display: "flex"
         flexDirection: "column"
@@ -269,7 +278,7 @@ dom.TAGS = ->
             gridAutoRows: margin_left
             alignItems: "center"
 
-            for tag in (post.tags || [])
+            for tag in tags_shown
                 DIV
                     key: "tag-#{tag}"
                     display: "contents"
@@ -289,136 +298,145 @@ dom.TAGS = ->
                         height: margin_left - 5
                         max_avatar_radius: (margin_left - 5) / 2
                         read_only: !c.logged_in
-
-        SPAN
-            key: "add-tag"
-            marginTop: 8
-            overflowY: "visible"
-            height: 24
-            alignSelf: "center"
-
-            confirm_add = () =>
-                box = @refs.addlabel.getDOMNode()
-                if @local.addtagvisible and box.value.length
-                    post.tags ||= []
-                    new_tag = box.value.toString().toLowerCase()
-                    # Disable adding certain tags.
-                    # In the future, we should make this check serverside so it can't be bypassed.
-                    if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
-                        post.tags.push new_tag
-                    box.value = ""
-                    save post
-                
-                @local.addtagvisible = !@local.addtagvisible
-                @local.tagsearch = []
-                save @local
-
-            DIV
-                key: "input-and-suggestions"
-                display: "inline-flex"
-                flexDirection: "row"
-                alignItems: "center"
-                # So that the dropdown suggestions can align with the search bar
-                marginLeft: 4
-
-                INPUT
-                    key: "textbox"
-                    ref: "addlabel"
-                    placeholder: "Relevant tag..."
-                    display: unless @local.addtagvisible then "none"
-                    width: slider_width
-                    border: "none"
-                    # Handle arrow keys, enter, etc
-                    onKeyDown: (e) =>
-                        switch e.keyCode
-                            # Enter
-                            when 13
-                                e.preventDefault()
-                                confirm_add()
-                            # Up/down, tab
-                            when 38, 40, 9
-                                e.preventDefault()
-                                v = @refs.addlabel.getDOMNode()
-                                # Up arrow is 38, down arrow is 40, tab is 9
-                                di = switch e.keyCode
-                                    when 38 then -1
-                                    when 40 then 1
-                                    when 9 then 1
-                                # Increment or decrement the index
-                                @local.selected_idx += di
-                                switch @local.selected_idx
-                                    # If we scrolled past the last one, or up from the 1st/0th, unselect
-                                    when @local.tagsearch.length, -1, -2
-                                        @local.selected_idx = -1
-                                        v.value = @local.typed
-                                    else
-                                        # Otherwise, set the textbox value to the right name
-                                        v.value = @local.tagsearch[@local.selected_idx]
-                            # Escape
-                            when 27
-                                @local.tagsearch = []
-                        save @local
-                    # Handle actual text entry
-                    onInput: (e) =>
-                        v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
-                        @local.typed = v
-                        # Get the tags that start with the query
-                        # In the future, could do a fuzzy search
-                        @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
-                                                         .slice 0, max_suggestions
-                        @local.selected_idx = -1
-                        unless v.length then @local.tagsearch = []
-                        save @local
-
-                        
-                SPAN
-                    key: "textbox-replacement"
-                    display: if @local.addtagvisible then "none"
-                    color: "#999"
-                    marginLeft: 40
-                    "Add Tag"
-
-
-                SPAN
-                    key: "addbutton"
-                    ref: "addbutton"
-                    color: "#999"
-                    className: "material-icons-outlined md-dark"
-                    fontSize: "24px"
-                    cursor: "pointer"
-                    marginLeft: 6
-                    onClick: confirm_add
-
-                    # Have an X instead when the field is empty?
-                    if @local.addtagvisible then "done" else "add_box"
-
-            DIV
-                key: "results-overflow"
-                marginTop: 5
+        if too_many_tags
+            SPAN
+                key: "too-many-tags"
+                marginTop: 8
+                alignSelf: "center"
+                color: "#999"
+                fontSize: 14
+                "Some tags were hidden."
+        else
+            # Add-tag searchbox
+            SPAN
+                key: "add-tag"
+                marginTop: 8
                 overflowY: "visible"
-                background: "white"
-                boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
-                # match the input box width, with the symmetrical padding
-                width: slider_width + 4
-                # Using map instead of for ... in prevents scoping issues, and allows access to the index
-                @local.tagsearch.map (suggested, i) =>
-                    DIV
-                        key: "#{suggested}-res"
-                        cursor: "pointer"
-                        className: "hover-select"
-                        fontSize: 16
-                        lineHeight: 1
-                        color: "#444"
-                        padding: 4
-                        background: if i == @local.selected_idx then "#eee"
-                        textTransform: "capitalize"
-                        onClick: (e) =>
-                            # Save text of the selected result in the widget state
-                            @refs.addlabel.getDOMNode().value = suggested
-                            @local.selected_idx = i
+                height: 24
+                alignSelf: "center"
+
+                confirm_add = () =>
+                    box = @refs.addlabel.getDOMNode()
+                    if @local.addtagvisible and box.value.length
+                        post.tags ||= []
+                        new_tag = box.value.toString().toLowerCase()
+                        # Disable adding certain tags.
+                        # In the future, we should make this check serverside so it can't be bypassed.
+                        if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
+                            post.tags.push new_tag
+                        box.value = ""
+                        save post
+                    
+                    @local.addtagvisible = !@local.addtagvisible
+                    @local.tagsearch = []
+                    save @local
+
+                DIV
+                    key: "input-and-suggestions"
+                    display: "inline-flex"
+                    flexDirection: "row"
+                    alignItems: "center"
+                    # So that the dropdown suggestions can align with the search bar
+                    marginLeft: 4
+
+                    INPUT
+                        key: "textbox"
+                        ref: "addlabel"
+                        placeholder: "Relevant tag..."
+                        display: unless @local.addtagvisible then "none"
+                        width: slider_width
+                        border: "none"
+                        # Handle arrow keys, enter, etc
+                        onKeyDown: (e) =>
+                            switch e.keyCode
+                                # Enter
+                                when 13
+                                    e.preventDefault()
+                                    confirm_add()
+                                # Up/down, tab
+                                when 38, 40, 9
+                                    e.preventDefault()
+                                    v = @refs.addlabel.getDOMNode()
+                                    # Up arrow is 38, down arrow is 40, tab is 9
+                                    di = switch e.keyCode
+                                        when 38 then -1
+                                        when 40 then 1
+                                        when 9 then 1
+                                    # Increment or decrement the index
+                                    @local.selected_idx += di
+                                    switch @local.selected_idx
+                                        # If we scrolled past the last one, or up from the 1st/0th, unselect
+                                        when @local.tagsearch.length, -1, -2
+                                            @local.selected_idx = -1
+                                            v.value = @local.typed
+                                        else
+                                            # Otherwise, set the textbox value to the right name
+                                            v.value = @local.tagsearch[@local.selected_idx]
+                                # Escape
+                                when 27
+                                    @local.tagsearch = []
+                            save @local
+                        # Handle actual text entry
+                        onInput: (e) =>
+                            v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
+                            @local.typed = v
+                            # Get the tags that start with the query
+                            # In the future, could do a fuzzy search
+                            @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
+                                                             .slice 0, max_suggestions
+                            @local.selected_idx = -1
+                            unless v.length then @local.tagsearch = []
                             save @local
 
-                        suggested
+                            
+                    SPAN
+                        key: "textbox-replacement"
+                        display: if @local.addtagvisible then "none"
+                        color: "#999"
+                        marginLeft: 40
+                        "Add Tag"
+
+
+                    SPAN
+                        key: "addbutton"
+                        ref: "addbutton"
+                        color: "#999"
+                        className: "material-icons-outlined md-dark"
+                        fontSize: "24px"
+                        cursor: "pointer"
+                        marginLeft: 6
+                        onClick: confirm_add
+
+                        # Have an X instead when the field is empty?
+                        if @local.addtagvisible then "done" else "add_box"
+
+                DIV
+                    key: "results-overflow"
+                    marginTop: 5
+                    overflowY: "visible"
+                    background: "white"
+                    boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
+                    # match the input box width, with the symmetrical padding
+                    width: slider_width + 4
+                    # Using map instead of for ... in prevents scoping issues, and allows access to the index
+                    @local.tagsearch.map (suggested, i) =>
+                        DIV
+                            key: "#{suggested}-res"
+                            cursor: "pointer"
+                            className: "hover-select"
+                            fontSize: 16
+                            lineHeight: 1
+                            color: "#444"
+                            padding: 4
+                            background: if i == @local.selected_idx then "#eee"
+                            textTransform: "capitalize"
+                            onClick: (e) =>
+                                # Save text of the selected result in the widget state
+                                @refs.addlabel.getDOMNode().value = suggested
+                                @local.selected_idx = i
+                                save @local
+
+                            suggested
 
 # Comments list
 dom.COMMENTS = ->
@@ -438,12 +456,22 @@ dom.COMMENTS = ->
     # TODO: Incorporate weight
     # TODO: Rather than increasing depth constantly, make it thready
     flattened = []
-    explore = (key, depth) ->
-        if key != "post"
+    too_many_comments = false
+    explore = (key, depth) =>
+        if too_many_comments
+            return
+        # Once we reach this many comments, stop the whole search
+        if flattened.length > (@props.max_comments ? 10)
+            too_many_comments = true
+            flattened.push {key, depth, etc: true}
+        else
             flattened.push {key, depth}
-        children[key]?.forEach (c) -> explore c, depth + 1
+            if depth == (@props.max_depth ? 4) and children[key]?.length
+                flattened.push { key: "#{key}-etc", depth: depth + 1, etc: true }
+            else
+                children[key]?.forEach (c) -> explore c, depth + 1
 
-    explore "post", -1
+    children.post?.forEach (c) -> explore c, 0
 
     DIV
         key: "comments"
@@ -508,15 +536,24 @@ dom.COMMENTS = ->
             key: "comments-iter"
             display: "contents"
 
-            flattened.map ({key, depth}, i) ->
-                COMMENT
-                    key: key
-                    comment: key
-                    style:
-                        # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
-                        position: "relative"
-                        zIndex: flattened.length - i
-                        marginLeft: 24 * depth
+            flattened.map ({key, depth, etc}, i) ->
+                if etc
+                    DIV
+                        key: key
+                        marginLeft: 24 * depth + 8
+                        marginBottom: 5
+                        color: "#999"
+                        fontSize: 14
+                        "This thread continues."
+                else
+                    COMMENT
+                        key: key
+                        comment: key
+                        style:
+                            # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
+                            position: "relative"
+                            zIndex: flattened.length - i
+                            marginLeft: 24 * depth
 
 # A single comment in a thread.
 dom.COMMENT = ->
