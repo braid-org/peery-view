@@ -244,6 +244,41 @@ dom.POST_DETAILS = ->
             onClick: () => load_path @props.post?.key ? @props.post
             "Full comments and tags"
 
+dom.FULL_PAGE_POST = ->
+
+    DIV
+        display: "flex"
+        flexDirection: "column"
+        alignItems: "center"
+        marginTop: 15
+        POST
+            key: "the-post"
+            post: @props.post
+            can_expand: no
+        DIV
+            key: "lr-panels-container"
+            display: "flex"
+            flexGrow: 1
+            flexDirection: "row"
+            justifyContent: "space-between"
+            alignContent: "stretch"
+            width: "80vw"
+            minWidth: outer_width
+            maxWidth: 1150
+            marginTop: 15
+
+            COMMENTS
+                key: "comments"
+                post_key: @props.post
+                max_depth: 15
+                max_comments: 1000
+                style: flexGrow: 1
+
+            TAGS
+                key: "tags"
+                post: @props.post
+                max_tags: 1000
+                style: marginLeft: 30
 
 dom.TAGS = ->
 

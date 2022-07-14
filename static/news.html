@@ -101,15 +101,14 @@
             
             HEADER
                 key: "header"
-            BIG_MULTIGRAM
-                key: "multigram"
+            unless v?.page == "post_details"
+                BIG_MULTIGRAM
+                    key: "multigram"
 
-            if v?.page == "users"
-                USERS
-                    key: "users"
-            else
-                POSTS
-                    key: "posts"
+            switch v?.page
+                when "users" then USERS key: "users"
+                when "post_details" then FULL_PAGE_POST key: "post", post: v.post_key
+                else POSTS key: "posts"
             
 
     dom.BIG_MULTIGRAM = ->
