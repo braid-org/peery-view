@@ -1,11 +1,5 @@
 # TODO: These should be arguments for the relevant elements
 # TODO: Should UI elements fetch global state or take arguments?
-body_width = 800
-margin_left = 40
-post_width = 515
-slider_width = body_width - 2*margin_left - post_width - 20
-
-
 
 ### === POST FEED === ###
 dom.POSTS = ->
@@ -123,18 +117,20 @@ dom.POST = ->
             grid: "\"icon title slider more\" auto
                    \"icon domain_time slider more\" 16px
                    \".  delete . .\" auto
-                    / #{margin_left}px #{post_width}px 1fr #{margin_left}px"
+                    / 1fr #{inner_width - slider_width}px #{slider_width}px 1fr"
+            width: outer_width
             alignItems: "center"
 
             AVATAR_WITH_SLIDER
                 key: "avatar"
                 user: author
                 clickable: user_clickable
-                width: margin_left - 10
-                height: margin_left - 10
+                width: slider_height - 10
+                height: slider_height - 10
                 style:
                     gridArea: "icon"
                     alignSelf: "center"
+                    justifySelf: "center"
 
             A
                 key: "title"
@@ -172,7 +168,7 @@ dom.POST = ->
                 key: "post-votes-slider"
                 gridArea: "slider"
                 alignSelf: "start"
-                height: margin_left - 10
+                height: slider_height + 5
                 # If we're viewing with respect to a tag, apply the tag to the slidergram
                 if v.tag
                     SLIDERGRAM_WITH_TAG
@@ -180,16 +176,16 @@ dom.POST = ->
                         post: post
                         tag: unslash v.tag
                         width: slider_width
-                        height: margin_left - 5
-                        max_avatar_radius: (margin_left - 5) / 2
+                        height: slider_height
+                        max_avatar_radius: slider_height / 2
                         read_only: !c.logged_in
                 else
                     SLIDERGRAM
                         key: "slidergram"
                         sldr: "/votes/#{unslash post.key}(untagged)"
                         width: slider_width
-                        height: margin_left - 5
-                        max_avatar_radius: (margin_left - 5) / 2
+                        height: slider_height
+                        max_avatar_radius: slider_height / 2
                         read_only: !c.logged_in
                         vote_key: "user_key"
                         onsave: (vote) =>
@@ -205,38 +201,48 @@ dom.POST = ->
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"
+                display: if @props.no_expand then "none"
                 onClick: () => 
                     @local.expanded = !@local.expanded
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
 
 
-        if @local.expanded
+        if @local.expanded and !@props.no_expand
             POST_DETAILS
                 key: "details-dropdown"
                 post: post
+
 
 # The expanded part underneath a post.
 dom.POST_DETAILS = ->
 
     DIV
-        padding: "10px #{margin_left/2}px"
-        margin: "4px #{margin_left/2}px"
-        display: "flex"
-        flexDirection: "row"
-        justifyContent: "space-between"
-        alignContent: "stretch"
+        width: inner_width
+        margin: "5px auto"
+        DIV
+            key: "lr-panels-container"
+            display: "flex"
+            flexDirection: "row"
+            justifyContent: "space-between"
+            alignContent: "stretch"
 
-        COMMENTS
-            key: "comments"
-            post_key: @props.post?.key ? @props.post
-            style:
-                flexGrow: 1
-                marginRight: 15
+            COMMENTS
+                key: "comments"
+                post_key: @props.post?.key ? @props.post
+                style:
+                    flexGrow: 1
+                    marginRight: 15
 
-        TAGS
-            key: "tags"
-            post: @props.post
+            TAGS
+                key: "tags"
+                post: @props.post
+        DIV
+            key: "permalink"
+            textAlign: "center"
+            cursor: "pointer"
+            onClick: () => load_path @props.post?.key ? @props.post
+            "Full comments and tags"
 
 
 dom.TAGS = ->
@@ -275,7 +281,7 @@ dom.TAGS = ->
             display: "grid"
             gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
             gridColumnGap: 10
-            gridAutoRows: margin_left
+            gridAutoRows: slider_height + 5
             alignItems: "center"
 
             for tag in tags_shown
@@ -295,8 +301,8 @@ dom.TAGS = ->
                         post: post
                         tag: tag
                         width: slider_width
-                        height: margin_left - 5
-                        max_avatar_radius: (margin_left - 5) / 2
+                        height: slider_height
+                        max_avatar_radius: slider_height / 2
                         read_only: !c.logged_in
         if too_many_tags
             SPAN
@@ -394,6 +400,12 @@ dom.TAGS = ->
                         display: if @local.addtagvisible then "none"
                         color: "#999"
                         marginLeft: 40
+                        cursor: "pointer"
+                        onClick: () =>
+                            @local.addtagvisible = !@local.addtagvisible
+                            @local.tagsearch = []
+                            save @local
+
                         "Add Tag"
 
 
@@ -529,7 +541,6 @@ dom.COMMENTS = ->
                                 time: Math.floor (Date.now() / 1000)
 
                     "add_comment"
-
 
         DIV
             key: "comments-iter"
@@ -784,6 +795,7 @@ dom.HEADER = ->
         ref: "headercontainer"
         position: "relative"
         zIndex: 10
+        width: outer_width
         DIV
             key: "actual-header"
             ref: "header"
@@ -791,7 +803,7 @@ dom.HEADER = ->
             flexDirection: "row"
             alignItems: "center"
             background: "#def"
-            padding: "10px 50px"
+            padding: "10px #{(outer_width - inner_width)/2}px"
             color: "#444"
             zIndex: 5
 
@@ -1126,7 +1138,7 @@ dom.SUBMIT_POST = ->
         display: "grid"
         grid: "\"icon title slider\" auto
                \"icon domain_time slider\" 16px
-                / #{margin_left}px #{post_width + 10}px 1fr "
+                / #{slider_height}px #{inner_width - slider_width}px 1fr "
         alignItems: "center"
 
         AVATAR
@@ -1135,10 +1147,11 @@ dom.SUBMIT_POST = ->
             hide_tooltip: true
             gridArea: "icon"
             style:
-                width: margin_left - 10
-                height: margin_left - 10
+                width: slider_height - 10
+                height: slider_height - 10
                 borderRadius: "50%"
                 alignSelf: "center"
+                justifySelf: "center"
                 opacity: 0.5
 
         INPUT
@@ -1150,7 +1163,6 @@ dom.SUBMIT_POST = ->
             paddingRight: "10px"
             marginBottom: "2px"
             border: "none"
-            lineHeight: "#{margin_left - 10}px"
             justifySelf: "stretch"
             placeholder: "Say something..."
             onKeyDown: (e) =>
@@ -1180,7 +1192,7 @@ dom.SUBMIT_POST = ->
             key: "submit-btn"
             gridArea: "slider"
             alignSelf: "start"
-            height: margin_left - 10
+            height: slider_height
             textAlign: "center"
             alignSelf: "center"
             className: "material-icons-outlined md-dark"
@@ -1457,16 +1469,17 @@ dom.USER = ->
         DIV
             key: "user-main"
             display: "grid"
+            width: outer_width
             grid: "\"icon name slider more\" auto
                    \"icon joined slider more\" 16px
-                    / #{margin_left}px #{post_width}px 1fr #{margin_left}px"
+                    / 1fr #{inner_width - slider_width}px #{slider_width}px 1fr"
             alignItems: "center"
 
             AVATAR
                 key: "avatar"
                 user: user
-                width: margin_left - 10
-                height: margin_left - 10
+                width: slider_height - 10
+                height: slider_height - 10
                 style:
                     gridArea: "icon"
                     alignSelf: "center"
@@ -1477,7 +1490,6 @@ dom.USER = ->
                 gridArea: "name"
                 fontSize: "18px"
                 paddingRight: "10px"
-                lineHeight: "#{margin_left - 10}px"
                 justifySelf: "stretch"
                 user.name ? user.key[6..]
 
@@ -1494,14 +1506,14 @@ dom.USER = ->
                 key: "user-votes-slider"
                 gridArea: "slider"
                 alignSelf: "start"
-                height: margin_left - 10
+                height: slider_height + 5
                 # TODO: Create a UI for viewing users wrt a tag
                 SLIDERGRAM
                     key: "slidergram"
                     sldr: "/votes/#{unslash user.key}(untagged)"
                     width: slider_width
-                    height: margin_left - 5
-                    max_avatar_radius: (margin_left - 5) / 2
+                    height: slider_height
+                    max_avatar_radius: slider_height / 2
                     read_only: !c.logged_in
                     vote_key: "user_key"
                     onsave: (vote) =>

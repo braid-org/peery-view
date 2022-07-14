@@ -5,8 +5,10 @@
 <title>PeeryView 2.0</title>
 <style>
     body {
-        margin: min(4vw, 25px);
         font-family: Lato, sans-serif;
+        width: 100%;
+        padding: 0;
+        margin: 0;
     }
     .material-icons-outlined { user-select: none; }
     /* Rules for using icons as black on a light background. */
@@ -46,9 +48,10 @@
 </style>
 
 <script type=coffee>
-    body_width = 800
-    margin_left = 40
-    post_width = 575
+    window.outer_width = 800
+    window.inner_width = 700
+    window.slider_width = 250
+    window.slider_height = (outer_width - inner_width) / 2 - 10
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
@@ -71,6 +74,9 @@
             when path.startsWith "/user/"
                 v.user_key = path
                 v.page = "posts"
+            when path.startsWith "/post/"
+                v.post_key = path
+                v.page = "post_details"
             when path.length > 2
                 v.tag = unslash path
                 v.page = "posts"
@@ -88,8 +94,10 @@
     dom.BODY = ->
         v = fetch "view"
         DIV
-            width: body_width
-            margin: "auto"
+            key: "body-container"
+            display: "flex"
+            flexDirection: "column"
+            alignItems: "center"
             
             HEADER
                 key: "header"
@@ -113,11 +121,10 @@
             computed: true
             tag: v.tag
             untagged: !v.tag
-        w = body_width - 2 * margin_left
+        w = inner_width
 
         DIV
             width: w
-            padding: "0 #{margin_left}px 0 #{margin_left}px"
 
             MULTIGRAM
                 key: "multigram-inner"
