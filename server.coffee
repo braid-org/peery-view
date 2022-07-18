@@ -226,6 +226,8 @@ bus = require('statebus').serve
             # The client can't change their join date
             unless old.joined == val.joined
                 return t.abort()
+            unless old.border == val.border
+                return t.abort()
             bus.save val
             t.done val
 
@@ -415,13 +417,81 @@ bus_parser('posts').to_fetch = (key, t) ->
     else
         default_arr key
 
+bus('tags').to_fetch = (key) -> default_arr key
+
+fs = require 'fs'
+https = require 'https'
+sharp = require 'sharp'
+
+validate_pic = (key, url, cb) ->
+    # Function to call if we run into an error trying to fetch the image
+    error = (e) -> 
+        if (e)
+            console.error e
+        cb exists: no, white: no
+    # First grab the image
+    try 
+        fs.mkdirSync ".cache", recursive: true
+        req = https.get url, (res) ->
+            {statusCode} = res
+            contentType = res.headers['content-type']?.toLowerCase?()
+            unless (statusCode == 200) and contentType?.startsWith?("image/")
+                res.resume()
+                # 404 or image isn't an image
+                error()
+                return
+            
+            fp = ".cache/#{key.replaceAll '/', '_'}"
+            res.pipe fs.createWriteStream fp
+                .on 'error', error
+                .once 'close', () -> 
+                    # Use sharp to process the image
+                    buf = await sharp fp
+                        .flatten background: 'white'
+                        .toColorspace 'b-w'
+                        .resize 32, 32
+                        .raw()
+                        .toBuffer()
+                    # data is a flattened 32,32 buffer giving the bw lightness
+                    # We want to determine the average brightness along the largest inscribed circle
+                    # Since the image has already been shrunk, we can just sample a set of single pixels.
+                    total_brightness = 0
+                    [0...32].forEach (i) ->
+                        rad = 2 * Math.PI * i / 32
+                        x = Math.floor(15.5 + 15 * Math.cos rad)
+                        y = Math.floor(15.5 + 15 * Math.sin rad)
+                        
+                        ind = y * 32 + x
+                        total_brightness += buf[ind]
+                    total_brightness /= 32
+                    is_white = total_brightness >= 230
+                    cb exists: yes, white: is_white
+
+        # Typically if url is a valid URL but there's no server there
+        req.on 'error', error
+
+    catch e
+        # Invalid url
+        error(e)
+        
+
 
 bus_parser('user/<userid>').to_save = (key, val, old, t) ->
     unless old.joined
         val.joined = Date.now()
-    bus.cache[key] = val
-    t.done val
-bus('tags').to_fetch = (key) -> default_arr key
+
+    # Check to see if the profile picture is white around the edges, or 404s
+    if val.pic and val.pic != old.pic
+        validate_pic key, val.pic, (pic_results) =>
+            unless pic_results.exists
+                delete val.pic
+            val.border = pic_results.white
+
+            bus.save.fire val
+            t.done val
+    else
+        bus.save.fire val
+        t.done val
 
 
 migrate = (state) ->
@@ -521,9 +591,25 @@ migrate = (state) ->
         users.all.forEach (v, i) ->
             unless v.joined
                 v.joined = i * 5000 + 1500000000000
-                state.save.sync v
+                state.save.fire v
         console.log "MIGRATION UJD: Migration complete."
         m.joindate = true
+        state.save m
+
+    unless m.picborder
+        console.log "MIGRATION WPP: White Profile Pictures."
+        console.log "MIGRATION WPP: Analyzing all current profile pictures."
+        users = state.fetch "users"
+        users.all.forEach (v, i) ->
+            if v.pic
+                validate_pic v.key, v.pic, (pic_results) =>
+                    unless pic_results.exists
+                        delete v.pic
+                    v.border = pic_results.white
+
+                    state.save.fire v
+        console.log "MIGRATION WPP: Migration complete."
+        m.picborder = true
         state.save m
 
 
@@ -546,7 +632,6 @@ bus.http.use '/static', express.static('static')
 
 
 # Coffee Compilation
-fs = require 'fs'
 minify = (require 'terser').minify
 coffee_cache = {}
 bus.http.get('/coffee/*', (req, res) ->

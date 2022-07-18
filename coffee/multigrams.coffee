@@ -104,6 +104,8 @@ dom.MULTIHISTOGRAM = ->
             user: opinion.target_key
             # Hide the tooltip if we're dragging someone else
             hide_tooltip: true
+            # Put a border on white avatars
+            add_border: !(dragging and dragged)
             # To allow the multigram to check hovers properly
             "data-target": opinion.target_key
             style: 
@@ -119,7 +121,8 @@ dom.MULTIHISTOGRAM = ->
                 filter: if (dragging or opinion.depth != 1) then 'grayscale(80%)'
                 # If this avatar is the "original position" of the current floating drag, put a dashed border
                 boxSizing: "border-box"
-                border: "2px dashed"
+                borderStyle: if (dragging and dragged) then "dashed" else "solid"
+                borderWidth: "2px"
                 borderColor: if (dragging and dragged) then "black" else "transparent"
                 backgroundColor: if (dragging and dragged) then "transparent"
                 color: if (dragging and dragged) then "black"

@@ -395,6 +395,8 @@ dom.HISTOGRAM = ->
         key: "histo-avatar-#{opinion[@props.vote_key]}"
         user: opinion.user_key
         hide_tooltip: true
+        # Put a border on white avatars
+        add_border: true
         "data-target": opinion[@props.vote_key]
         style:
           # cached width/height/left/top

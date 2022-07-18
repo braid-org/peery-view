@@ -3,6 +3,7 @@
     "braidify": "^0.1.19",
     "chokidar": "^3.5.2",
     "coffeescript": "^2.6.1",
+    "sharp": "^0.30.7",
     "statebus": "^6.1.22",
     "terser": "^5.12.0"
   }
