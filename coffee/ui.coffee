@@ -26,6 +26,7 @@ dom.POSTS = ->
             # Cut the list off at some point. TODO: Paging
             (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
         .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
+
     
     DIV
         key: "posts"
@@ -1422,12 +1423,15 @@ dom.SETTINGS = ->
                 name = @refs.name.getDOMNode().value
                 email = @refs.email.getDOMNode().value
                 pic = @refs.pic.getDOMNode().value ? ""
-                filter = @refs.filter.getDOMNode().value ? -0.2
+                filter = @refs.filter.getDOMNode().value
+                filter = Number.parseFloat filter
+                if isNaN filter
+                    filter = -0.2
 
                 c.user.name = name
                 c.user.email = email
                 c.user.pic = pic
-                c.user.filter = Number.parseFloat(filter)
+                c.user.filter = filter
 
                 save c.user
                 
