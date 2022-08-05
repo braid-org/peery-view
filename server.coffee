@@ -619,16 +619,18 @@ migrate bus
 ###### Sending static content over HTTP ##############
 express = require 'express'
 send_file = (f) -> (r, res) -> res.sendFile(__dirname + f)
+
+bus.http.get '/', send_file '/static/news.html'
 bus.http.use '/about', send_file '/static/about.html'
+bus.http.use '/static', express.static('static')
+bus.http.use free_the_cors
+# If we didn't match static, home, or about, then this is a path to be parsed by news.html
 bus.http.use('/*', (req, res, next) ->
   if req.headers.accept.includes('html')
     res.sendFile(__dirname + '/static/news.html')
   else
     next()
 )
-bus.http.use free_the_cors
-bus.http.get '/', send_file '/static/news.html'
-bus.http.use '/static', express.static('static')
 
 
 # Coffee Compilation
