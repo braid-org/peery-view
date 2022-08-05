@@ -1501,10 +1501,17 @@ dom.USER = ->
 
     joined_string = prettyDate(user.joined ? 0)
 
+    register_window_event "user-expand-#{user?.key ? user}", "mousedown", (e) =>
+        # should we preventdefault?
+        unless @refs.container.getDOMNode().contains e.target
+            @local.expanded = false
+            save @local
+
     DIV
         margin: "5px 0"
         padding: "5px 10px"
-        #boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        ref: "container"
         DIV
             key: "user-main"
             display: "grid"
