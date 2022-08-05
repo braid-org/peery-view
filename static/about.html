@@ -70,6 +70,74 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" sizes="any">
+
+    <script type="text/javascript">
+
+        function object_ready() {
+            let object = document.getElementById("logo-animated")
+            let subdoc = object.contentDocument
+
+            let svg = subdoc.getElementById("peery-svg")
+            const mat = svg.getScreenCTM().inverse();
+            // Will contain the mouse's X and Y position in SVG coordinates
+            var svgX = 0
+            var svgY = 0
+
+            let frameId
+            let onMouseUpdateSubDoc = function(e) {
+                let p = new DOMPoint(e.clientX, e.clientY)
+                let svg_p = p.matrixTransform(mat)
+                svgX = svg_p.x
+                svgY = svg_p.y
+
+                cancelAnimationFrame(frameId)
+                frameId = requestAnimationFrame(updateCircles)
+            }
+            let onMouseUpdate = function(e) {
+                let subdocbbox = object.getBoundingClientRect()
+                // If the svg has been scrolled off the screen, don't update it.
+                // We assume that due to its position on page, it will never be scrolled off the top.
+                if (subdocbbox.bottom >= 0) {
+                    // Does the subdoc have the same scale?
+                    let x = e.clientX - subdocbbox.left
+                    let y = e.clientY - subdocbbox.top
+
+                    onMouseUpdateSubDoc({clientX: x, clientY: y})
+                }
+            }
+
+            document.addEventListener('mouseenter', onMouseUpdate, false)
+            document.addEventListener('mousemove', onMouseUpdate, false)
+            subdoc.addEventListener('mouseenter', onMouseUpdateSubDoc, false)
+            subdoc.addEventListener('mousemove', onMouseUpdateSubDoc, false)
+
+            const circle_ids = ["circle-p", "circle-e1", "circle-e2", "circle-e3", "circle-i"]
+            const circles = circle_ids.map(e => subdoc.getElementById(e))
+            const H2 = 100**2
+            let updateCircles = function() {
+                console.log("Updated circles!")
+                circles.forEach(c => {
+                    let cX = c.cx.baseVal.value
+                    let cY = c.cy.baseVal.value
+                    let r3d = c.r.baseVal.value;
+
+                    let rat2d = r3d / Math.sqrt(H2 + (svgX - cX)**2 + (svgY - cY)**2)
+
+                    let tX = (svgX - cX) * rat2d
+                    let tY = (svgY - cY) * rat2d
+
+
+                    let tfms = c.transform.baseVal;
+                    if (tfms.numberOfItems == 0)
+                        tfms.appendItem(svg.createSVGTransform())
+                    tfms.getItem(0).setTranslate(tX, tY);
+
+                })
+            }
+
+        }
+        
+    </script>
 </head>
 
 <body>
@@ -80,6 +148,7 @@
         </div>
 
         <div class="content">
+            <object type="image/svg+xml" data="/static/images/peeryicon.svg" id="logo-animated" onload="object_ready()"></object>
             <h2 class=la>A New Type of Publishing</h2>
             <p>
                 Welcome to PeeryView! PeeryView is a new concept for scientific publishing: subjective, decentralized, and interoperable.
