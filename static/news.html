@@ -55,7 +55,7 @@
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
-    document.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
+    window.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
     
     window.change_path = (path) ->
         u = new URL window.location.href
@@ -78,6 +78,7 @@
             when path.startsWith "/user/"
                 v.user_key = path
                 v.page = "posts"
+
                 bus.get_once path, (user) ->
                     v.title = user.name
                     bus.set v
@@ -88,7 +89,6 @@
 
                 bus.get_once path, (post) ->
                     v.title = post.title
-                    console.log post.title
                     bus.set v
 
                     document.title = format_title v.title
@@ -96,7 +96,7 @@
             when path.length > 2
                 v.tag = unslash path
                 v.page = "posts"
-                v.title = titlecase tag
+                v.title = titlecase v.tag
             else
                 v.page = "posts"
                 v.title = null
