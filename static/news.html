@@ -55,7 +55,7 @@
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
-    document.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
+    window.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
     
     window.change_path = (path) ->
         u = new URL window.location.href
