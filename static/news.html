@@ -60,7 +60,10 @@
     window.change_path = (path) ->
         u = new URL window.location.href
         u.pathname = path
-        history.pushState {}, '', u
+        history.pushState {
+            url: u.pathname
+            # we can write whatever other data we want in here...
+        }, 'Braid News', u
 
     window.parse_path = (path) ->
         path = slash unescape path
@@ -87,6 +90,14 @@
     window.load_path = (path) ->
         change_path path
         parse_path path
+
+    window.addEventListener 'popstate', (e) =>
+        popped = e.state
+        if popped?
+            parse_path popped.url
+        else
+            parse_path "/"
+            
 
 
     parse_path ((new URL window.location.href).pathname)
