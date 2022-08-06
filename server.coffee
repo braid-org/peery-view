@@ -92,6 +92,7 @@ bus = require('statebus').serve
                             
             # Finally delete the actual post
             bus.delete key
+            t.done
 
         parser('post/<postid>/comment/<commentid>').to_delete = (key, old, t) ->
             {postid, commentid} = t._path
@@ -106,6 +107,7 @@ bus = require('statebus').serve
 
             # Now delete the key on the main bus
             bus.delete key
+            t.done
 
             # Hmm, what about if the comment has replies?
 
