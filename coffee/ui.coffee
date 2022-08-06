@@ -1581,6 +1581,14 @@ dom.USER = ->
                 if @local.expanded then "expand_less" else "expand_more"
 
         if @local.expanded
-            POST_DETAILS
-                key: "details-dropdown"
-                post: user
+            DIV
+                key: "details"
+                width: inner_width
+                margin: "5px auto"
+                display: "flex"
+                flexDirection: "row"
+                justifyContent: "flex-end"
+
+                TAGS
+                    key: "tags"
+                    post: user
