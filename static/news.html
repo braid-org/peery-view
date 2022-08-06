@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset=UTF-8>
-<title>PeeryView 2.0</title>
+<title>PeeryView</title>
 <style>
     body {
         font-family: Lato, sans-serif;
@@ -55,7 +55,7 @@
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
-    window.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
+    document.titlecase = (t) -> t.split(" ").map( (w) => w[0].toUpperCase() + w.substr 1).join(" ")
     
     window.change_path = (path) ->
         u = new URL window.location.href
@@ -63,7 +63,7 @@
         history.pushState {
             url: u.pathname
             # we can write whatever other data we want in here...
-        }, 'Braid News', u
+        }, null, u
 
     window.parse_path = (path) ->
         path = slash unescape path
@@ -74,31 +74,48 @@
         switch
             when path == "/users"
                 v.page = "users"
+                v.title = "Users"
             when path.startsWith "/user/"
                 v.user_key = path
                 v.page = "posts"
+                bus.fetch_once path, (user) ->
+                    v.title = user.name
+                    save v
+                    document.title = format_title "#{v.title}'s view"
             when path.startsWith "/post/"
                 v.post_key = path
                 v.page = "post_details"
+
+                bus.fetch_once path, (post) ->
+                    v.title = post.title
+                    console.log post.title
+                    save v
+
+                    document.title = format_title v.title
+
             when path.length > 2
                 v.tag = unslash path
                 v.page = "posts"
+                v.title = titlecase tag
             else
                 v.page = "posts"
+                v.title = null
         save v
+        document.title = format_title v.title
 
     window.load_path = (path) ->
         change_path path
         parse_path path
 
-    window.addEventListener 'popstate', (e) =>
+    window.format_title = (title) -> if title then "#{title} - PeeryView" else "PeeryView"
+
+    window.addEventListener 'popstate', (e) ->
         popped = e.state
         if popped?
             parse_path popped.url
         else
             parse_path "/"
             
-
 
     parse_path ((new URL window.location.href).pathname)
 
