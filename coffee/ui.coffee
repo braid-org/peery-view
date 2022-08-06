@@ -255,7 +255,7 @@ dom.FULL_PAGE_POST = ->
         POST
             key: "the-post"
             post: @props.post
-            can_expand: no
+            no_expand: yes
         DIV
             key: "lr-panels-container"
             display: "flex"
@@ -1503,7 +1503,7 @@ dom.USER = ->
 
     register_window_event "user-expand-#{user?.key ? user}", "mousedown", (e) =>
         # should we preventdefault?
-        unless @refs.container.getDOMNode().contains e.target
+        unless @refs?.container?.getDOMNode?()?.contains?(e.target)
             @local.expanded = false
             save @local
 
