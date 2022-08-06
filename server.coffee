@@ -7,6 +7,7 @@ bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
         parser = parse.PPPParser client
+        client.honk = 3
 
         parser('post/<postid>').to_set = (key, val, old, t) ->
             {postid} = t._path
@@ -628,7 +629,7 @@ bus.http.use '/static', express.static('static')
 bus.http.use free_the_cors
 # If we didn't match static, home, or about, then this is a path to be parsed by news.html
 bus.http.use('/*', (req, res, next) ->
-  if req.headers.accept.includes('html')
+  if req.headers.accept?.includes('html')
     res.sendFile(__dirname + '/static/news.html')
   else
     next()
@@ -666,8 +667,7 @@ bus.http.get '/client.js', (req, res) ->
         files =
             ['extras/coffee.js', 'extras/sockjs.js', 'statebus.js', 'client-library.js']
                 .map( (f) => fs.readFileSync('node_modules/statebus/' + f) )
-        if bus.options.braid_mode
-            files.unshift fs.readFileSync 'node_modules/braidify/braidify-client.js' 
+        files.unshift fs.readFileSync 'node_modules/braidify/braidify-client.js' 
         clientjs = files.join ';\n'
         clientjs = (await minify clientjs, {mangle: false}).code
 

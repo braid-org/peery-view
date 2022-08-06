@@ -1,6 +1,6 @@
 dom.MULTIGRAM = ->
-    sldr = fetch @props.sldr
-    local_sldr = fetch shared_local_key sldr
+    sldr = bus.get @props.sldr
+    local_sldr = bus.get shared_local_key sldr
 
     DIV
         display: 'flex'
@@ -20,13 +20,13 @@ dom.MULTIGRAM = ->
                 local_sldr.hover = true
             else
                 local_sldr.hover = false
-            save local_sldr
+            bus.set local_sldr
 
         onMouseOut: (e) =>
             if @loading()
                 return
             local_sldr.hover = false
-            save local_sldr
+            bus.set local_sldr
 
 
         MULTIHISTOGRAM
@@ -66,14 +66,14 @@ dom.MULTIGRAM = ->
 # based on the user's opinion, using a physics simulation. 
 
 dom.MULTIHISTOGRAM = ->
-  sldr = fetch @props.sldr
+  sldr = bus.get @props.sldr
   sldr.arr ?= []
-  local_sldr = fetch shared_local_key sldr
+  local_sldr = bus.get shared_local_key sldr
   local_sldr.layout ?= {}
   
   # Put the height on so that start_slide can properly position the elements
   local_sldr.height = @props.height
-  save local_sldr
+  bus.set local_sldr
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
 
@@ -98,7 +98,7 @@ dom.MULTIHISTOGRAM = ->
     for opinion in sldr.arr
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.depth == 0
-        fetch opinion
+        bus.get opinion
 
         size = local_sldr.layout[opinion.target_key]
         
@@ -171,8 +171,8 @@ dom.MULTIHISTOGRAM = ->
 
 
 dom.MULTIHISTOGRAM.refresh = ->
-  sldr = fetch @props.sldr
-  local_sldr = fetch shared_local_key sldr
+  sldr = bus.get @props.sldr
+  local_sldr = bus.get shared_local_key sldr
   dragging = local_sldr.dragging
 
   # We want to avoid running the expensive layout calculation unless things have changed
@@ -182,7 +182,7 @@ dom.MULTIHISTOGRAM.refresh = ->
 
   if sldr.arr?.length > 0 and (cache_key != @last_cache || local_sldr.dirty_opinions) and !@loading()
     local_sldr.dirty_opinions = false
-    save local_sldr
+    bus.set local_sldr
 
     # Make a copy of the votes array that has weights on it.
     # The area of each avatar will be proportional to its weight.

@@ -61,7 +61,7 @@ shared_local_key = function(key_or_object) {
 
 window.your_key = function() {
   var current_user, ref;
-  current_user = fetch('/current_user');
+  current_user = bus.get('/current_user');
   return ((ref = current_user.user) != null ? ref.key : void 0) || current_user.user;
 };
 
@@ -153,7 +153,7 @@ window.closest = function(node, check) {
 
 window.saw_thing = function(keys_or_objects) {
   var i, key, key_or_object, len, seen;
-  seen = fetch('seen_in_session');
+  seen = bus.get('seen_in_session');
   seen.items || (seen.items = {});
   if (!(keys_or_objects instanceof Array)) {
     keys_or_objects = [keys_or_objects];
@@ -173,7 +173,7 @@ window.report_seen = function(namespace) {
       var reporter;
       reporter = bus.reactive(function() {
         var k, ref, seen, to_report, v;
-        seen = fetch('seen_in_session');
+        seen = bus.get('seen_in_session');
         seen.items || (seen.items = {});
         to_report = [];
         ref = seen.items;
@@ -345,7 +345,7 @@ window.getCoords = function(el) {
 
 dom.HEARTBEAT = function() {
   var beat;
-  beat = fetch(this.props.public_key || 'pulse');
+  beat = bus.get(this.props.public_key || 'pulse');
   if (beat.beat == null) {
     setInterval(function() {
       beat.beat = (beat.beat || 0) + 1;

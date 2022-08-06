@@ -3,13 +3,13 @@
 
 ### === POST FEED === ###
 dom.POSTS = ->
-    c = fetch "/current_user"
-    v = fetch "view"
-    posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
+    c = bus.get "/current_user"
+    v = bus.get "view"
+    posts = (bus.get "/posts#{stringify_kson tag: v.tag}").arr ? []
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
-    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+    min_weight = (if c.logged_in then (bus.get c.user)?.filter) ? -0.2
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
 
@@ -17,15 +17,15 @@ dom.POSTS = ->
     # Recent posts with a positive score, sorted by time
     posts_recent = posts.filter (p) ->
             (p.time > two_weeks_ago) and 
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > 0.1 # TODO: Tune this
+            (bus.get("score#{p.key}#{score_kson}").value ? 0) > 0.1 # TODO: Tune this
         .sort (a, b) -> b.time - a.time
 
     # Older posts, sorted by score
     posts_old = posts.filter (p) -> 
             (p.time <= two_weeks_ago) and 
             # Cut the list off at some point. TODO: Paging
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
-        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
+            (bus.get("score#{p.key}#{score_kson}").value ? 0) > min_weight
+        .sort (a, b) -> (bus.get("score#{b.key}#{score_kson}").value ? 0) - (bus.get("score#{a.key}#{score_kson}").value ? 0)
 
     
     DIV
@@ -77,15 +77,15 @@ dom.POSTS = ->
 dom.POST = ->
     post = @props.post
     # Subscribe to the post
-    if post?.key or typeof post == "string" then post = fetch post
+    if post?.key or typeof post == "string" then post = bus.get post
     unless post.user_key?
         # The post has actually just been deleted.
         return
 
-    author = fetch post.user_key
+    author = bus.get post.user_key
 
-    c = fetch '/current_user'
-    v = fetch "view"
+    c = bus.get '/current_user'
+    v = bus.get "view"
 
     # Compute the pretty version of the url
     url = if post.url.startsWith "javascript:" then "" else post.url
@@ -192,7 +192,7 @@ dom.POST = ->
                         onsave: (vote) =>
                             vote.key = "#{c.user.key}/vote/#{unslash post.key}"
                             vote.target_key = post.key
-                            save vote
+                            bus.set vote
 
             SPAN
                 key: "more"
@@ -205,7 +205,7 @@ dom.POST = ->
                 display: if @props.no_expand then "none"
                 onClick: () => 
                     @local.expanded = !@local.expanded
-                    save @local
+                    bus.set @local
                 if @local.expanded then "expand_less" else "expand_more"
 
 
@@ -283,10 +283,10 @@ dom.FULL_PAGE_POST = ->
 
 dom.TAGS = ->
 
-    c = fetch "/current_user"
-    post = fetch @props.post
+    c = bus.get "/current_user"
+    post = bus.get @props.post
     # Cache this?
-    potential_tags = (fetch "/tags").arr.filter (f) -> f not in (post.tags || [])
+    potential_tags = (bus.get "/tags").arr.filter (f) -> f not in (post.tags || [])
     max_suggestions = @props.max_suggestions ? 4
     # Setup default values in @local
     # These values are used for the tag search box
@@ -294,7 +294,7 @@ dom.TAGS = ->
     @local.tagsearch ?= []
     @local.typed ?= ""
     @local.addtagvisible ?= false
-    save @local
+    bus.set @local
 
     tags_shown = (post.tags || [])
     max_tags = @props.max_tags ? 5
@@ -367,11 +367,11 @@ dom.TAGS = ->
                         if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
                             post.tags.push new_tag
                         box.value = ""
-                        save post
+                        bus.set post
                     
                     @local.addtagvisible = !@local.addtagvisible
                     @local.tagsearch = []
-                    save @local
+                    bus.set @local
 
                 DIV
                     key: "input-and-suggestions"
@@ -417,7 +417,7 @@ dom.TAGS = ->
                                 # Escape
                                 when 27
                                     @local.tagsearch = []
-                            save @local
+                            bus.set @local
                         # Handle actual text entry
                         onInput: (e) =>
                             v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
@@ -428,7 +428,7 @@ dom.TAGS = ->
                                                              .slice 0, max_suggestions
                             @local.selected_idx = -1
                             unless v.length then @local.tagsearch = []
-                            save @local
+                            bus.set @local
 
                             
                     SPAN
@@ -440,7 +440,7 @@ dom.TAGS = ->
                         onClick: () =>
                             @local.addtagvisible = !@local.addtagvisible
                             @local.tagsearch = []
-                            save @local
+                            bus.set @local
 
                         "Add Tag"
 
@@ -482,16 +482,16 @@ dom.TAGS = ->
                                 # Save text of the selected result in the widget state
                                 @refs.addlabel.getDOMNode().value = suggested
                                 @local.selected_idx = i
-                                save @local
+                                bus.set @local
 
                             suggested
 
 # Comments list
 dom.COMMENTS = ->
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     post = @props.post_key
 
-    comments_arr = (fetch "#{post}/comments").arr ? []
+    comments_arr = (bus.get "#{post}/comments").arr ? []
     # Arrange comments into a tree
     children = post: []
     comments_arr.forEach (com) ->
@@ -567,7 +567,7 @@ dom.COMMENTS = ->
                             # Check for collision.?
                             body = box.value.toString()
                             box.value = ""
-                            save
+                            bus.set
                                 key: "#{post}/comment/#{uid}"
                                 body: body
                                 post_key: post
@@ -610,8 +610,8 @@ dom.COMMENTS = ->
 
 # A single comment in a thread.
 dom.COMMENT = ->
-    c = fetch "/current_user"
-    com = fetch @props.comment
+    c = bus.get "/current_user"
+    com = bus.get @props.comment
     unless com.user_key?
         # The comment has actually just been deleted.
         return
@@ -681,7 +681,7 @@ dom.COMMENT = ->
                         onClick: () =>
                             @local.replying = true
                             @local.editing = false
-                            save @local
+                            bus.set @local
                         "reply"
                     
                     if c.user?.key == com.user_key
@@ -699,7 +699,7 @@ dom.COMMENT = ->
                                     @local.editing = true
                                     @local.replying = false
                                     # Is it necessary to load the comment body into local for editing?
-                                    save @local
+                                    bus.set @local
                                 "edit"
                             ###
                             SPAN
@@ -735,7 +735,7 @@ dom.COMMENT = ->
                         cursor: "pointer"
                         onClick: () =>
                             @local.editing = false
-                            save @local
+                            bus.set @local
                         "close"
 
                     SPAN
@@ -744,14 +744,14 @@ dom.COMMENT = ->
                         className: "material-icons-outlined md-dark"
                         cursor: "pointer"
                         onClick: () =>
-                            save {
+                            bus.set {
                                 com...
                                 body: @refs.editbox.getDOMNode().value.toString()
                                 edit_time: Math.floor (Date.now() / 1000)
                             }
 
                             @local.editing = false
-                            save @local
+                            bus.set @local
                         "done"
 
             if @local.replying
@@ -792,7 +792,7 @@ dom.COMMENT = ->
                         cursor: "pointer"
                         onClick: () =>
                             @local.replying = false
-                            save @local
+                            bus.set @local
                         "close"
 
                     SPAN
@@ -807,7 +807,7 @@ dom.COMMENT = ->
                                 # Check for collision.?
                                 body = box.value.toString()
                                 box.value = ""
-                                save
+                                bus.set
                                     key: "#{com.post_key}/comment/#{uid}"
                                     body: body
                                     post_key: com.post_key
@@ -817,7 +817,7 @@ dom.COMMENT = ->
                                     time: Math.floor (Date.now() / 1000)
 
                             @local.replying = false
-                            save @local
+                            bus.set @local
                         "add_comment"
 
 
@@ -825,7 +825,7 @@ dom.COMMENT = ->
 ### === HEADER AND POPUPS === ###
 # The BEEG header
 dom.HEADER = ->
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
    
     DIV
         ref: "headercontainer"
@@ -876,7 +876,7 @@ dom.HEADER = ->
                 display: unless c.logged_in then "none"
                 onClick: () => 
                     @local.modal = if @local.modal == "post" then false else "post"
-                    save @local
+                    bus.set @local
                 "Post"
 
             if c.logged_in
@@ -886,7 +886,7 @@ dom.HEADER = ->
                     display: "contents"
                     onClick: () => 
                         @local.modal = if @local.modal == "settings" then false else "settings"
-                        save @local
+                        bus.set @local
 
                     SPAN
                         key: "name"
@@ -908,7 +908,7 @@ dom.HEADER = ->
                     cursor: "pointer"
                     onClick: () => 
                         @local.modal = if @local.modal == "login" then false else "login"
-                        save @local
+                        bus.set @local
                     "Login"
 
 
@@ -926,7 +926,7 @@ dom.HEADER = ->
 
             close = () =>
                 @local.modal = false
-                save @local
+                bus.set @local
 
             # register_window_event prevents a new handler from being added when the element is re-rendered
             register_window_event "header-modal", "mousedown", (e) =>
@@ -949,8 +949,8 @@ dom.HEADER = ->
 # The view text, with rolodex view selectors
 dom.X_OF_Y = ->
 
-    v = fetch "view"
-    c = fetch "/current_user"
+    v = bus.get "view"
+    c = bus.get "/current_user"
     DIV {
             display: "flex"
             flexDirection: "row"
@@ -964,12 +964,12 @@ dom.X_OF_Y = ->
 
         if @local.pers
             viewing_user = c?.user?.key ? "/user/default"
-            weights = fetch "weights/#{unslash viewing_user}"
+            weights = bus.get "weights/#{unslash viewing_user}"
 
-            users = (fetch("/users").all ? [])
+            users = (bus.get("/users").all ? [])
                 .filter (u) -> u.key != viewing_user
                 .sort (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
-            users.unshift fetch viewing_user
+            users.unshift bus.get viewing_user
 
             selected_user = if v.user_key then users.findIndex (u) -> u.key == v.user_key else 0
             ROLODEX
@@ -983,7 +983,7 @@ dom.X_OF_Y = ->
                     if @local.pers
                         load_path if chosen then (users[chosen]?.key ? "/") else "/"
                     @local.pers = false
-                    save @local
+                    bus.set @local
                 # Function to render each element
                 render: (user, selected, el_props) ->
                     DIV {
@@ -1026,9 +1026,9 @@ dom.X_OF_Y = ->
                 cursor: "pointer"
                 onClick: () =>
                     @local.pers = true
-                    save @local
+                    bus.set @local
                 if v.user_key?
-                    "#{fetch(v.user_key)?.name ? 'User'}'s"
+                    "#{bus.get(v.user_key)?.name ? 'User'}'s"
                 else
                     "Your"
 
@@ -1038,7 +1038,7 @@ dom.X_OF_Y = ->
             "  view of  "
 
         if @local.cont
-            tags = ["Everything", (fetch("/tags").arr ? [])...]
+            tags = ["Everything", (bus.get("/tags").arr ? [])...]
             selected_tag = if v.tag then tags.indexOf v.tag else 0
             ROLODEX
                 key: "cont-rolo"
@@ -1048,7 +1048,7 @@ dom.X_OF_Y = ->
                     if @local.cont
                         load_path if chosen then (tags[chosen] ? "/") else "/"
                     @local.cont = false
-                    save @local
+                    bus.set @local
                 # Function to render each element
                 render: (tag, selected, el_props) ->
                     DIV {
@@ -1075,7 +1075,7 @@ dom.X_OF_Y = ->
                 textTransform: "capitalize"
                 onClick: () =>
                     @local.cont = true
-                    save @local
+                    bus.set @local
                 v.tag ? "everything"
 
 
@@ -1092,7 +1092,7 @@ dom.ROLODEX = ->
         @props.close?(@local.scroll_index ? 0)
 
         @local.has_jumped_to_initial = false
-        save @local
+        bus.set @local
 
     # register_window_event prevents a new handler from being added when the element is re-rendered
     register_window_event "#{@props.key}-dropdown", "mousedown", (e) =>
@@ -1113,7 +1113,7 @@ dom.ROLODEX = ->
         onScroll: () =>
             @local.scroll_index = Math.round @refs.dropdown?.scrollTop / (20 * 1.2)
             @local.scroll_index -= 3
-            save @local
+            bus.set @local
             # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
       
         scrollOffset lineHeight: 3.6
@@ -1147,7 +1147,7 @@ dom.ROLODEX.refresh = ->
         el.scrollTo top: top, behavior: "instant"
         el.scrollTop = top
         @local.has_jumped_to_initial = true
-        save @local
+        bus.set @local
 
 
 # The submit-post modal
@@ -1155,7 +1155,7 @@ dom.SUBMIT_POST = ->
 
     @local.typed ?= false
 
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     unless c.logged_in
         return
 
@@ -1241,12 +1241,12 @@ dom.SUBMIT_POST = ->
 
 # The login/register modal
 dom.LOGIN = ->
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     # We use this check to keep the modal open if login failed
     # More precisely, only close it if login succeeded.
     if c.logged_in and @local.login_attempted
         @local.login_attempted = false
-        save @local
+        bus.set @local
         @props.close?()
     button_style =
         justifySelf: "center"
@@ -1297,14 +1297,14 @@ dom.LOGIN = ->
                 c.create_account =
                     name: name
                     pass: pw
-                save c
+                bus.set c
                 delete c.create_account
                 c.login_as =
                     name: name
                     pass: pw
                 @local.login_attempted = true
-                save c
-                save @local
+                bus.set c
+                bus.set @local
             },
             "Register"
 
@@ -1319,15 +1319,15 @@ dom.LOGIN = ->
                     name: name
                     pass: pw
                 @local.login_attempted = true
-                save c
-                save @local
+                bus.set c
+                bus.set @local
 
             },
             "Login"
 
 # The modal for the logged-in user's settings
 dom.SETTINGS = ->
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     unless c.logged_in
         return
     DIV
@@ -1412,7 +1412,7 @@ dom.SETTINGS = ->
             onClick: () =>
                 @props.close?()
                 c.logout = true
-                save c
+                bus.set c
             "Logout"
 
         BUTTON
@@ -1433,7 +1433,7 @@ dom.SETTINGS = ->
                 c.user.pic = pic
                 c.user.filter = filter
 
-                save c.user
+                bus.set c.user
                 
                 # Close the settings box
                 @props.close?()
@@ -1445,16 +1445,16 @@ dom.SETTINGS = ->
 ### === ALL USER DISPLAY === ###
 # The list of all users
 dom.USERS = ->
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     # TODO: allow viewing users with tags?
 
     # Default to New sorting
     @local.sort ?= "top"
-    save @local
+    bus.set @local
 
     if @local.sort == "top"
         user = c?.user?.key ? "/user/default"
-        weights = fetch "weights/#{unslash user}"
+        weights = bus.get "weights/#{unslash user}"
 
     sort_func = switch @local.sort
         when "new" then (a, b) -> (b.joined ? 0) - (a.joined ? 0)
@@ -1462,7 +1462,7 @@ dom.USERS = ->
         when "top" then (a, b) -> (weights[b.key] ? 0) - (weights[a.key] ? 0)
         else (a, b) -> 0
 
-    users = ((fetch "/users").all ? [])
+    users = ((bus.get "/users").all ? [])
         .filter (u) -> u.key != c?.user?.key
         .sort sort_func
     DIV
@@ -1482,7 +1482,7 @@ dom.USERS = ->
                     cursor: "pointer" unless @local.sort == s
                     onClick: () =>
                         @local.sort = s
-                        save @local
+                        bus.set @local
                     s
 
         DIV
@@ -1496,8 +1496,8 @@ dom.USERS = ->
 dom.USER = ->
     user = @props.user
     # Subscribe to the user
-    if user?.key or typeof user == "string" then user = fetch user
-    c = fetch "/current_user"
+    if user?.key or typeof user == "string" then user = bus.get user
+    c = bus.get "/current_user"
 
     joined_string = prettyDate(user.joined ? 0)
 
@@ -1505,7 +1505,7 @@ dom.USER = ->
         # should we preventdefault?
         unless @refs?.container?.contains?(e.target)
             @local.expanded = false
-            save @local
+            bus.set @local
 
     DIV
         margin: "5px 0"
@@ -1565,7 +1565,7 @@ dom.USER = ->
                     onsave: (vote) =>
                         vote.key = "#{c.user.key}/vote/#{unslash user.key}"
                         vote.target_key = user.key
-                        save vote
+                        bus.set vote
 
             SPAN
                 key: "more"
@@ -1577,7 +1577,7 @@ dom.USER = ->
                 textAlign: "center"
                 onClick: () => 
                     @local.expanded = !@local.expanded
-                    save @local
+                    bus.set @local
                 if @local.expanded then "expand_less" else "expand_more"
 
         if @local.expanded

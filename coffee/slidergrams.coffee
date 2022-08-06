@@ -6,7 +6,7 @@ color_positive = '#5fb4f4'
 color_negative = '#f46444'
 
 get_target_slide = (sldr, vote_key, target) ->
-    sldr = fetch sldr
+    sldr = bus.get sldr
     for v in (sldr.arr or [])
         if v[vote_key] == target
             return v
@@ -15,21 +15,21 @@ get_target_slide = (sldr, vote_key, target) ->
 dom.SLIDERGRAM_WITH_TAG = ->
     post = @props.post
     tag = @props.tag
-    c = fetch "/current_user"
+    c = bus.get "/current_user"
     kson = stringify_kson {tag}
     @props.sldr = "/votes/#{unslash post.key}#{kson}"
     @props.onsave = (vote) =>
         vote.key = "#{c?.user?.key}/vote/#{unslash post.key}#{kson}"
         vote.target_key = post.key
         vote.tag = tag
-        save vote
+        bus.set vote
     @props.vote_key = "user_key"
     @props.read_only = !c.logged_in
     SLIDERGRAM @props
 
 dom.SLIDERGRAM = ->
-  sldr = fetch @props.sldr
-  local_sldr = fetch shared_local_key sldr
+  sldr = bus.get @props.sldr
+  local_sldr = bus.get shared_local_key sldr
 
   you = your_key()
   has_opined = you in (o.user_key for o in (sldr.arr ? []))
@@ -58,7 +58,7 @@ dom.SLIDERGRAM = ->
             e.preventDefault()
             unregister_window_event "slide-#{local_sldr.key}"
             local_sldr.tracking_mouse = null
-            save local_sldr
+            bus.set local_sldr
 
     # This handles hovering avatars
     onMouseOver: (e) =>
@@ -70,12 +70,12 @@ dom.SLIDERGRAM = ->
             local_sldr.hover = true
         else
             local_sldr.hover = false
-        save local_sldr
+        bus.set local_sldr
     onMouseOut: (e) =>
         if @loading()
             return
         local_sldr.hover = false
-        save local_sldr
+        bus.set local_sldr
 
 
     HISTOGRAM
@@ -114,8 +114,8 @@ dom.SLIDERGRAM = ->
 #
 # Supports movement by touch, mouse, and click events. 
 start_slide = (sldr, slidergram_width, target, args) -> 
-    sldr = fetch sldr
-    local = fetch shared_local_key sldr
+    sldr = bus.get sldr
+    local = bus.get shared_local_key sldr
 
     # You must be logged in to slide
     return if !your_key()
@@ -139,7 +139,7 @@ start_slide = (sldr, slidergram_width, target, args) ->
     # Save mouse info
     local.mouse_positions = [{x: mouseX, y: mouseY}]
     local.x_adjustment = val * slidergram_width - local.mouse_positions[0].x
-    save local
+    bus.set local
 
     # Mouse DOWN events (only for tracking)
     if slide_type == 'tracking'
@@ -147,7 +147,7 @@ start_slide = (sldr, slidergram_width, target, args) ->
             e.preventDefault()
             local.tracking_mouse = 'activated'
             local.dragging = true
-            save local
+            bus.set local
 
         register_window_event "slide-#{local.key}", 'mousedown', mousedown
         register_window_event "slide-#{local.key}", 'touchstart', mousedown
@@ -181,14 +181,14 @@ start_slide = (sldr, slidergram_width, target, args) ->
             #   local.dirty_opinions = true
             
             # console.log 'SAVING slide', your_slide.value
-            save local
+            bus.set local
 
     register_window_event "slide-#{local.key}", 'mousemove', mousemove
     register_window_event "slide-#{local.key}", 'touchmove', mousemove
 
     finalize = (e) =>
-        sldr = fetch sldr
-        local = fetch shared_local_key sldr
+        sldr = bus.get sldr
+        local = bus.get shared_local_key sldr
 
         unregister_window_event "slide-#{local.key}"
         # Update the value in the actual slider
@@ -204,13 +204,13 @@ start_slide = (sldr, slidergram_width, target, args) ->
         local.tracking_mouse = local.live = local.dragging = null
         # Tell the slidergram not to immediately start a new track
         local.disable_tracking = true
-        save local
+        bus.set local
 
         if args?.onsave
             args?.onsave?(the_vote, sldr)
         else
             sldr.arr.push the_vote
-            save sldr
+            bus.set sldr
 
 
     register_window_event "slide-#{local.key}", 'mouseup', finalize
@@ -237,7 +237,7 @@ dom.SLIDER_BOTTOM = ->
 
     val = 0
     if @props.feedback
-        local_sldr = fetch shared_local_key @props.sldr
+        local_sldr = bus.get shared_local_key @props.sldr
 
         val = if local_sldr.tracking_mouse or local_sldr.dragging and local_sldr.live?
                 local_sldr.live
@@ -295,7 +295,7 @@ dom.SLIDER_BOTTOM = ->
 
 # In order to have avatar tooltips sit above avatars, they can't actually be ::after pseudoelements inside avatars.
 dom.SLIDER_TOOLTIP = ->
-    local = fetch @props.local
+    local = bus.get @props.local
     local.layout ?= {}
 
     size = local.layout[local.hover_target_key] ? {}
@@ -316,7 +316,7 @@ dom.SLIDER_TOOLTIP = ->
 
     # Ok, maybe we waste time fetching info for the default user.
     # Maybe find a cleaner way to cancel rendering?
-    user = fetch (target ? local.hover_target_key ? "/user/default")
+    user = bus.get (target ? local.hover_target_key ? "/user/default")
     # Pulled from avatar.coffee
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2))
 
@@ -360,14 +360,14 @@ dom.SLIDER_TOOLTIP = ->
 # based on the user's opinion, using a physics simulation. 
 
 dom.HISTOGRAM = ->
-  sldr = fetch @props.sldr
+  sldr = bus.get @props.sldr
   sldr.arr ?= []
-  local_sldr = fetch shared_local_key sldr
+  local_sldr = bus.get shared_local_key sldr
   local_sldr.layout ?= {}
 
   you = your_key?()
-  view = fetch "view"
-  opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
+  view = bus.get "view"
+  opinion_weights = bus.get "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
@@ -388,7 +388,7 @@ dom.HISTOGRAM = ->
     # by the physics sim
     for opinion in sldr.arr
       continue if (opinion_weights and (opinion.user_key not of opinion_weights )) or (opinion.user_key == you)
-      fetch opinion
+      bus.get opinion
       size = local_sldr.layout[opinion[@props.vote_key]]
 
       props =
@@ -448,19 +448,19 @@ dom.HISTOGRAM = ->
 
 dom.HISTOGRAM.refresh = ->
 
-    sldr = fetch @props.sldr
-    local_sldr = fetch shared_local_key sldr
+    sldr = bus.get @props.sldr
+    local_sldr = bus.get shared_local_key sldr
     you = your_key?()
 
-    view = fetch "view"
-    opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
+    view = bus.get "view"
+    opinion_weights = bus.get "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
     hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])
 
     if sldr.arr?.length > 0 and (cache_key != @last_cache or local_sldr.dirty_opinions) and !@loading()
         local_sldr.dirty_opinions = false
-        save local_sldr
+        bus.set local_sldr
 
         vals_weight = sldr.arr
             .filter (v) -> (v.user_key != you) and (v.user_key of opinion_weights)
@@ -526,7 +526,7 @@ positionAvatars = (args) ->
   radii = args.radii
   vote_key = args.vote_key
   ignore = args.ignore ? {}
-  local_sldr = fetch shared_local_key positions
+  local_sldr = bus.get shared_local_key positions
 
   # One iteration of the simulation
   tick = (alpha) ->
@@ -710,7 +710,7 @@ positionAvatars = (args) ->
     alpha *= decay
 
     stable ||= alpha <= min_alpha
-  ##############
+  ## ############
   # cache the final locations on positions
   for avatar,i in avatars
     rad = nodes[i].radius
@@ -720,7 +720,7 @@ positionAvatars = (args) ->
       top: nodes[i].y - rad
       width: 2 * rad
 
-  save local_sldr
+  bus.set local_sldr
 
 calculateInitialLayout = (w, h, r, avatars, key) ->
   assignments = {}
@@ -753,7 +753,7 @@ calculateInitialLayout = (w, h, r, avatars, key) ->
 
 
 
-#####
+## ###
 # Calculate node radius based on the largest density of avatars in an 
 # area (based on a moving average of # of opinions, mapped across the
 # width and height)
@@ -843,7 +843,7 @@ calculateAvatarRadius = (width, height, opinions, max_avatar_radius) ->
 
 
 window.get_your_slide = (sldr) =>
-  sldr = fetch(sldr)
+  sldr = bus.get(sldr)
 
   you = your_key()
   your_slide = null
