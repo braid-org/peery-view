@@ -69,7 +69,7 @@
         path = slash unescape path
         if path.endsWith "/"
             path = path[...-1]
-        v = fetch "view"
+        v = get "view"
         v.tag = v.user_key = v.page = null
         switch
             when path == "/users"
@@ -78,18 +78,18 @@
             when path.startsWith "/user/"
                 v.user_key = path
                 v.page = "posts"
-                bus.fetch_once path, (user) ->
+                bus.get_once path, (user) ->
                     v.title = user.name
-                    save v
+                    set v
                     document.title = format_title "#{v.title}'s view"
             when path.startsWith "/post/"
                 v.post_key = path
                 v.page = "post_details"
 
-                bus.fetch_once path, (post) ->
+                bus.get_once path, (post) ->
                     v.title = post.title
                     console.log post.title
-                    save v
+                    set v
 
                     document.title = format_title v.title
 
@@ -100,7 +100,7 @@
             else
                 v.page = "posts"
                 v.title = null
-        save v
+        set v
         document.title = format_title v.title
 
     window.load_path = (path) ->
@@ -120,7 +120,7 @@
     parse_path ((new URL window.location.href).pathname)
 
     dom.BODY = ->
-        v = fetch "view"
+        v = get "view"
         DIV
             key: "body-container"
             display: "flex"
@@ -140,8 +140,8 @@
             
 
     dom.BIG_MULTIGRAM = ->
-        c = fetch "/current_user"
-        v = fetch "view"
+        c = get "/current_user"
+        v = get "view"
 
         username = v.user_key ? c?.user?.key ? "/user/default" 
         params = 
@@ -168,37 +168,37 @@
                     if v.tag?
                         copy.key = "#{copy.key}(tag:#{v.tag})"
                         copy.tag = v.tag
-                    save copy
+                    set copy
 
     r = () ->
         parser = PPPParser bus
-        parser("weights/user/<userid>").to_fetch = (key, t) ->
+        parser("weights/user/<userid>").to_get = (key, t) ->
             {userid} = t._path
             {tag, untagged} = t._params
             blob = stringify_kson {computed: true, tag: tag, untagged}
 
-            votes = fetch "/user/#{userid}/votes/people#{blob}"
+            votes = get "/user/#{userid}/votes/people#{blob}"
             weights_ret = {key: key}
             (votes.arr ? []).forEach (v) ->
-                fetch v
+                get v
                 weights_ret[v.target_key] = 2 * v.value - 1
 
 
             if tag
-                ((fetch "/user/#{userid}/votes/people(computed,untagged)").arr ? []).forEach (v) ->
+                ((get "/user/#{userid}/votes/people(computed,untagged)").arr ? []).forEach (v) ->
                     unless weights_ret[v.target_key]?
-                        fetch v
+                        get v
                         weights_ret[v.target_key] = 2 * v.value - 1
 
             weights_ret
 
-        parser("score/post/<postid>").to_fetch = (key, t) ->
+        parser("score/post/<postid>").to_get = (key, t) ->
             {postid} = t._path
             {user, tag} = t._params
 
             user ?= "/user/default"
 
-            weights = fetch "weights/#{unslash user}#{stringify_kson {tag}}"
+            weights = get "weights/#{unslash user}#{stringify_kson {tag}}"
                 
             now = Date.now() / 1000
 
@@ -207,15 +207,15 @@
                 untagged: !tag
         
             #// Subscribe to the post
-            p = fetch "/post/#{postid}"
+            p = get "/post/#{postid}"
 
             sum_votes = 0
             sum_weights = 0
 
             #// Subscribe to the post's votes
-            (fetch "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
+            (get "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
                 # first subscribe to the vote
-                if v.key then fetch v
+                if v.key then get v
                 voter = v.user_key
                 # Keep track of the total weight of votes, and of the weighted sum of votes.
                 sum_weights += Math.abs(weights[voter] ? 0)
@@ -244,8 +244,34 @@
 
 </script>
 
+<!-- React stuff -->
+<script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/create-react-class@15.7.0/create-react-class.min.js" crossorigin></script>
+<script src='https://unpkg.com/babel-standalone@6/babel.min.js' crossorigin></script>
+
+<!-- Include Statebus and Braidify libraries -->
+<script src='statebus.js'></script>
+<script src='statebus-client-library.js'></script>
+<script src='braidify.js'></script>
+
 <!-- Main statebus script -->
 <script src="/client.js" server="/"></script>
+
+<!-- Configure the statebus -->
+<script>
+  window.get = bus.get
+  window.set = bus.set
+  window.fetch = bus.get
+  window.save = bus.set
+  window.delete = bus.delete
+  window.loading = bus.loading
+  bus.libs.react17.coffreact()
+  bus.libs.localstorage('ls_*')
+  window.state = bus.state
+</script>
+
+<!-- Load UI libraries -->
 <script src="/static/vendor/considerit_shared.js" crossorigin=anonymous></script>
 <script src="/coffee/parser.coffee" crossorigin=anonymous></script>
 <script src="/coffee/ui.coffee" crossorigin=anonymous></script>
@@ -267,5 +293,5 @@
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" sizes="any">
-</head>
+ppp</head>
 </html>

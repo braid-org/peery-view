@@ -931,7 +931,7 @@ dom.HEADER = ->
             # register_window_event prevents a new handler from being added when the element is re-rendered
             register_window_event "header-modal", "mousedown", (e) =>
                 # should we preventdefault?
-                unless @refs.headercontainer.getDOMNode().contains e.target
+                unless @refs.headercontainer.contains e.target
                     close()
            
             # Display one of various popups
@@ -1097,7 +1097,7 @@ dom.ROLODEX = ->
     # register_window_event prevents a new handler from being added when the element is re-rendered
     register_window_event "#{@props.key}-dropdown", "mousedown", (e) =>
         # should we preventdefault?
-        unless @refs?.dropdown?.getDOMNode?()?.contains e.target
+        unless @refs?.dropdown?.contains e.target
             close()
     DIV
         ref: "dropdown"
@@ -1111,7 +1111,7 @@ dom.ROLODEX = ->
         scrollBehavior: "smooth"
         style: scrollSnapType: "y mandatory"
         onScroll: () =>
-            @local.scroll_index = Math.round @refs.dropdown?.getDOMNode?()?.scrollTop / (20 * 1.2)
+            @local.scroll_index = Math.round @refs.dropdown?.scrollTop / (20 * 1.2)
             @local.scroll_index -= 3
             save @local
             # TODO: Prefetch some relevant state (particularly the weights) for the selected user...
@@ -1130,7 +1130,7 @@ dom.ROLODEX = ->
                     else
                         # 20px fontsize * 1.2 lineheight * (i + 3) elements
                         scrolltop = (i + 3) * 20 * 1.2
-                        @refs.dropdown?.getDOMNode?()?.scrollTo top: scrolltop
+                        @refs.dropdown?.scrollTo top: scrolltop
                 style: if i < n_users - 2 then scrollSnapAlign: "start"
                 height: 24
 
@@ -1139,7 +1139,7 @@ dom.ROLODEX = ->
 
 # We use refresh to set the dropdown's scroll position the first time it renders
 dom.ROLODEX.refresh = ->
-    el = @refs.dropdown?.getDOMNode?()
+    el = @refs.dropdown?
     # Hmmm, now this can cause weird snapping if you scroll too far up with a trackpad. 
     # Add some local state to keep track of if the element was just rendered?
     if el? and !@local.has_jumped_to_initial and @props.selected != -1
@@ -1160,8 +1160,8 @@ dom.SUBMIT_POST = ->
         return
 
     form_submit = =>
-        title = @refs["post-title"].getDOMNode()
-        link = @refs["post-url"].getDOMNode()
+        title = @refs["post-title"]
+        link = @refs["post-url"]
         if title.value.length > 1 and link.value.length > 1
             make_post title.value, link.value, c.user.key
             title.value = ""
@@ -1206,7 +1206,7 @@ dom.SUBMIT_POST = ->
                     form_submit()
                 else if e.keyCode == 9
                     e.preventDefault()
-                    @refs["post-url"].getDOMNode().focus()
+                    @refs["post-url"].focus()
 
 
         INPUT
@@ -1292,8 +1292,8 @@ dom.LOGIN = ->
             button_style...
 
             onClick: (e) =>
-                name = @refs["login-name"].getDOMNode().value
-                pw = @refs["login-pw"].getDOMNode().value
+                name = @refs["login-name"].value
+                pw = @refs["login-pw"].value
                 c.create_account =
                     name: name
                     pass: pw
@@ -1313,8 +1313,8 @@ dom.LOGIN = ->
             gridArea: "login"
             button_style...
             onClick: (e) =>
-                name = @refs["login-name"].getDOMNode().value
-                pw = @refs["login-pw"].getDOMNode().value
+                name = @refs["login-name"].value
+                pw = @refs["login-pw"].value
                 c.login_as =
                     name: name
                     pass: pw
@@ -1420,10 +1420,10 @@ dom.SETTINGS = ->
             gridArea: "save"
             onClick: () =>
                 
-                name = @refs.name.getDOMNode().value
-                email = @refs.email.getDOMNode().value
-                pic = @refs.pic.getDOMNode().value ? ""
-                filter = @refs.filter.getDOMNode().value
+                name = @refs.name.value
+                email = @refs.email.value
+                pic = @refs.pic.value ? ""
+                filter = @refs.filter.value
                 filter = Number.parseFloat filter
                 if isNaN filter
                     filter = -0.2
@@ -1503,7 +1503,7 @@ dom.USER = ->
 
     register_window_event "user-expand-#{user?.key ? user}", "mousedown", (e) =>
         # should we preventdefault?
-        unless @refs?.container?.getDOMNode?()?.contains?(e.target)
+        unless @refs?.container?.contains?(e.target)
             @local.expanded = false
             save @local
 

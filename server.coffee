@@ -2,15 +2,15 @@ require 'coffeescript/register'
 parse = require('./coffee/parser.coffee')
 
 ######### Clientwise handlers ##########
-# on the to_fetch and to_save handlers:
+# on the to_get and to_set handlers:
 bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
         parser = parse.PPPParser client
 
-        parser('post/<postid>').to_save = (key, val, old, t) ->
+        parser('post/<postid>').to_set = (key, val, old, t) ->
             {postid} = t._path
-            c = client.fetch "current_user"
+            c = client.get "current_user"
             # So there's a few cases here. 
             # 1. A client is making a new post
             # 3. A client is editing an existing post: this is not allowed!
@@ -26,32 +26,32 @@ bus = require('statebus').serve
                     and typeof(val.title) == "string" and typeof(val.url) == "string" and typeof(val.time) == "number"
                     return t.abort()
 
-                bus.save.sync val                
+                bus.set.sync val                
                 # Ok, put it into the posts list
-                all_posts = bus.fetch "posts"
+                all_posts = bus.get "posts"
                 (all_posts.arr ?= []).push val
-                bus.save all_posts
+                bus.set all_posts
                 return t.done val
            
 
             # Adding a tag: 
             if val?.tags?.length
-                all_tags = bus.fetch "tags"
+                all_tags = bus.get "tags"
                 all_tags.arr ?= []
                 old.tags ?= []
                 val.tags.forEach (t) ->
                     unless t in old.tags then old.tags.push t
                     unless t in all_tags.arr then all_tags.arr.push t
-                bus.save all_tags
-                bus.save old
+                bus.set all_tags
+                bus.set old
                 return t.done old
 
             t.abort()
 
         parser('post/<postid>').to_delete = (key, old, t) ->
             {postid} = t._path
-            c = client.fetch "current_user"
-            all_posts = bus.fetch "posts"
+            c = client.get "current_user"
+            all_posts = bus.get "posts"
 
             unless c.logged_in and c.user.key == old.user_key
                 return t.abort()
@@ -64,29 +64,29 @@ bus = require('statebus').serve
             # 6. Delete the actual post.
             
             
-            # Fetch the votes and make a static copy
-            votes = JSON.parse(JSON.stringify(bus.fetch "votes/post/#{postid}")).arr ? []
+            # Get the votes and make a static copy
+            votes = JSON.parse(JSON.stringify(bus.get "votes/post/#{postid}")).arr ? []
             voters = votes.map (o) -> o.user_key
             voters = voters.filter (u, i) -> i == voters.indexOf u
 
             # Remove the post from `posts`
             all_posts.arr = all_posts.arr.filter (p) -> p.key != key
-            bus.save all_posts
+            bus.set all_posts
 
             # Delete `votes/...`
             bus.delete "votes/post/#{postid}"
             
             # Remove from `<user>/votes`
             voters.forEach (u) ->
-                votes_by = bus.fetch "#{u}/votes"
+                votes_by = bus.get "#{u}/votes"
                 votes_by.arr = votes_by.arr?.filter (v) -> v.target_key != key
-                bus.save votes_by
+                bus.set votes_by
 
             # Delete all the individual votes
             votes.forEach (v) -> bus.delete v.key
 
             # Delete the comments
-            comments = JSON.parse(JSON.stringify(bus.fetch "post/#{postid}/comments")).arr ? []
+            comments = JSON.parse(JSON.stringify(bus.get "post/#{postid}/comments")).arr ? []
             bus.delete "post/#{postid}/comments"
             comments.forEach (c) -> bus.delete c.key
                             
@@ -96,14 +96,14 @@ bus = require('statebus').serve
 
         parser('post/<postid>/comment/<commentid>').to_delete = (key, old, t) ->
             {postid, commentid} = t._path
-            c = client.fetch "current_user"
+            c = client.get "current_user"
             # Make sure that the user has the right to delete
             unless c.logged_in and c.user.key == old.user_key
                 return t.abort()
             # Remove the comment from the relevant array
-            comments = bus.fetch "post/#{postid}/comments"
+            comments = bus.get "post/#{postid}/comments"
             comments.arr = (comments.arr ? []).filter (c) -> c.key != key
-            bus.save.sync comments
+            bus.set.sync comments
 
             # Now delete the key on the main bus
             bus.delete key
@@ -112,12 +112,12 @@ bus = require('statebus').serve
             # Hmm, what about if the comment has replies?
 
 
-        parser('post/<postid>/comment/<commentid>').to_save = (key, val, old, t) ->
+        parser('post/<postid>/comment/<commentid>').to_set = (key, val, old, t) ->
             {postid, _} = t._path
             post_key = "post/#{postid}"
-            post = bus.fetch post_key
+            post = bus.get post_key
 
-            c = client.fetch "current_user"
+            c = client.get "current_user"
             # Check that user has the right to change the key
             unless c.logged_in and c.user.key == val.user_key
                 return t.abort()
@@ -144,39 +144,39 @@ bus = require('statebus').serve
                 unless val.time == old.time
                     return t.abort()
                 # Alright, the edit was fine.
-                bus.save val
+                bus.set val
             # Ok, this a new comment
             else
-                bus.save.sync val
+                bus.set.sync val
                 # Put it in the relevant array.
-                post_comments = bus.fetch "post/#{postid}/comments"
+                post_comments = bus.get "post/#{postid}/comments"
                 (post_comments.arr ?= []).push val
-                bus.save post_comments
+                bus.set post_comments
 
             t.done val
 
 
-        parser('post/<postid>/comments').to_save = (t) ->
+        parser('post/<postid>/comments').to_set = (t) ->
             t.abort()
 
-        parser('user/<userid>/votes').to_save = (t) ->
+        parser('user/<userid>/votes').to_set = (t) ->
             t.abort()
 
-        parser('user/<userid>/votes/<type>').to_save = (t) ->
+        parser('user/<userid>/votes/<type>').to_set = (t) ->
             t.abort()
 
-        parser('votes/<type>/<target>').to_save = (t) ->
+        parser('votes/<type>/<target>').to_set = (t) ->
             t.abort()
 
-        # If an individual vote is saved, put it in the arrays if necessary.
-        parser('user/<userid>/vote/<type>/<targetid>').to_save = (key, val, old, t) ->
+        # If an individual vote is setd, put it in the arrays if necessary.
+        parser('user/<userid>/vote/<type>/<targetid>').to_set = (key, val, old, t) ->
             {userid, type, targetid} = t._path
             {computed, tag} = t._params
             user = "user/#{userid}"
             target = "#{type}/#{targetid}"
 
             # Permission and integrity checking
-            c = client.fetch "current_user"
+            c = client.get "current_user"
             unless type == "user" or type == "post"
                 return t.abort()
             # Check that user has the right to change the key
@@ -191,7 +191,7 @@ bus = require('statebus').serve
             # Check that the tag is right
             if tag != val.tag
                 return t.abort()
-            # Don't bother trying to save a computed vote
+            # Don't bother trying to set a computed vote
             if computed == true
                 return t.abort()
             # Alright, looks good.
@@ -199,42 +199,42 @@ bus = require('statebus').serve
             # User votes should be given depth 1
             if type == "user"
                 val.depth = 1
-            bus.save.sync val
+            bus.set.sync val
 
             # Is this a new vote?
             unless old.user_key?
                 # Put this vote into the necessary arrays.
                 # We only put it into the untagged arrays -- the tagged (ie, filtered) views of these arrays are computed automatically
                 ["#{user}/votes", "votes/#{target}"].forEach (k) ->
-                    s = bus.fetch k
+                    s = bus.get k
                     (s.arr ?= []).push val
-                    bus.save.sync s
+                    bus.set.sync s
 
             # Add the tag-type if necessary
             if tag
-                target_obj = bus.fetch target
+                target_obj = bus.get target
                 unless tag in (target_obj.tags ?= [])
                     target_obj.tags.push tag
-                bus.save target_obj
+                bus.set target_obj
 
-                all_tags = bus.fetch "tags"
+                all_tags = bus.get "tags"
                 unless tag in (all_tags.arr ?= [])
                     all_tags.arr.push tag
-                bus.save all_tags
+                bus.set all_tags
             
             t.done val
 
-        parser('user/<userid>').to_save = (key, val, old, t) ->
+        parser('user/<userid>').to_set = (key, val, old, t) ->
             # The client can't change their join date
             unless old.joined == val.joined
                 return t.abort()
             unless old.border == val.border
                 return t.abort()
-            bus.save val
+            bus.set val
             t.done val
 
-        client('users').to_fetch = (t) ->
-            bus.fetch 'users'
+        client('users').to_get = (t) ->
+            bus.get 'users'
 
         client.shadows bus
         
@@ -247,7 +247,7 @@ default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 MAX_DEPTH = 5
-bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
+bus_parser('user/<username>/votes/<type>').to_get = (key, t) ->
     {username, type} = t._path
     {computed, tag, untagged} = t._params
     userkey = "user/#{username}"
@@ -273,7 +273,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                 vote_key =  "#{userkey}/vote/#{target}#{parse.stringify_kson {computed: vote_computed, tag}}"
 
                 unless vote_computed
-                    votes[target] = bus.fetch vote_key
+                    votes[target] = bus.get vote_key
                     w = 2 * votes[target].value - 1
                 else
                     w = (paths.reduce (a, b) -> a+b) / paths.length
@@ -289,7 +289,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                 if Math.abs(w) <= MIN_WEIGHT
                     continue
 
-                bus.fetch "#{target}/votes/people#{parse.stringify_kson {tag, untagged}}"
+                bus.get "#{target}/votes/people#{parse.stringify_kson {tag, untagged}}"
                     ?.arr
                     ?.filter (v) -> (v.target_key not of votes) and (v.target_key not of queue_cur)
                     ?.forEach (v) ->
@@ -297,7 +297,7 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
                         # Put a subscription on the individual vote
                         unless t of queue_next
                             queue_next[t] = []
-                            bus.fetch v
+                            bus.get v
                         # If a user has a negative weight we record that weight but then we end the chain.
                         queue_next[t].push (2 * v.value - 1) * Math.max w, 0
 
@@ -323,53 +323,53 @@ bus_parser('user/<username>/votes/<type>').to_fetch = (key, t) ->
         }
     else
         prefix = if type == "people" then "user" else "post"
-        all_votes = bus.fetch "#{userkey}/votes"
+        all_votes = bus.get "#{userkey}/votes"
         {
             key: key
             arr: all_votes.arr.filter (v) ->
                 unless v.target_key.startsWith prefix
                     return false
-                bus.fetch v
+                bus.get v
 
                 (tag and tag == v.tag) or (untagged and not v.tag) or not (untagged or tag)
         }
 # Here's a bunch of boring filtering code...    
-bus_parser('votes/<type>/<targetid>').to_fetch = (key, t) ->
+bus_parser('votes/<type>/<targetid>').to_get = (key, t) ->
     {type, targetid} = t._path
     {computed, tag, untagged} = t._params
     if tag or untagged
-        # Fetching here instead of accessing cache makes us reactive
-        all_votes = (bus.fetch "votes/#{type}/#{targetid}").arr ? []
+        # Geting here instead of accessing cache makes us reactive
+        all_votes = (bus.get "votes/#{type}/#{targetid}").arr ? []
         {
             key: key
             arr: all_votes.filter (v) ->
-                bus.fetch v
+                bus.get v
                 (tag and tag == v.tag) or (untagged and not v.tag?)
         }
     else
         default_arr key
 
-bus_parser('user/<username>/votes').to_fetch = (key, t) ->
+bus_parser('user/<username>/votes').to_get = (key, t) ->
     {username} = t._path
     {computed, tag, untagged} = t._params
     if tag or untagged
-        # Fetching here instead of accessing cache makes us reactive
-        all_votes = bus.fetch "user/#{username}/votes"
+        # Geting here instead of accessing cache makes us reactive
+        all_votes = bus.get "user/#{username}/votes"
         {
             key: key
             arr: all_votes.arr.filter (v) =>
-                bus.fetch v
+                bus.get v
                 (tag and tag == v.tag) or (untagged and not v.tag?)
         }
     else
         default_arr key
 
-bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
+bus_parser('user/<username>/vote/user/<target>').to_get = (key, t) ->
     {username, target} = t._path
     {computed, tag} = t._params
 
     if computed
-        raw = bus.fetch "user/#{username}/vote/user/#{target}#{parse.stringify_kson {tag}}"
+        raw = bus.get "user/#{username}/vote/user/#{target}#{parse.stringify_kson {tag}}"
         # If the raw vote actually exists
         # This is kind of an arbitrary way to check for a vote existing
         if raw.user_key
@@ -379,9 +379,9 @@ bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
             }
         else
             # Call into the weights computation
-            # The weights computation outputs an array that contains (ie, modifies) the state we're currently to_fetch'ing...
+            # The weights computation outputs an array that contains (ie, modifies) the state we're currently to_get'ing...
             # Is there weird statebus magic we have to do?
-            wot = bus.fetch "user/#{username}/votes/people#{parse.stringify_kson t._params}"
+            wot = bus.get "user/#{username}/votes/people#{parse.stringify_kson t._params}"
             for vote in wot.arr
                 if vote.key == key
                     return vote
@@ -391,42 +391,42 @@ bus_parser('user/<username>/vote/user/<target>').to_fetch = (key, t) ->
         bus.cache[key] ?= {key: key}
 
 
-bus_parser('user/<username>/posts').to_fetch = (key, t) ->
+bus_parser('user/<username>/posts').to_get = (key, t) ->
     {username} = t._path
     {computed, tag, untagged} = t._params
-    all_posts = bus.fetch "posts"
+    all_posts = bus.get "posts"
     userkey = "user/#{username}"
     {
         key: key
         arr: all_posts.arr.filter (p) ->
             unless userkey == p.user_key
                 return false
-            bus.fetch p
+            bus.get p
             (tag and tag in p.tags) or (untagged and not p.tags.length) or not (untagged or tag)
                 
     }
 
-bus_parser('posts').to_fetch = (key, t) ->
+bus_parser('posts').to_get = (key, t) ->
     {computed, tag, untagged} = t._params
     if tag or untagged
-        all_posts = bus.fetch "posts"
+        all_posts = bus.get "posts"
         {
             key: key
             arr: all_posts.arr.filter (p) ->
-                bus.fetch p
+                bus.get p
                 (tag and tag in (p.tags ? [])) or (untagged and not p?.tags?.length)
         }
     else
         default_arr key
 
-bus('tags').to_fetch = (key) -> default_arr key
+bus('tags').to_get = (key) -> default_arr key
 
 fs = require 'fs'
 https = require 'https'
 sharp = require 'sharp'
 
 validate_pic = (key, url, cb) ->
-    # Function to call if we run into an error trying to fetch the image
+    # Function to call if we run into an error trying to get the image
     error = (e) -> 
         if (e)
             console.error e
@@ -478,7 +478,7 @@ validate_pic = (key, url, cb) ->
         
 
 
-bus_parser('user/<userid>').to_save = (key, val, old, t) ->
+bus_parser('user/<userid>').to_set = (key, val, old, t) ->
     unless old.joined
         val.joined = Date.now()
 
@@ -489,37 +489,37 @@ bus_parser('user/<userid>').to_save = (key, val, old, t) ->
                 delete val.pic
             val.border = pic_results.white
 
-            bus.save.fire val
+            bus.set.fire val
             t.done val
     else
-        bus.save.fire val
+        bus.set.fire val
         t.done val
 
 
 migrate = (state) ->
-    m = state.fetch "migrations"
+    m = state.get "migrations"
     unless m.june13
         console.log "MIGRATION J13: June 13th New Standard"
         console.log "MIGRATION J13: Consider making a manual backup of the database..."
 
         # in `posts` and `tags`: the array should be key.arr instead of key.all or key.tags
         console.log "MIGRATION J13: Storing arrays on `key.arr`."
-        state.save.sync 
+        state.set.sync 
             key: "tags"
-            arr: (state.fetch "tags").tags ? []
-        state.save.sync
+            arr: (state.get "tags").tags ? []
+        state.set.sync
             key: "posts"
-            arr: (state.fetch "posts").all ? []
+            arr: (state.get "posts").all ? []
 
         # each post need to have user replaced by user_key.
         console.log "MIGRATION J13: Changing `user` field to `user_key` on all posts."
         Object.keys state.cache
             .filter (k) -> k.startsWith "post"
             .forEach (k) ->
-                p = state.fetch k
+                p = state.get k
                 p.user_key = parse.unslash p.user
                 delete p.user
-                state.save.sync p
+                state.set.sync p
 
         # Delete all votes_on keys
         console.log "MIGRATION J13: Deleting `votes_on` arrays."
@@ -546,10 +546,10 @@ migrate = (state) ->
                     kson_blob = "(tag:#{tag})"
 
                 # The new key where the votes will be stored
-                votes_new = state.fetch "user/#{userid}/votes"
+                votes_new = state.get "user/#{userid}/votes"
                 votes_new.arr ?= []
-                # Fetch the current list of votes and iterate over it
-                votes_old = state.fetch k
+                # Get the current list of votes and iterate over it
+                votes_old = state.get k
                 Object.values votes_old
                     .filter (v) -> v.key? and v.user? and v.target?
                     .forEach (v) ->
@@ -561,19 +561,19 @@ migrate = (state) ->
                             updated: v.updated
                             depth: 1
                             tag: tag
-                        state.save.sync new_vote
+                        state.set.sync new_vote
                         # Delete the original vote
                         state.delete v
 
                         # Put it in the array for the target
-                        target_votes = state.fetch "votes/#{new_vote.target_key}"
+                        target_votes = state.get "votes/#{new_vote.target_key}"
                         (target_votes.arr ?= []).push new_vote
-                        state.save.sync target_votes 
+                        state.set.sync target_votes 
 
                         # Put it in the array for the user
                         votes_new.arr.push new_vote
 
-                state.save.sync votes_new
+                state.set.sync votes_new
                 state.delete votes_old
 
         # Trim the DB by cleaning up cached weights objects.
@@ -584,35 +584,35 @@ migrate = (state) ->
 
         console.log "MIGRATION J13: Migration complete."
         m.june13 = true
-        state.save m
+        state.set m
 
     unless m.joindate
         console.log "MIGRATION UJD: User Join Date."
         console.log "MIGRATION UJD: Inferring user join order from their position in user array."
-        users = state.fetch "users"
-        users.all.forEach (v, i) ->
+        users = state.get "users"
+        (users.all or []).forEach (v, i) ->
             unless v.joined
                 v.joined = i * 5000 + 1500000000000
-                state.save.fire v
+                state.set.fire v
         console.log "MIGRATION UJD: Migration complete."
         m.joindate = true
-        state.save m
+        state.set m
 
     unless m.picborder
         console.log "MIGRATION WPP: White Profile Pictures."
         console.log "MIGRATION WPP: Analyzing all current profile pictures."
-        users = state.fetch "users"
-        users.all.forEach (v, i) ->
+        users = state.get "users"
+        (users.all or []).forEach (v, i) ->
             if v.pic
                 validate_pic v.key, v.pic, (pic_results) =>
                     unless pic_results.exists
                         delete v.pic
                     v.border = pic_results.white
 
-                    state.save.fire v
+                    state.set.fire v
         console.log "MIGRATION WPP: Migration complete."
         m.picborder = true
-        state.save m
+        state.set m
 
 
 migrate bus
@@ -664,7 +664,7 @@ bus.http.get '/client.js', (req, res) ->
     # If the clientjs hasn't been assembled yet
     unless clientjs.length
         files =
-            ['extras/coffee.js', 'extras/sockjs.js', 'extras/react.js', 'statebus.js', 'client.js']
+            ['extras/coffee.js', 'extras/sockjs.js', 'statebus.js', 'client-library.js']
                 .map( (f) => fs.readFileSync('node_modules/statebus/' + f) )
         if bus.options.braid_mode
             files.unshift fs.readFileSync 'node_modules/braidify/braidify-client.js' 
@@ -713,10 +713,10 @@ function free_the_cors (req, res, next) {
 `
 
 restore_pass = (name, newpass) ->
-  user = bus.fetch("user/#{name}")
+  user = bus.get("user/#{name}")
   console.log('############# Restoring pass for ', name)
   user.pass = require('bcrypt-nodejs').hashSync(newpass)
   console.log('############# Now user is ', user)
-  bus.save(user)
-  console.log('############# Saved!!!!!!! ')
+  bus.set(user)
+  console.log('############# Setd!!!!!!! ')
 

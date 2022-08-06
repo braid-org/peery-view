@@ -57,7 +57,7 @@ dom.MULTIGRAM = ->
             height: @props.height
             follows_live: true
                 
-####
+## ##
 # Histogram
 #
 # Controls the display of the users arranged on a histogram. 
@@ -79,14 +79,19 @@ dom.MULTIHISTOGRAM = ->
 
   dragging = local_sldr.dragging
 
-  DIV extend(@props,
+  # XXX Fix this:
+  # I removed the extend props thing here, because React now fails when you
+  # have unsanctioned attributes (like "read_only") on a DIV, which were
+  # inheriting from @props.  But I prolly threw out the baby with the
+  # bathwater by removing the extend(@props entirely.
+  DIV #extend(@props,
     className: 'histogram'
     style:
       width: @props.width
       height: @props.height
       position: 'relative'
       userSelect: 'none'
-    ),
+    #),
 
     # Draw the avatars in the histogram. Placement will be determined later
     # by the physics sim
