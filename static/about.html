@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset=UTF-8>
+    <meta name=viewport content="width=device-width, initial-scale=1">
     <title>About - PeeryView</title>
     <style>
         body {
@@ -21,36 +22,27 @@
         .material-icons.md-light { color: rgba(255, 255, 255, 1); }
         .material-icons.md-light.md-inactive { color: rgba(255, 255, 255, 0.3); }
 
-        .header, .content {
-            width: 700px;
-            padding: 10px 50px;
-            display: flex;
-        }
-        .header {
-            height: 45px;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            background: #def;
-            color: #444;
-        }
-        .header-title {
-            height: 1.3em;
-            line-height: 1.2;
-            font-size: 20px;
-        }
-        .header-link {
-            text-decoration: none;
-            color: inherit;
+        .home-link {
+         /*   text-decoration: none; */
+            color: #333;
+            align-self: flex-start;
+            position: fixed;
+            left: min(4vw, 25px);
         }
 
         .content {
+            max-width: 40em;
+            padding: 10px 50px;
+            display: flex;
             flex-direction: column;
             align-items: center;
         }
         .content p {
             line-height: 1.5;
             margin: 7px 0;
+        }
+        img {
+            max-width: 100%;
         }
         .la {
             text-align: left;
@@ -59,6 +51,29 @@
         .bold {
             font-weight: bold;
         }
+
+        #logo-animated {
+            margin-top: min(30vh, 10vw);
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin: 10px;
+            }
+            .content {
+                max-width: unset;
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 1050px) {
+            .home-link {
+                position: static;
+                margin-bottom: 20px;
+            }
+        }
+
 
     </style>
 
@@ -140,14 +155,10 @@
 </head>
 
 <body>
-
-        <div class="header">
-            <span class="header-title">About PeeryView</span>
-            <a style="margin-right: 40px" class="header-link" href="/">Home</a>
-        </div>
-
         <div class="content">
+            <a class="home-link" href="/">Return to PeeryView</a>
             <object type="image/svg+xml" data="/static/images/peeryicon.svg" id="logo-animated" onload="object_ready()"></object>
+
             <h2 class=la>A New Type of Publishing</h2>
             <p>
                 Welcome to PeeryView! PeeryView is a new concept for scientific publishing: subjective, decentralized, and interoperable.

@@ -1505,6 +1505,7 @@ dom.USER = ->
         # should we preventdefault?
         unless @refs?.container?.getDOMNode?()?.contains?(e.target)
             @local.expanded = false
+            console.log "Unexpanding #{user.key}"
             save @local
 
     DIV
@@ -1569,6 +1570,7 @@ dom.USER = ->
 
             SPAN
                 key: "more"
+                ref: "more"
                 gridArea: "more"
                 color: "#999"
                 className: "material-icons-outlined md-dark"
@@ -1577,6 +1579,7 @@ dom.USER = ->
                 textAlign: "center"
                 onClick: () => 
                     @local.expanded = !@local.expanded
+                    console.log "toggling #{user.key}"
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
 
