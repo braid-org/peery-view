@@ -59,7 +59,7 @@ bus = require('statebus').serve
             # We need to do six things.
             # 1. Remove the post from `posts`.
             # 2. Delete `votes/post/<id>`.
-            # 3. Remove the post from `user/<uid>/votes` for everyone who's voted on it.
+            # 3. Remove the post from `@<uid>/votes` for everyone who's voted on it.
             # 4. Delete the votes themselves.
             # 5. Delete all the comments.
             # 6. Delete the actual post.
@@ -160,20 +160,20 @@ bus = require('statebus').serve
         parser('post/<postid>/comments').to_set = (t) ->
             t.abort()
 
-        parser('user/<userid>/votes').to_set = (t) ->
+        parser('@<userid>/votes').to_set = (t) ->
             t.abort()
 
-        parser('user/<userid>/votes/<type>').to_set = (t) ->
+        parser('@<userid>/votes/<type>').to_set = (t) ->
             t.abort()
 
         parser('votes/<type>/<target>').to_set = (t) ->
             t.abort()
 
         # If an individual vote is setd, put it in the arrays if necessary.
-        parser('user/<userid>/vote/<type>/<targetid>').to_set = (key, val, old, t) ->
+        parser('@<userid>/vote/<type>/<targetid>').to_set = (key, val, old, t) ->
             {userid, type, targetid} = t._path
             {computed, tag} = t._params
-            user = "user/#{userid}"
+            user = "@#{userid}"
             target = "#{type}/#{targetid}"
 
             # Permission and integrity checking
@@ -225,7 +225,7 @@ bus = require('statebus').serve
             
             t.done val
 
-        parser('user/<userid>').to_set = (key, val, old, t) ->
+        parser('@<userid>').to_set = (key, val, old, t) ->
             # The client can't change their join date
             unless old.joined == val.joined
                 return t.abort()
@@ -248,10 +248,10 @@ default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
 # Network-spread weighting
 MIN_WEIGHT = 0.05
 MAX_DEPTH = 5
-bus_parser('user/<username>/votes/<type>').to_get = (key, t) ->
+bus_parser('@<username>/votes/<type>').to_get = (key, t) ->
     {username, type} = t._path
     {computed, tag, untagged} = t._params
-    userkey = "user/#{username}"
+    userkey = "@#{username}"
     
     # Compute weights through the network
     if computed and type == "people"
@@ -313,8 +313,8 @@ bus_parser('user/<username>/votes/<type>').to_get = (key, t) ->
             if (depth == 1) and Object.keys(queue_cur).length == 0
                 depth++
             # Now if we're at depth 2 and we don't have a depth=1 vote on default
-            if (depth == 2) and "user/default" not of votes
-                queue_cur["user/default"] = [1.0]
+            if (depth == 2) and "@default" not of votes
+                queue_cur["@default"] = [1.0]
                
         # Votes is a hash so that we can quickly check membership,
         # but we need to return an array of votes.
@@ -350,12 +350,12 @@ bus_parser('votes/<type>/<targetid>').to_get = (key, t) ->
     else
         default_arr key
 
-bus_parser('user/<username>/votes').to_get = (key, t) ->
+bus_parser('@<username>/votes').to_get = (key, t) ->
     {username} = t._path
     {computed, tag, untagged} = t._params
     if tag or untagged
         # Geting here instead of accessing cache makes us reactive
-        all_votes = bus.get "user/#{username}/votes"
+        all_votes = bus.get "@#{username}/votes"
         {
             key: key
             arr: all_votes.arr.filter (v) =>
@@ -365,12 +365,12 @@ bus_parser('user/<username>/votes').to_get = (key, t) ->
     else
         default_arr key
 
-bus_parser('user/<username>/vote/user/<target>').to_get = (key, t) ->
+bus_parser('@<username>/vote/@<target>').to_get = (key, t) ->
     {username, target} = t._path
     {computed, tag} = t._params
 
     if computed
-        raw = bus.get "user/#{username}/vote/user/#{target}#{parse.stringify_kson {tag}}"
+        raw = bus.get "@#{username}/vote/@#{target}#{parse.stringify_kson {tag}}"
         # If the raw vote actually exists
         # This is kind of an arbitrary way to check for a vote existing
         if raw.user_key
@@ -382,7 +382,7 @@ bus_parser('user/<username>/vote/user/<target>').to_get = (key, t) ->
             # Call into the weights computation
             # The weights computation outputs an array that contains (ie, modifies) the state we're currently to_get'ing...
             # Is there weird statebus magic we have to do?
-            wot = bus.get "user/#{username}/votes/people#{parse.stringify_kson t._params}"
+            wot = bus.get "@#{username}/votes/people#{parse.stringify_kson t._params}"
             for vote in wot.arr
                 if vote.key == key
                     return vote
@@ -392,11 +392,11 @@ bus_parser('user/<username>/vote/user/<target>').to_get = (key, t) ->
         bus.cache[key] ?= {key: key}
 
 
-bus_parser('user/<username>/posts').to_get = (key, t) ->
+bus_parser('@<username>/posts').to_get = (key, t) ->
     {username} = t._path
     {computed, tag, untagged} = t._params
     all_posts = bus.get "posts"
-    userkey = "user/#{username}"
+    userkey = "@#{username}"
     {
         key: key
         arr: all_posts.arr.filter (p) ->
@@ -479,7 +479,7 @@ validate_pic = (key, url, cb) ->
         
 
 
-bus_parser('user/<userid>').to_set = (key, val, old, t) ->
+bus_parser('@<userid>').to_set = (key, val, old, t) ->
     unless old.joined
         val.joined = Date.now()
 
@@ -528,13 +528,13 @@ migrate = (state) ->
             .filter (k) -> k.startsWith "votes_on"
             .forEach (k) -> state.delete k
         
-        # Now find all keys that match votes_by/user/<userid>/<tag> and votes_by/user/<userid>
+        # Now find all keys that match votes_by/@<userid>/<tag> and votes_by/@<userid>
         # These things are objects with key value pairs representing (key, vote).
         # Each of these votes should be moved to a new key, should have user_key replaced by target_key, should have depth=1 added
         # NOTE: a vote on the default user with value 1 should just be deleted.
         console.log "MIGRATION J13: Reformatting votes."
         Object.keys state.cache
-            .filter (k) -> k.startsWith "votes_by/user/"
+            .filter (k) -> k.startsWith "votes_by/@"
             .forEach (k) ->
                 userid = k.substr 14
                 kson_blob = ""
@@ -547,7 +547,7 @@ migrate = (state) ->
                     kson_blob = "(tag:#{tag})"
 
                 # The new key where the votes will be stored
-                votes_new = state.get "user/#{userid}/votes"
+                votes_new = state.get "@#{userid}/votes"
                 votes_new.arr ?= []
                 # Get the current list of votes and iterate over it
                 votes_old = state.get k
@@ -555,8 +555,8 @@ migrate = (state) ->
                     .filter (v) -> v.key? and v.user? and v.target?
                     .forEach (v) ->
                         new_vote = 
-                            key: "user/#{userid}/vote/#{parse.unslash v.target}#{kson_blob}"
-                            user_key: "user/#{userid}"
+                            key: "@#{userid}/vote/#{parse.unslash v.target}#{kson_blob}"
+                            user_key: "@#{userid}"
                             target_key: parse.unslash v.target
                             value: v.value
                             updated: v.updated
@@ -713,7 +713,7 @@ function free_the_cors (req, res, next) {
 `
 
 restore_pass = (name, newpass) ->
-  user = bus.get("user/#{name}")
+  user = bus.get("@#{name}")
   console.log('############# Restoring pass for ', name)
   user.pass = require('bcrypt-nodejs').hashSync(newpass)
   console.log('############# Now user is ', user)

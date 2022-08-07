@@ -4,7 +4,7 @@
     "chokidar": "^3.5.2",
     "coffeescript": "^2.6.1",
     "sharp": "^0.30.7",
-    "statebus": "^7.0.6",
+    "statebus": "^7.0.7",
     "terser": "^5.14.2"
   }
 }

@@ -11,7 +11,7 @@ compute_score = (p) ->
 sort_posts = (posts, user, tag) ->
     c = fetch "/current_user"
 
-    me = slash (user ? c.user?.key ? "/user/default")
+    me = slash (user ? c.user?.key ? "/@default")
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
         
     if loading()

@@ -75,7 +75,7 @@
             when path == "/users"
                 v.page = "users"
                 v.title = "Users"
-            when path.startsWith "/user/"
+            when path.startsWith "/@"
                 v.user_key = path
                 v.page = "posts"
 
@@ -143,7 +143,7 @@
         c = bus.get "/current_user"
         v = bus.get "view"
 
-        username = v.user_key ? c?.user?.key ? "/user/default" 
+        username = v.user_key ? c?.user?.key ? "/@default" 
         params = 
             computed: true
             tag: v.tag
@@ -172,12 +172,12 @@
 
     r = () ->
         parser = PPPParser bus
-        parser("weights/user/<userid>").to_get = (key, t) ->
+        parser("weights/@<userid>").to_get = (key, t) ->
             {userid} = t._path
             {tag, untagged} = t._params
             blob = stringify_kson {computed: true, tag: tag, untagged}
 
-            votes = bus.get "/user/#{userid}/votes/people#{blob}"
+            votes = bus.get "/@#{userid}/votes/people#{blob}"
             weights_ret = {key: key}
             (votes.arr ? []).forEach (v) ->
                 bus.get v
@@ -185,7 +185,7 @@
 
 
             if tag
-                ((bus.get "/user/#{userid}/votes/people(computed,untagged)").arr ? []).forEach (v) ->
+                ((bus.get "/@#{userid}/votes/people(computed,untagged)").arr ? []).forEach (v) ->
                     unless weights_ret[v.target_key]?
                         bus.get v
                         weights_ret[v.target_key] = 2 * v.value - 1
@@ -196,7 +196,7 @@
             {postid} = t._path
             {user, tag} = t._params
 
-            user ?= "/user/default"
+            user ?= "/@default"
 
             weights = bus.get "weights/#{unslash user}#{stringify_kson {tag}}"
                 
@@ -255,16 +255,16 @@
 
 <!-- Configure the statebus -->
 <script>
-  // window.get = bus.get
-  // window.set = bus.set
-  //window.fetch = bus.get
-  //window.save = bus.set
-  // window.delete = bus.delete
+  // window.get = bus.get        // Apparently get and set are coffeescript
+  // window.set = bus.set        // keywords.
+  // window.fetch = bus.get      // And fetch() is now a web standard.
+  // window.save = bus.set       // So there isn't as much value in making
+  // window.delete = bus.delete  // any of these global variables anymore.
   window.loading = bus.loading
   bus.libs.http_out('/*', '/')
   bus.libs.react17.coffreact()
   bus.libs.localstorage('ls_*')
-  window.state = bus.state
+  window.state = bus.state       // But I think this is a nice global variable!
   bus.honk = 3
 </script>
 
@@ -290,5 +290,5 @@
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" sizes="any">
-ppp</head>
+</head>
 </html>

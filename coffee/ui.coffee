@@ -8,7 +8,7 @@ dom.POSTS = ->
     posts = (bus.get "/posts#{stringify_kson tag: v.tag}").arr ? []
 
     # User who's viewing the posts
-    username = v.user_key ? c?.user?.key ? "/user/default"
+    username = v.user_key ? c?.user?.key ? "/@default"
     min_weight = (if c.logged_in then (bus.get c.user)?.filter) ? -0.2
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
@@ -963,7 +963,7 @@ dom.X_OF_Y = ->
         },
 
         if @local.pers
-            viewing_user = c?.user?.key ? "/user/default"
+            viewing_user = c?.user?.key ? "/@default"
             weights = bus.get "weights/#{unslash viewing_user}"
 
             users = (bus.get("/users").all ? [])
@@ -1453,7 +1453,7 @@ dom.USERS = ->
     bus.set @local
 
     if @local.sort == "top"
-        user = c?.user?.key ? "/user/default"
+        user = c?.user?.key ? "/@default"
         weights = bus.get "weights/#{unslash user}"
 
     sort_func = switch @local.sort

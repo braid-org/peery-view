@@ -316,7 +316,7 @@ dom.SLIDER_TOOLTIP = ->
 
     # Ok, maybe we waste time fetching info for the default user.
     # Maybe find a cleaner way to cancel rendering?
-    user = bus.get (target ? local.hover_target_key ? "/user/default")
+    user = bus.get (target ? local.hover_target_key ? "/@default")
     # Pulled from avatar.coffee
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2))
 
@@ -367,7 +367,7 @@ dom.HISTOGRAM = ->
 
   you = your_key?()
   view = bus.get "view"
-  opinion_weights = bus.get "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
+  opinion_weights = bus.get "weights#{you ? '/@default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
@@ -453,7 +453,7 @@ dom.HISTOGRAM.refresh = ->
     you = your_key?()
 
     view = bus.get "view"
-    opinion_weights = bus.get "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
+    opinion_weights = bus.get "weights#{you ? '/@default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
     hash = (opinion_weights[v.user_key] * v.value for v in sldr.arr when v.user_key of opinion_weights)
     cache_key = md5([@props.width, @props.height, hash, you])
