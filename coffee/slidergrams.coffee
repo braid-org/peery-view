@@ -351,7 +351,7 @@ dom.SLIDER_TOOLTIP = ->
 
             name
 
-####
+# ###
 # Histogram
 #
 # Controls the display of the users arranged on a histogram. 

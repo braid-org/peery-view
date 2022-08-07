@@ -8,8 +8,8 @@ dom.POSTS = ->
     posts = (bus.get "/posts#{stringify_kson tag: v.tag}").arr ? []
 
     # User who's viewing the posts
-    username = v.user_key ? c?.user?.key ? "/@default"
-    min_weight = (if c.logged_in then (bus.get c.user)?.filter) ? -0.2
+    username = v.user_key ? c.val?.user?.link ? "/@default"
+    min_weight = (if c.val.logged_in then (bus.get c.val.user.link)?.filter) ? -0.2
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
 
@@ -103,7 +103,7 @@ dom.POST = ->
         functional_url = ""
     
     time_string = prettyDate(post.time * 1000)
-    user_clickable = c.logged_in and (c.user.key != author.key)
+    user_clickable = c.val.logged_in and (c.val.user.link != author.key)
 
     DIV
         margin: "5px 0"
@@ -151,7 +151,7 @@ dom.POST = ->
                 color: "#999"
                 fontSize: "12px"
                 cursor: "pointer"
-                display: unless c?.user?.key == post?.user_key and @local.expanded then "none"
+                display: unless c.val?.user?.link == post?.user_key and @local.expanded then "none"
                 onClick: () -> del post.key
                 "Delete post"
 
@@ -179,7 +179,7 @@ dom.POST = ->
                         width: slider_width
                         height: slider_height
                         max_avatar_radius: slider_height / 2
-                        read_only: !c.logged_in
+                        read_only: !c.val.logged_in
                 else
                     SLIDERGRAM
                         key: "slidergram"
@@ -187,10 +187,10 @@ dom.POST = ->
                         width: slider_width
                         height: slider_height
                         max_avatar_radius: slider_height / 2
-                        read_only: !c.logged_in
+                        read_only: !c.val.logged_in
                         vote_key: "user_key"
                         onsave: (vote) =>
-                            vote.key = "#{c.user.key}/vote/#{unslash post.key}"
+                            vote.key = "#{c.val.user.link}/vote/#{unslash post.key}"
                             vote.target_key = post.key
                             bus.set vote
 
@@ -339,7 +339,7 @@ dom.TAGS = ->
                         width: slider_width
                         height: slider_height
                         max_avatar_radius: slider_height / 2
-                        read_only: !c.logged_in
+                        read_only: !c.val.logged_in
         if too_many_tags
             SPAN
                 key: "too-many-tags"
@@ -527,7 +527,7 @@ dom.COMMENTS = ->
         alignContent: "stretch"
         style: @props.style
 
-        if c.logged_in
+        if c.val.logged_in
             # Post-a-comment
             DIV
                 key: "post-comment"
@@ -537,7 +537,7 @@ dom.COMMENTS = ->
 
                 AVATAR
                     key: "my-avatar"
-                    user: c.user.key
+                    user: c.val.user.link
                     hide_tooltip: yes
                     marginRight: "8px"
                     style:
@@ -571,7 +571,7 @@ dom.COMMENTS = ->
                                 key: "#{post}/comment/#{uid}"
                                 body: body
                                 post_key: post
-                                user_key: c.user.key
+                                user_key: c.val.user.link
                                 #parent_key: null
                                 # Store post time in seconds, not ms
                                 time: Math.floor (Date.now() / 1000)
@@ -684,7 +684,7 @@ dom.COMMENT = ->
                             bus.set @local
                         "reply"
                     
-                    if c.user?.key == com.user_key
+                    if c.val.user?.link == com.user_key
                         SPAN
                             key: "modify"
                             gridArea: "modify"
@@ -769,7 +769,7 @@ dom.COMMENT = ->
                     AVATAR
                         key: "my-avatar"
                         gridArea: "avatar"
-                        user: c.user.key
+                        user: c.val.user
                         hide_tooltip: yes
                         marginRight: "3px"
                         style:
@@ -811,7 +811,7 @@ dom.COMMENT = ->
                                     key: "#{com.post_key}/comment/#{uid}"
                                     body: body
                                     post_key: com.post_key
-                                    user_key: c.user.key
+                                    user_key: c.val.user.link
                                     parent_key: com.key
                                     # Store post time in seconds, not ms
                                     time: Math.floor (Date.now() / 1000)
@@ -873,13 +873,13 @@ dom.HEADER = ->
                 key: "post"
                 margin: 10
                 cursor: "pointer"
-                display: unless c.logged_in then "none"
+                display: unless c.val.logged_in then "none"
                 onClick: () => 
                     @local.modal = if @local.modal == "post" then false else "post"
                     bus.set @local
                 "Post"
 
-            if c.logged_in
+            if c.val.logged_in
                 SPAN
                     key: "user"
                     cursor: "pointer"
@@ -892,10 +892,10 @@ dom.HEADER = ->
                         key: "name"
                         marginLeft: 14
                         marginRight: 4
-                        c.user.name
+                        bus.get(c.val.user.link).name
                     AVATAR
                         key: "avatar"
-                        user: c.user
+                        user: c.val.user
                         hide_tooltip: true
                         style:
                             borderRadius: "50%"
@@ -963,7 +963,7 @@ dom.X_OF_Y = ->
         },
 
         if @local.pers
-            viewing_user = c?.user?.key ? "/@default"
+            viewing_user = c.val?.user?.link ? "/@default"
             weights = bus.get "weights/#{unslash viewing_user}"
 
             users = (bus.get("/users").all ? [])
@@ -1016,7 +1016,7 @@ dom.X_OF_Y = ->
                             whiteSpace: "nowrap"
                             # Put "You" instead of your own username
                             switch user.key
-                                when c?.user?.key then "You"
+                                when c.val?.user?.link then "You"
                                 else user.name ? user.key[6..]
 
         else
@@ -1156,14 +1156,14 @@ dom.SUBMIT_POST = ->
     @local.typed ?= false
 
     c = bus.get "/current_user"
-    unless c.logged_in
+    unless c.val.logged_in
         return
 
     form_submit = =>
         title = @refs["post-title"]
         link = @refs["post-url"]
         if title.value.length > 1 and link.value.length > 1
-            make_post title.value, link.value, c.user.key
+            make_post title.value, link.value, c.val.user.link
             title.value = ""
             link.value = ""
 
@@ -1179,7 +1179,7 @@ dom.SUBMIT_POST = ->
 
         AVATAR
             key: "avatar"
-            user: c.user
+            user: c.val.user
             hide_tooltip: true
             gridArea: "icon"
             style:
@@ -1244,7 +1244,7 @@ dom.LOGIN = ->
     c = bus.get "/current_user"
     # We use this check to keep the modal open if login failed
     # More precisely, only close it if login succeeded.
-    if c.logged_in and @local.login_attempted
+    if c.val.logged_in and @local.login_attempted
         @local.login_attempted = false
         bus.set @local
         @props.close?()
@@ -1268,10 +1268,10 @@ dom.LOGIN = ->
         DIV
             key: "error"
             gridArea: "error"
-            display: "none" unless c.error
+            display: "none" unless c.val.error
             fontSize: "12px"
             color: "red"
-            c.error
+            c.val.error
         INPUT
             key: "login-name"
             id: "login-name"
@@ -1294,12 +1294,12 @@ dom.LOGIN = ->
             onClick: (e) =>
                 name = @refs["login-name"].value
                 pw = @refs["login-pw"].value
-                c.create_account =
+                c.val.create_account =
                     name: name
                     pass: pw
                 bus.set c
-                delete c.create_account
-                c.login_as =
+                delete c.val.create_account
+                c.val.login_as =
                     name: name
                     pass: pw
                 @local.login_attempted = true
@@ -1315,7 +1315,7 @@ dom.LOGIN = ->
             onClick: (e) =>
                 name = @refs["login-name"].value
                 pw = @refs["login-pw"].value
-                c.login_as =
+                c.val.login_as =
                     name: name
                     pass: pw
                 @local.login_attempted = true
@@ -1328,7 +1328,7 @@ dom.LOGIN = ->
 # The modal for the logged-in user's settings
 dom.SETTINGS = ->
     c = bus.get "/current_user"
-    unless c.logged_in
+    unless c.val.logged_in
         return
     DIV
         width: "300"
@@ -1353,7 +1353,7 @@ dom.SETTINGS = ->
             key: "name-change"
             gridArea: "namefield"
             ref: "name"
-            value: c.user.name
+            value: bus.get(c.val.user.link).name
             id: "name-change"
 
         DIV
@@ -1366,7 +1366,7 @@ dom.SETTINGS = ->
             key: "email-change"
             gridArea: "emailfield"
             ref: "email"
-            value: c.user.email
+            value: bus.get(c.val.user.link).email
             id: "email-change"
             type: "email"
 
@@ -1380,7 +1380,7 @@ dom.SETTINGS = ->
             key: "pic-change"
             gridArea: "picfield"
             ref: "pic"
-            value: c.user.pic
+            value: bus.get(c.val.user.link).pic
             placeholder: "http://..."
             id: "pic-change"
         DIV
@@ -1393,7 +1393,7 @@ dom.SETTINGS = ->
             key: "filter-change"
             gridArea: "filterfield"
             ref: "filter"
-            value: c.user.filter
+            value: bus.get(c.val.user.link).filter
             placeholder: -0.2
             id: "filter-change"
             type: "number"
@@ -1411,7 +1411,7 @@ dom.SETTINGS = ->
             gridArea: "logout"
             onClick: () =>
                 @props.close?()
-                c.logout = true
+                c.val.logout = true
                 bus.set c
             "Logout"
 
@@ -1428,12 +1428,13 @@ dom.SETTINGS = ->
                 if isNaN filter
                     filter = -0.2
 
-                c.user.name = name
-                c.user.email = email
-                c.user.pic = pic
-                c.user.filter = filter
+                user = bus.get(c.val.user.link)
+                user.name = name
+                user.email = email
+                user.pic = pic
+                user.filter = filter
 
-                bus.set c.user
+                bus.set user
                 
                 # Close the settings box
                 @props.close?()
@@ -1453,7 +1454,7 @@ dom.USERS = ->
     bus.set @local
 
     if @local.sort == "top"
-        user = c?.user?.key ? "/@default"
+        user = c.val?.user?.link ? "/@default"
         weights = bus.get "weights/#{unslash user}"
 
     sort_func = switch @local.sort
@@ -1463,7 +1464,7 @@ dom.USERS = ->
         else (a, b) -> 0
 
     users = ((bus.get "/users").all ? [])
-        .filter (u) -> u.key != c?.user?.key
+        .filter (u) -> u.key != c.val?.user?.link
         .sort sort_func
     DIV
         key: "users"
@@ -1560,10 +1561,10 @@ dom.USER = ->
                     width: slider_width
                     height: slider_height
                     max_avatar_radius: slider_height / 2
-                    read_only: !c.logged_in
+                    read_only: !c.val.logged_in
                     vote_key: "user_key"
                     onsave: (vote) =>
-                        vote.key = "#{c.user.key}/vote/#{unslash user.key}"
+                        vote.key = "#{c.val.user.link}/vote/#{unslash user.key}"
                         vote.target_key = user.key
                         bus.set vote
 

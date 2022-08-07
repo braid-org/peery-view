@@ -4,19 +4,24 @@ dom.AVATAR = ->
     @props.style ||= {}
     @props.hide_tooltip ||= false
     
-
-    user = @props.user
+    user = bus.get(@props.user.link)
     if (typeof @props.user == 'string') or @props.user.key
         user = fetch(@props.user)
     # else it is a connection possibly just with a name
     
     add_initials = @props.add_initials ? !user?.pic
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2)) ? 'Anonymous'
-    extend @props,
-        'data-user': name
-        'data-showtooltip': !@props.hide_tooltip
-        'data-color': @props.color
-        'draggable': 'false'
+
+    # XXX Fix this:
+    # I removed the extend props thing here, because React now fails when you
+    # have unsanctioned attributes (like "read_only") on a DIV, which were
+    # inheriting from @props.  But I prolly threw out the baby with the
+    # bathwater by removing the extend(@props entirely.
+    # extend @props,
+    #     'data-user': name
+    #     'data-showtooltip': !@props.hide_tooltip
+    #     'data-color': @props.color
+    #     'draggable': 'false'
     @props.style["--label"] = "\"#{name}\""
     @props.style.color ?= "white"
 
@@ -63,7 +68,10 @@ dom.AVATAR = ->
             display: "flex"
             justifyContent: "center"
             alignItems: "center"
-            @props...
+            # TODO:
+            # Bring back the props here that matter, but react is bitching
+            # that hide_tooltip shouldn't go onto this span.
+            # @props...
         },
     
         SPAN

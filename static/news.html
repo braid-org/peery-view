@@ -143,7 +143,7 @@
         c = bus.get "/current_user"
         v = bus.get "view"
 
-        username = v.user_key ? c?.user?.key ? "/@default" 
+        username = v.user_key ? c.val?.user?.key ? "/@default"
         params = 
             computed: true
             tag: v.tag
@@ -159,7 +159,7 @@
                 width: w
                 height: 130
                 max_avatar_radius: 60
-                read_only: (v.user_key) or !c.logged_in
+                read_only: (v.user_key) or !c.val.logged_in
                 onsave: (vote) ->
                     # Wait, why do we need to do this on a copy?
                     copy = Object.assign {}, vote
