@@ -47,6 +47,13 @@
     }
 
 
+    .post-title {
+        font-size: 16px;
+    }
+    .mobile-show {
+        display: none;
+    }
+
     .post-main-grid {
         grid: "icon title       slider more" auto
               "icon domain_time slider more" 16px
@@ -60,15 +67,6 @@
               "icon joined     slider more" 16px
             /  50px  1fr        225px  50px;
         width: min(700px, calc(100vw - 50px));
-    }
-    .post-title {
-        font-size: 16px;
-    }
-    .header {
-        padding: 10px 45px;
-    }
-    .mobile-show {
-        display: none;
     }
     
     @media only screen and (max-width: 650px) {
@@ -91,8 +89,8 @@
         .grid-slider {
             justify-self: center;
         }
-        .header {
-            padding: 0 15px 8px 15px;
+        div[data-key=actual-header] {
+            padding: 0 15px 8px 15px !important;
         }
         .mobile-hide {
             display: none;
@@ -102,6 +100,25 @@
         }
         .mobile-rotate {
             transform: rotate(-90deg);
+        }
+        .x-of-y {
+            max-width: calc(100vw - 80px);
+        }
+        .rolodex-entry {
+            background: rgba(255, 255, 255, 0.8);
+        }
+        div[data-widget=POST], div[data-widget=USER] {
+            margin-bottom: 1em !important;
+        }
+        div[data-key=lr-panels-container] {
+            flex-direction: column !important;
+        }
+        div[data-widget=POST_DETAILS] {
+            width: calc(100vw - 50px) !important;
+            margin-top: 10px !important;
+        }
+        span[data-key=tag-text] {
+            font-size: 14px !important;
         }
     }
 

@@ -142,6 +142,7 @@ dom.POST = ->
 
             SPAN
                 key: "delete-btn"
+                className: "mobile-hide"
                 gridArea: "delete"
                 color: "#999"
                 fontSize: "12px"
@@ -194,7 +195,7 @@ dom.POST = ->
                 key: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons-outlined md-dark mobile-rotate"
+                className: "material-icons-outlined md-dark"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"
@@ -831,11 +832,11 @@ dom.HEADER = ->
         width: "100%"
         DIV
             key: "actual-header"
-            className: "header"
             ref: "header"
             display: "flex"
             flexDirection: "row"
             alignItems: "center"
+            padding: "10px 45px"
             color: "#444"
             zIndex: 5
 
@@ -900,8 +901,8 @@ dom.HEADER = ->
                         hide_tooltip: true
                         style:
                             borderRadius: "50%"
-                            width: 45
-                            height: 45
+                            width: 40
+                            height: 40
                             overflow: "hidden"
             else
                 SPAN
@@ -955,6 +956,7 @@ dom.X_OF_Y = ->
     c = fetch "/current_user"
     DIV {
             display: "flex"
+            className: "x-of-y"
             flexDirection: "row"
             alignItems: "flex-start"
             justifyContent: "left"
@@ -1110,6 +1112,7 @@ dom.ROLODEX = ->
         transform: "translateY(-2.4em)"
         lineHeight: 1.2
         overflowY: "auto"
+        overflowX: "hidden"
         scrollBehavior: "smooth"
         style: scrollSnapType: "y mandatory"
         onScroll: () =>
@@ -1135,6 +1138,7 @@ dom.ROLODEX = ->
                         @refs.dropdown?.getDOMNode?()?.scrollTo top: scrolltop
                 style: if i < n_users - 2 then scrollSnapAlign: "start"
                 height: 24
+                className: "rolodex-entry"
 
 
         scrollOffset lineHeight: 5
@@ -1576,7 +1580,7 @@ dom.USER = ->
                 ref: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons-outlined md-dark mobile-rotate"
+                className: "material-icons-outlined md-dark"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"

@@ -228,6 +228,8 @@ implements_slide_draggable = (sldr, props, target, width, args) ->
         onTouchStart: (e) =>
             e.preventDefault()
             start_slide sldr, width, target, args
+        # ensures that dragging the slider doesn't accidentally scroll or zoom the page
+        touchAction: "none"
     props
 
 
