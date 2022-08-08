@@ -892,6 +892,7 @@ dom.HEADER = ->
                         key: "name"
                         marginLeft: 14
                         marginRight: 4
+                        overflow: "hidden"
                         c.user.name
                     AVATAR
                         key: "avatar"
@@ -901,6 +902,7 @@ dom.HEADER = ->
                             borderRadius: "50%"
                             width: 45
                             height: 45
+                            overflow: "hidden"
             else
                 SPAN
                     key: "user"
