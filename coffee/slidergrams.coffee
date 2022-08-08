@@ -392,6 +392,7 @@ dom.HISTOGRAM = ->
       continue if (opinion_weights and (opinion.user_key not of opinion_weights )) or (opinion.user_key == you)
       fetch opinion
       size = local_sldr.layout[opinion[@props.vote_key]]
+      continue unless opinion.value? and size?.width? and size?.left?
 
       props =
         key: "histo-avatar-#{opinion[@props.vote_key]}"
@@ -402,12 +403,12 @@ dom.HISTOGRAM = ->
         "data-target": opinion[@props.vote_key]
         style:
           # cached width/height/left/top
-          width: size?.width or 50
-          height: size?.width or 50
-          top: size?.top or 0
-          left: size?.left or 0
+          width: size.width 
+          height: size.width
+          top: size.top
+          left: size.left
           opacity: if focus_on_dragging then .4
-          filter: if  focus_on_dragging then 'grayscale(80%)'
+          filter: if focus_on_dragging then 'grayscale(80%)'
 
       AVATAR props
 

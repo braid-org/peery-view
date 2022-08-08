@@ -94,8 +94,8 @@ dom.MULTIHISTOGRAM = ->
         #continue if !opinion.user || (opinion_weights && opinion.user not of opinion_weights ) # && you != opinion.user)
         continue if opinion.depth == 0
         fetch opinion
-
         size = local_sldr.layout[opinion.target_key]
+        continue unless opinion.value? and size?.left? and size?.width?
         
         dragged = local_sldr.target_key == opinion.target_key
         props = 
@@ -110,12 +110,10 @@ dom.MULTIHISTOGRAM = ->
             "data-target": opinion.target_key
             style: 
                 # Size of the avatar
-                width: size?.width or 50
-                height: size?.width or 50
+                width: size.width
+                height: size.width
                 # Where to position it
-                transform: "translate(#{size?.left or 0}px, #{size?.top or 0}px)"
-                # This is unnecessary unless we're using transform for size as well
-                transformOrigin: "top left"
+                transform: "translate(#{size.left}px, #{size.top}px)"
                 # If there's a dragged avatar or we're an implicit vote, gray out
                 opacity: if (dragging or opinion.depth != 1) then 0.4
                 filter: if (dragging or opinion.depth != 1) then 'grayscale(80%)'
