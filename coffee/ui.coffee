@@ -107,8 +107,8 @@ dom.POST = ->
 
     DIV
         margin: "5px 0"
-        padding: "5px 10px"
-        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        padding: "5px 0"
+        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
         position: "relative"
         zIndex: if @local.expanded then 5
 
@@ -118,8 +118,8 @@ dom.POST = ->
             grid: "\"icon title slider more\" auto
                    \"icon domain_time slider more\" 16px
                    \".  delete . .\" auto
-                    / 1fr #{inner_width - slider_width}px #{slider_width}px 1fr"
-            width: outer_width
+                    / 50px 1fr #{slider_width}px 50px"
+            width: "min(#{outer_width}px, calc(100vw - 50px))"
             alignItems: "center"
 
             AVATAR_WITH_SLIDER
@@ -831,15 +831,16 @@ dom.HEADER = ->
         ref: "headercontainer"
         position: "relative"
         zIndex: 10
-        width: outer_width
+        maxWidth: outer_width + 100
+        width: "100%"
         DIV
             key: "actual-header"
             ref: "header"
             display: "flex"
             flexDirection: "row"
             alignItems: "center"
-            background: "#def"
-            padding: "10px #{(outer_width - inner_width)/2}px"
+#            background: "#def"
+            padding: "10px 45px"
             color: "#444"
             zIndex: 5
 
@@ -922,7 +923,7 @@ dom.HEADER = ->
             marginTop: 10
             padding: 10
             background: "white"
-            boxShadow: "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+            boxShadow: "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
 
             close = () =>
                 @local.modal = false
@@ -1505,21 +1506,20 @@ dom.USER = ->
         # should we preventdefault?
         unless @refs?.container?.getDOMNode?()?.contains?(e.target)
             @local.expanded = false
-            console.log "Unexpanding #{user.key}"
             save @local
 
     DIV
         margin: "5px 0"
-        padding: "5px 10px"
-        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.15) 0px 1px 5px 1px"
+        padding: "5px 0"
+        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
         ref: "container"
         DIV
             key: "user-main"
             display: "grid"
-            width: outer_width
+            width: "min(#{outer_width - 100}px, calc(100vw - 50px))"
             grid: "\"icon name slider more\" auto
                    \"icon joined slider more\" 16px
-                    / 1fr #{inner_width - slider_width}px #{slider_width}px 1fr"
+                    / 50px 1fr #{slider_width}px 50px"
             alignItems: "center"
 
             AVATAR
@@ -1579,7 +1579,6 @@ dom.USER = ->
                 textAlign: "center"
                 onClick: () => 
                     @local.expanded = !@local.expanded
-                    console.log "toggling #{user.key}"
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
 

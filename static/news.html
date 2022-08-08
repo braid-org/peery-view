@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset=UTF-8>
-            <!--<meta name=viewport content="width=device-width, initial-scale=1">-->
+<meta name=viewport content="width=650, initial-scale=1">
 <title>PeeryView</title>
 <style>
     body {
@@ -46,13 +46,20 @@
         scrollbar-width: none;
     }
 
+    /*
+    @media only screen and (max-width: 650px) {
+        body {
+            background: red;
+        }
+    }*/
+
 </style>
 
 <script type=coffee>
     window.outer_width = 800
-    window.inner_width = 700
-    window.slider_width = 220
-    window.slider_height = (outer_width - inner_width) / 2 - 10
+    window.inner_width = 650
+    window.slider_width = 225
+    window.slider_height = 45
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"

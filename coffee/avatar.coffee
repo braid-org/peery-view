@@ -63,6 +63,7 @@ dom.AVATAR = ->
             display: "flex"
             justifyContent: "center"
             alignItems: "center"
+            flexShrink: 0
             @props...
         },
     
