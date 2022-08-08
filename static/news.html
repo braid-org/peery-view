@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset=UTF-8>
-<meta name=viewport content="width=650, maximum-scale=5">
+<meta name=viewport content="width=device-width, initial-scale=1">
 <title>PeeryView</title>
 <style>
     body {
@@ -46,12 +46,64 @@
         scrollbar-width: none;
     }
 
-    /*
+
+    .post-main-grid {
+        grid: "icon title       slider more" auto
+              "icon domain_time slider more" 16px
+              ".    delete       .     .   " auto
+            /  50px  1fr        225px  50px;
+        width: min(800px, calc(100vw - 50px));
+    }
+
+    .user-main-grid {
+        grid: "icon name       slider more" auto
+              "icon joined     slider more" 16px
+            /  50px  1fr        225px  50px;
+        width: min(700px, calc(100vw - 50px));
+    }
+    .post-title {
+        font-size: 16px;
+    }
+    .header {
+        padding: 10px 45px;
+    }
+    .mobile-show {
+        display: none;
+    }
+    
     @media only screen and (max-width: 650px) {
-        body {
-            background: red;
+
+        .post-main-grid {
+            grid: "icon title more" auto
+                  "icon domain_time more" 16px
+                  "slider   slider slider" auto
+                /  50px  1fr  30px;
+            width: calc(100vw - 20px);
         }
-    }*/
+
+        .user-main-grid {
+            grid: "icon name       more" auto
+                  "icon joined     more" 16px
+                  "slider slider slider" auto
+                /  50px  1fr       30px;
+            width: min(700px, calc(100vw - 50px));
+        }
+        .grid-slider {
+            justify-self: center;
+        }
+        .header {
+            padding: 0 15px 8px 15px;
+        }
+        .mobile-hide {
+            display: none;
+        }
+        .mobile-show {
+            display: unset;
+        }
+        .mobile-rotate {
+            transform: rotate(-90deg);
+        }
+    }
 
 </style>
 
@@ -134,6 +186,13 @@
             display: "flex"
             flexDirection: "column"
             alignItems: "center"
+
+            IMG
+                key: "peery-logo"
+                className: "mobile-show"
+                src: "/static/images/peeryicon.svg"
+                height: "2em"
+                marginTop: "1em"
             
             HEADER
                 key: "header"
@@ -160,6 +219,7 @@
 
         DIV
             width: w
+            className: "mobile-hide"
 
             MULTIGRAM
                 key: "multigram-inner"

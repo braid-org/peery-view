@@ -115,11 +115,7 @@ dom.POST = ->
         DIV
             key: "post-main"
             display: "grid"
-            grid: "\"icon title slider more\" auto
-                   \"icon domain_time slider more\" 16px
-                   \".  delete . .\" auto
-                    / 50px 1fr #{slider_width}px 50px"
-            width: "min(#{outer_width}px, calc(100vw - 50px))"
+            className: "post-main-grid"
             alignItems: "center"
 
             AVATAR_WITH_SLIDER
@@ -137,7 +133,6 @@ dom.POST = ->
                 key: "title"
                 className: "post-title"
                 gridArea: "title"
-                fontSize: "18px"
                 paddingRight: "10px"
                 lineHeight: 1.3
                 justifySelf: "stretch"
@@ -168,6 +163,7 @@ dom.POST = ->
             DIV
                 key: "post-votes-slider"
                 gridArea: "slider"
+                className: "grid-slider"
                 alignSelf: "start"
                 height: slider_height + 5
                 # If we're viewing with respect to a tag, apply the tag to the slidergram
@@ -198,7 +194,7 @@ dom.POST = ->
                 key: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons-outlined md-dark"
+                className: "material-icons-outlined md-dark mobile-rotate"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"
@@ -835,12 +831,11 @@ dom.HEADER = ->
         width: "100%"
         DIV
             key: "actual-header"
+            className: "header"
             ref: "header"
             display: "flex"
             flexDirection: "row"
             alignItems: "center"
-#            background: "#def"
-            padding: "10px 45px"
             color: "#444"
             zIndex: 5
 
@@ -850,6 +845,7 @@ dom.HEADER = ->
 
             SPAN
                 key: "home"
+                className: "mobile-hide"
                 margin: 10
                 cursor: "pointer"
                 onClick: () -> load_path "/"
@@ -857,6 +853,7 @@ dom.HEADER = ->
 
             A
                 key: "about"
+                className: "mobile-hide"
                 margin: 10
                 href: "/about"
                 color: "inherit"
@@ -865,6 +862,7 @@ dom.HEADER = ->
 
             SPAN
                 key: "users"
+                className: "mobile-hide"
                 margin: 10
                 cursor: "pointer"
                 onClick: () -> load_path "/users"
@@ -872,6 +870,7 @@ dom.HEADER = ->
 
             SPAN
                 key: "post"
+                className: "mobile-hide"
                 margin: 10
                 cursor: "pointer"
                 display: unless c.logged_in then "none"
@@ -955,8 +954,8 @@ dom.X_OF_Y = ->
     DIV {
             display: "flex"
             flexDirection: "row"
-            justifyContent: "left"
             alignItems: "flex-start"
+            justifyContent: "left"
             height: "1.3em"
             lineHeight: 1.2
             fontSize: 20
@@ -1194,7 +1193,6 @@ dom.SUBMIT_POST = ->
         INPUT
             key: "title"
             ref: "post-title"
-            className: "post-title"
             gridArea: "title"
             fontSize: "18px"
             paddingRight: "10px"
@@ -1516,6 +1514,7 @@ dom.USER = ->
         DIV
             key: "user-main"
             display: "grid"
+            className: "user-main-grid"
             width: "min(#{outer_width - 100}px, calc(100vw - 50px))"
             grid: "\"icon name slider more\" auto
                    \"icon joined slider more\" 16px
@@ -1535,6 +1534,7 @@ dom.USER = ->
             SPAN
                 key: "name"
                 gridArea: "name"
+                className: "post-title"
                 fontSize: "18px"
                 paddingRight: "10px"
                 justifySelf: "stretch"
@@ -1551,6 +1551,7 @@ dom.USER = ->
            
             DIV
                 key: "user-votes-slider"
+                className: "grid-slider"
                 gridArea: "slider"
                 alignSelf: "start"
                 height: slider_height + 5
@@ -1573,7 +1574,7 @@ dom.USER = ->
                 ref: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons-outlined md-dark"
+                className: "material-icons-outlined md-dark mobile-rotate"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"
