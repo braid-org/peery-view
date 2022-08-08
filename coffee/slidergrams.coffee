@@ -371,10 +371,14 @@ dom.HISTOGRAM = ->
   view = fetch "view"
   opinion_weights = fetch "weights#{you ? '/user/default'}#{stringify_kson {tag: view.tag, untagged: !view.tag}}"
 
+  # layout can be empty if the only vote is ours...
+  # layout can be empty if all the users who have voted have no weight
+  # Maybe put "No votes yet" if no one in your network has voted?
+
+  # have_layout = ((Object.keys(local_sldr.layout ? {}).length > 0) or !sldr?.arr?.length) and !@loading()
+  focus_on_dragging = local_sldr.dragging || local_sldr.tracking_mouse == 'activated'
 
   @calcRadius = @props.calculateAvatarRadius or calculateAvatarRadius
-
-  focus_on_dragging = local_sldr.dragging || local_sldr.tracking_mouse == 'activated'
 
   DIV extend(@props,
     ref: 'histo'

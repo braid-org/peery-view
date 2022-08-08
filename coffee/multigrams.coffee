@@ -79,6 +79,8 @@ dom.MULTIHISTOGRAM = ->
 
   dragging = local_sldr.dragging
 
+  have_layout = ((Object.keys(local_sldr.layout ? {}).length > 0) or !sldr?.arr?.length) and !@loading()
+
   DIV extend(@props,
     className: 'histogram'
     style:
@@ -161,6 +163,20 @@ dom.MULTIHISTOGRAM = ->
                 borderColor: if val >= 0.5 then color_positive else color_negative
 
         AVATAR props
+
+    
+    unless have_layout
+        SPAN
+            key: "loading"
+            position: "absolute"
+            bottom: @props.height / 2
+            left: @props.width / 2
+            transform: "translate(-50%, 50%)"
+            userSelect: "none"
+            fontSize: "#{Math.min(48, @props.height / 3)}px"
+            color: "#999"
+            "..."
+    
 
 
 dom.MULTIHISTOGRAM.refresh = ->
