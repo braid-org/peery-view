@@ -890,9 +890,9 @@ dom.HEADER = ->
 
                     SPAN
                         key: "name"
+                        className: "mobile-hide"
                         marginLeft: 14
                         marginRight: 4
-                        overflow: "hidden"
                         c.user.name
                     AVATAR
                         key: "avatar"
