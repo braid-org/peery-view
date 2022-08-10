@@ -149,9 +149,12 @@
         v = fetch "view"
         v.tag = v.user_key = v.page = null
         switch
+            # User list
             when path == "/users"
                 v.page = "users"
                 v.title = "Users"
+
+            # User perspective
             when path.startsWith "/user/"
                 v.user_key = path
                 v.page = "posts"
@@ -160,6 +163,8 @@
                     v.title = user.name
                     save v
                     document.title = format_title "#{v.title}'s view"
+
+            # Post details
             when path.startsWith "/post/"
                 v.post_key = path
                 v.page = "post_details"
@@ -169,7 +174,12 @@
                     save v
 
                     document.title = format_title v.title
+            # Search view
+            when path.startsWith "/search"
+                v.page = "search"
+                v.query = path[8..]
 
+            # Tag view
             when path.length > 2
                 v.tag = unslash path
                 v.page = "posts"
@@ -213,13 +223,18 @@
             
             HEADER
                 key: "header"
-            unless v?.page == "post_details"
+            unless v?.page == "post_details" or v?.page == "search"
                 BIG_MULTIGRAM
                     key: "multigram"
+
+            if v?.page == "search"
+                SEARCH_BOX
+                    key: "search"
 
             switch v?.page
                 when "users" then USERS key: "users"
                 when "post_details" then FULL_PAGE_POST key: "post", post: v.post_key
+                when "search" then POSTS_SEARCH key: "posts"
                 else POSTS key: "posts"
             
 

@@ -1,18 +1,21 @@
 # TODO: These should be arguments for the relevant elements
 # TODO: Should UI elements fetch global state or take arguments?
+color1 = "#681"
+color2 = "#c5b"
 
 ### === POST FEED === ###
 dom.POSTS = ->
     c = fetch "/current_user"
     v = fetch "view"
-    posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
-        .flter (p) -> (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
     min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
+
+    posts = ((fetch "/posts#{stringify_kson tag: v.tag}").arr ? [])
+        .filter (p) -> (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
 
     two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
     # Recent posts with a positive score, sorted by time
@@ -70,6 +73,8 @@ dom.POSTS = ->
             POST
                 post: post.key
                 key: unslash post.key
+
+
 
 # The layout for a single post, including slidergram and such
 dom.POST = ->
@@ -821,6 +826,12 @@ dom.COMMENT = ->
 # The BEEG header
 dom.HEADER = ->
     c = fetch "/current_user"
+    v = fetch "view"
+
+    static_titles = 
+        post_details: ["Your", "view of a", "post"]
+        users: ["Your", "view of", "all users"]
+        search: ["Search", "for a", "post"]
    
     DIV
         ref: "headercontainer"
@@ -838,15 +849,39 @@ dom.HEADER = ->
             color: "#444"
             zIndex: 5
 
-            X_OF_Y
+            # Dynamic rolodex title
+            if v.page == "posts" then X_OF_Y
                 key: "title-dropdown"
                 flexGrow: 1
+            else
+                title = static_titles[v.page]
+                # Static title with colors
+                DIV
+                    key: "title-text"
+                    flexGrow: 1
+                    height: "1.3em"
+                    lineHeight: 1.2
+                    fontSize: 20
+
+                    SPAN
+                        key: "word-1"
+                        color: color1
+                        title[0]
+                    SPAN
+                        key: "word-2"
+                        whiteSpace: "pre"
+                        "  #{title[1]}  "
+                    SPAN
+                        key: "word-3"
+                        color: color2
+                        title[2]
 
             SPAN
                 key: "home"
                 className: "mobile-hide"
                 margin: 10
                 cursor: "pointer"
+                display: if v.page == "posts" then "none"
                 onClick: () -> load_path "/"
                 "Home"
 
@@ -864,8 +899,18 @@ dom.HEADER = ->
                 className: "mobile-hide"
                 margin: 10
                 cursor: "pointer"
+                display: if v.page == "users" then "none"
                 onClick: () -> load_path "/users"
                 "Users"
+
+            SPAN
+                key: "search"
+                className: "mobile-hide"
+                margin: 10
+                cursor: "pointer"
+                display: if v.page == "search" then "none"
+                onClick: () -> load_path "/search"
+                "Search"
 
             SPAN
                 key: "post"
@@ -1011,7 +1056,7 @@ dom.X_OF_Y = ->
                             
                         SPAN
                             key: "name"
-                            color: if selected then "#681"
+                            color: if selected then color1
                             textOverflow: "ellipsis"
                             overflow: "hidden"
                             maxWidth: "12ch"
@@ -1024,7 +1069,7 @@ dom.X_OF_Y = ->
         else
             SPAN
                 key: "pers-text"
-                color: "#681"
+                color: color1
                 cursor: "pointer"
                 onClick: () =>
                     @local.pers = true
@@ -1061,7 +1106,7 @@ dom.X_OF_Y = ->
 
                         SPAN
                             key: "the_tag"
-                            color: if selected then "#c5b"
+                            color: if selected then color2
                             textOverflow: "ellipsis"
                             overflow: "hidden"
                             maxWidth: "12ch"
@@ -1072,7 +1117,7 @@ dom.X_OF_Y = ->
         else
             SPAN
                 key: "cont-text"
-                color: "#c5b"
+                color: color2
                 cursor: "pointer"
                 textTransform: "capitalize"
                 onClick: () =>
@@ -1599,3 +1644,67 @@ dom.USER = ->
                 TAGS
                     key: "tags"
                     post: user
+
+### === SEARCHING === ###
+
+# A big searchbar widget
+dom.SEARCH_BOX = ->
+    v = fetch "view"
+
+    search = () =>
+        val = @refs?.searchbox?.getDOMNode?()?.value?.toString?()
+        if val?
+            v.query = val
+            save v
+
+    DIV
+        display: "flex"
+        flexDirection: "row"
+        justifyContent: "stretch"
+        padding: 10
+        width: inner_width
+
+        INPUT
+            key: "searchbox"
+            ref: "searchbox"
+            value: v.query
+            flexGrow: 1
+            fontSize: 18
+            lineHeight: 1.4
+            padding: "2px 4px"
+            onChange: (e) -> v.query = e.target.value
+            onKeyDown: (e) -> if e.keyCode == 13 then search()
+
+        BUTTON
+            key: "submit"
+            onClick: search
+            marginLeft: 10
+            fontSize: 16
+            lineHeight: 1.4
+            padding: "4px 8px"
+
+            "Search"
+        
+    
+# S
+dom.POSTS_SEARCH = ->
+    c = fetch "/current_user"
+    v = fetch "view"
+
+
+    username = v.user_key ? c?.user?.key ? "/user/default"
+    score_kson = stringify_kson user: username
+
+    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+    # Should we even do filtering in search?
+    posts = ((fetch "/posts").arr ? [])
+        .filter (p) -> ((fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight) and
+                       (v.query.length) and
+                       (p.title.toLowerCase().includes v.query.toLowerCase())
+    
+    DIV
+        key: "posts"
+        posts.map (post) ->
+            POST
+                post: post.key
+                key: unslash post.key
