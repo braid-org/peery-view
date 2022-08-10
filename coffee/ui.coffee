@@ -6,6 +6,7 @@ dom.POSTS = ->
     c = fetch "/current_user"
     v = fetch "view"
     posts = (fetch "/posts#{stringify_kson tag: v.tag}").arr ? []
+        .flter (p) -> (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
@@ -15,16 +16,13 @@ dom.POSTS = ->
 
     two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
     # Recent posts with a positive score, sorted by time
-    posts_recent = posts.filter (p) ->
-            (p.time > two_weeks_ago) and 
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > 0.1 # TODO: Tune this
+    posts_recent = posts
+        .filter (p) -> (p.time > two_weeks_ago)
         .sort (a, b) -> b.time - a.time
 
     # Older posts, sorted by score
-    posts_old = posts.filter (p) -> 
-            (p.time <= two_weeks_ago) and 
-            # Cut the list off at some point. TODO: Paging
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
+    posts_old = posts
+        .filter (p) -> (p.time <= two_weeks_ago)
         .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
 
     
