@@ -13,65 +13,139 @@ dom.POSTS = ->
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
 
+    @local.N_new ?= 10
+    @local.N_hot ?= 10
+    @local.C_new ?= false
+    @local.C_hot ?= false
+    save @local
+    
+    # TODO: Optimize resorting/filtering when more posts are loaded
+    posts_time_sort = Array.from posts
+        .filter (p) -> (fetch("score#{p.key}#{score_kson}").score ? 0) > min_weight
+        .sort (a, b) -> b.time - a.time
+
+    posts_new = posts_time_sort[...@local.N_new]
+    posts_not_new = posts_time_sort[@local.N_new..]
+        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").hot ? 0) - (fetch("score#{a.key}#{score_kson}").hot ? 0)
+
+    posts_hot = posts_not_new[...@local.N_hot]
+    posts_top = posts_not_new[@local.N_hot..]
+        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").score ? 0) - (fetch("score#{a.key}#{score_kson}").score ? 0)
+
+
+
+    ###
     two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
     # Recent posts with a positive score, sorted by time
     posts_recent = posts.filter (p) ->
             (p.time > two_weeks_ago) and 
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > 0.1 # TODO: Tune this
+            (fetch("score#{p.key}#{score_kson}").score ? 0) > -0.1
         .sort (a, b) -> b.time - a.time
 
     # Older posts, sorted by score
     posts_old = posts.filter (p) -> 
             (p.time <= two_weeks_ago) and 
             # Cut the list off at some point. TODO: Paging
-            (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
-        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
+            (fetch("score#{p.key}#{score_kson}").score ? 0) > min_weight
+        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").score ? 0) - (fetch("score#{a.key}#{score_kson}").score ? 0)
+    ###
 
+   
+    ### new idea:
+    We have score (sum of votes plus author weight) and hotscore (time-decayed)
+
+    ----- recent posts V ------ # collapsible
+      Post 1                    # Posts here are sorted by time, and filtered as score > filter
+      Post 2
+      ...
+      Post n                    # n <= N_new, for small N_new
+      [ Show more new posts]    # clickable, increases N_new
+    ----- hot posts    V ------ # also collapsible
+      Post 1                    # posts here are sorted by Hotscore, filtered as "not in recent posts, and score > filter"
+      Post 2
+      ...
+      Post n                    # n <= N_hot
+      
+      [ Load more hot posts ]   # increases N_hot
+    ----- top posts    V ------ # I guess collapsible but doesn't really matter?
+      Post 1                    # Posts are sorted by score, and filtered by "not in recent/hot posts, and score > filter"
+      Post 2
+      ...                       # Display arbitrarily many posts (lazy loading/infinite scrolling)
+
+    ###
     
     DIV
         key: "posts"
-        # Recent posts are displayed at the top
-        posts_recent.map (post) ->
-            POST
-                post: post.key
-                key: unslash post.key
 
-        # If there were no recent posts, don't show the time separator
-        if posts_recent.length
-            DIV
-                key: "sort-separator"
-                display: "flex"
-                flexDirection: "row"
-                justifyContent: "stretch"
-                alignItems: "center"
+        # New posts
+        if posts_new.length
+            SEPARATOR
+                key: "new-sep"
+                text: "Recent posts"
+                onClick: () =>
+                    @local.C_new = !@local.C_new
+                    save @local
 
-                # Blue line on the left
-                DIV
-                    key: "dummy1"
-                    flexGrow: 1
-                    height: 1.5
-                    background: "#36a"
-                    borderRadius: 1
+        unless @local.C_new
+            posts_new.map (post) ->
+                POST
+                    post: post.key
+                    key: "new" + post.key
 
-                SPAN
-                    key: "text"
-                    color: "#36a"
-                    margin: "0px 1ch"
-                    "Two weeks ago"
+        # Hot posts
+        if posts_hot.length
+            SEPARATOR
+                key: "hot-sep"
+                text: "Popular posts"
+                onClick: () =>
+                    @local.C_hot = !@local.C_hot
+                    save @local
 
-                # Blue line on the right
-                DIV
-                    key: "dummy2"
-                    flexGrow: 1
-                    height: 1.5
-                    background: "#36a"
-                    borderRadius: 1
+        unless @local.C_hot
+            posts_hot.map (post) ->
+                POST
+                    post: post.key
+                    key: "hot" + post.key
 
+        SEPARATOR
+            key: "top-sep"
+            text: "Top posts"
         # Older posts are displayed below the separator
-        posts_old.map (post) ->
+        posts_top.map (post) ->
             POST
                 post: post.key
-                key: unslash post.key
+                key: "top" + post.key
+
+dom.SEPARATOR = ->
+    DIV
+        display: "flex"
+        flexDirection: "row"
+        justifyContent: "stretch"
+        alignItems: "center"
+        cursor: if @props.onClick then "pointer"
+        onClick: @props.onClick
+
+        # Blue line on the left
+        DIV
+            key: "dummy1"
+            flexGrow: 1
+            height: 1.5
+            background: "#36a"
+            borderRadius: 1
+
+        SPAN
+            key: "text"
+            color: "#36a"
+            margin: "0px 1ch"
+            @props.text
+
+        # Blue line on the right
+        DIV
+            key: "dummy2"
+            flexGrow: 1
+            height: 1.5
+            background: "#36a"
+            borderRadius: 1
 
 # The layout for a single post, including slidergram and such
 dom.POST = ->

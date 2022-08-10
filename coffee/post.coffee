@@ -1,36 +1,15 @@
-###
 att_curve = (delta) ->
     xs = delta / (60*60*24*30)
     Math.max(1 / (xs*xs + 1), 0.1)
 
 compute_score = (p) ->
+    # compute the hot score
     sqsc = (Math.sqrt Math.abs p.score) * (if p.score > 0 then 1 else -1)
     att = att_curve p.age
-    sqsc + att + att * (sqsc + p.author)
- 
-sort_posts = (posts, user, tag) ->
-    c = fetch "/current_user"
-
-    me = slash (user ? c.user?.key ? "/user/default")
-    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
-        
-    if loading()
-        return posts
-
-    kson = stringify_kson tag: tag, user: me
-    scores = {}
-    posts.forEach (p) ->
-        score = fetch "score#{p.key}#{kson}"
-        scores[p.key] = score.value ? 0
-
-    # Filter posts:              based on the minimum score       or we made this post
-    posts.filter (v) -> (scores[v.key] > min_weight or v.user == me)
-    # Filter before sorting!!
-        .sort (a, b) -> scores[b.key] - scores[a.key]
-###
-
-compute_score = (p) ->
-    p.score + p.author
+    {
+        hot: sqsc + att + att * (sqsc + p.author)
+        score: p.score + p.author
+    }
 
 make_post = (title, url, userkey) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2)
