@@ -1652,10 +1652,11 @@ dom.SEARCH_BOX = ->
     v = fetch "view"
 
     search = () =>
-        val = @refs?.searchbox?.getDOMNode?()?.value?.toString?()
-        if val?
-            v.query = val
-            save v
+        v.query = @local.query
+        save v
+
+    @local.query ?= v.query
+    save @local
 
     DIV
         display: "flex"
@@ -1667,12 +1668,14 @@ dom.SEARCH_BOX = ->
         INPUT
             key: "searchbox"
             ref: "searchbox"
-            value: v.query
+            value: @local.query
             flexGrow: 1
             fontSize: 18
             lineHeight: 1.4
             padding: "2px 4px"
-            onChange: (e) -> v.query = e.target.value
+            onChange: (e) =>
+                @local.query = e.target.value
+                save @local
             onKeyDown: (e) -> if e.keyCode == 13 then search()
 
         BUTTON
