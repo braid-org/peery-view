@@ -32,7 +32,7 @@ sort_posts = (posts, user, tag) ->
 compute_score = (p) ->
     p.score + p.author
 
-make_post = (title, url, userkey) ->
+make_post = (props) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2)
     id = get_id()
     ###
@@ -45,9 +45,10 @@ make_post = (title, url, userkey) ->
     v = fetch "view"
     post =
         key: id
-        user_key: userkey
-        title: title
-        url: url
+        user_key: props.user
+        title: props.title
+        url: props.url
+        body: props.body
         time: Math.floor (Date.now() / 1000)
         tags: if v.tag then [v.tag]
 

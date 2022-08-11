@@ -80,7 +80,7 @@ dom.POSTS = ->
 dom.POST = ->
     post = @props.post
     # Subscribe to the post
-    if post?.key or typeof post == "string" then post = fetch post
+    if post?.key or typeof(post) == "string" then post = fetch post
     unless post.user_key?
         # The post has actually just been deleted.
         return
@@ -90,21 +90,25 @@ dom.POST = ->
     c = fetch '/current_user'
     v = fetch "view"
 
-    # Compute the pretty version of the url
-    url = if post.url.startsWith "javascript:" then "" else post.url
+    if post.url
+        # Compute the pretty version of the url
+        url = if post.url.startsWith "javascript:" then "" else post.url
 
-    pretty_url = url
-    functional_url = url
-    unless url.startsWith("https://") or url.startsWith("http://")
-        functional_url = "https://" + functional_url
-    try
-        the_url = new URL functional_url
-        the_url.protocol = "https://"
-        functional_url = the_url.toString()
-        pretty_url = the_url.host
-    catch e 
-        functional_url = ""
-    
+        pretty_url = url
+        functional_url = url
+        unless url.startsWith("https://") or url.startsWith("http://")
+            functional_url = "https://" + functional_url
+        try
+            the_url = new URL functional_url
+            the_url.protocol = "https://"
+            functional_url = the_url.toString()
+            pretty_url = the_url.host
+        catch e 
+            functional_url = ""
+    else
+        pretty_url = ""
+        functional_url = post.key
+        
     time_string = prettyDate(post.time * 1000)
     user_clickable = c.logged_in and (c.user.key != author.key)
 
@@ -144,17 +148,6 @@ dom.POST = ->
                 "#{post.title}"
 
             SPAN
-                key: "delete-btn"
-                className: "mobile-hide"
-                gridArea: "delete"
-                color: "#999"
-                fontSize: "12px"
-                cursor: "pointer"
-                display: unless c?.user?.key == post?.user_key and @local.expanded then "none"
-                onClick: () -> del post.key
-                "Delete post"
-
-            SPAN
                 key: "url_time"
                 gridArea: "domain_time"
                 fontSize: "12px"
@@ -162,7 +155,10 @@ dom.POST = ->
                 whiteSpace: "nowrap"
                 overflowX: "hidden"
                 textOverflow: "ellipsis"
-                "#{if @local.expanded then url else pretty_url} · #{time_string}"
+                if post.body
+                    time_string
+                else
+                    "#{if @local.expanded then url else pretty_url} · #{time_string}"
            
             DIV
                 key: "post-votes-slider"
@@ -217,20 +213,52 @@ dom.POST = ->
 
 # The expanded part underneath a post.
 dom.POST_DETAILS = ->
+    post = @props.post
+    if post?.key or typeof(post) == "string" then post = fetch post
+    c = fetch "/current_user"
 
     DIV
         width: inner_width
-        margin: "5px auto"
+        margin: "0 auto"
+
+        DIV
+            key: "body"
+            display: "none" unless post.body
+            marginTop: "5px"
+            whiteSpace: "pre-line"
+            textAlign: "justify"
+            fontSize: "0.9375rem"
+            lineHeight: 1.4
+            color: "#444"
+            post.body
+
+        DIV
+            key: "controls"
+            display: if c?.user?.key == post?.user_key then "flex" else "none"
+            flexDirection: "row"
+            justifyContent: "flex-start"
+
+            SPAN
+                key: "delete-btn"
+                className: "mobile-hide"
+                color: "#999"
+                fontSize: "12px"
+                cursor: "pointer"
+                onClick: () -> del post.key
+                "Delete post"
+                key: "optional-controls"
+
         DIV
             key: "lr-panels-container"
             display: "flex"
             flexDirection: "row"
             justifyContent: "space-between"
             alignContent: "stretch"
+            marginTop: 8
 
             COMMENTS
                 key: "comments"
-                post_key: @props.post?.key ? @props.post
+                post_key: post.key
                 style:
                     flexGrow: 1
                     marginRight: 15
@@ -241,9 +269,11 @@ dom.POST_DETAILS = ->
         DIV
             key: "permalink"
             textAlign: "center"
+            marginBottom: 5
             cursor: "pointer"
-            onClick: () => load_path @props.post?.key ? @props.post
+            onClick: () -> load_path post.key
             "Full comments and tags"
+
 
 dom.FULL_PAGE_POST = ->
 
@@ -664,7 +694,7 @@ dom.COMMENT = ->
                     DIV
                         key: "body"
                         gridArea: "body"
-                        fontSize: 14
+                        fontSize: "14px"
                         whiteSpace: "pre-line"
                         com.body
 
@@ -1226,80 +1256,130 @@ dom.SUBMIT_POST = ->
 
     form_submit = =>
         title = @refs["post-title"].getDOMNode()
-        link = @refs["post-url"].getDOMNode()
-        if title.value.length > 1 and link.value.length > 1
-            make_post title.value, link.value, c.user.key
+        if @local.text
+            body = @refs["post-body"].getDOMNode()
+        else
+            url = @refs["post-url"].getDOMNode()
+        if title?.value and (url?.value or body?.value)
+            make_post
+                user: c.user.key
+                title: title.value
+                url: url?.value
+                body: body?.value
             title.value = ""
-            link.value = ""
+            if @local.text
+                body.value = ""
+            else
+                url.value = ""
 
         @props.close?()
 
     DIV
-        key: "submit-container"
-        display: "grid"
-        grid: "\"icon title slider\" auto
-               \"icon domain_time slider\" 16px
-                / #{slider_height}px #{inner_width - slider_width}px 1fr "
-        alignItems: "center"
-
-        AVATAR
-            key: "avatar"
-            user: c.user
-            hide_tooltip: true
-            gridArea: "icon"
-            style:
-                width: slider_height - 10
-                height: slider_height - 10
-                borderRadius: "50%"
-                alignSelf: "center"
-                justifySelf: "center"
-                opacity: 0.5
-
-        INPUT
-            key: "title"
-            ref: "post-title"
-            gridArea: "title"
-            fontSize: "18px"
-            paddingRight: "10px"
-            marginBottom: "2px"
-            border: "none"
-            justifySelf: "stretch"
-            placeholder: "Say something..."
-            onKeyDown: (e) =>
-                if e.keyCode == 13
-                    form_submit()
-                else if e.keyCode == 9
-                    e.preventDefault()
-                    @refs["post-url"].getDOMNode().focus()
-
-
-        INPUT
-            key: "url"
-            ref: "post-url"
-            gridArea: "domain_time"
-            fontSize: "12px"
-            color: "#999"
-            whiteSpace: "nowrap"
-            placeholder: "https://..."
-            border: "none"
-            onKeyDown: (e) =>
-                if e.keyCode == 13
-                    form_submit()
-                else if e.keyCode == 9
-                    e.preventDefault()
+        key: "root"
         
-        SPAN
-            key: "submit-btn"
-            gridArea: "slider"
-            alignSelf: "start"
-            height: slider_height
-            textAlign: "center"
-            alignSelf: "center"
-            className: "material-icons-outlined md-dark"
-            fontSize: "24px"
-            onClick: form_submit
-            cursor: "pointer"
-            "post_add"
+        DIV
+            key: "link-or-text"
+            display: "flex"
+            flexDirection: "row"
+            justifyContent: "center"
+            marginBottom: 4
+            fontSize: "14px"
+
+            SPAN
+                key: "link"
+                color: if @local.text then "#999" else "#444"
+                cursor: if @local.text then "pointer"
+                margin: "0 5px"
+                onClick: () => 
+                    @local.text = false
+                    save @local
+                "Link"
+
+            SPAN
+                key: "text"
+                color: if @local.text then "#444" else "#999"
+                cursor: unless @local.text then "pointer"
+                margin: "0 5px"
+                onClick: () =>
+                    @local.text = true
+                    save @local
+                "Text"
+        DIV
+            key: "submit-container"
+            display: "grid"
+            width: 600
+            grid: "\"icon title   title\" auto
+                   \"icon content content\" auto
+                   \".    .       submit\"   auto
+                    / auto 1fr auto"
+            gridColumnGap: 8
+            gridRowGap: 2
+            alignItems: "center"
+
+            AVATAR
+                key: "avatar"
+                user: c.user
+                hide_tooltip: true
+                gridArea: "icon"
+                style:
+                    width: slider_height - 10
+                    height: slider_height - 10
+                    borderRadius: "50%"
+                    alignSelf: "start"
+                    justifySelf: "center"
+                    opacity: 0.5
+
+            INPUT
+                key: "title"
+                ref: "post-title"
+                gridArea: "title"
+                fontSize: "18px"
+                paddingRight: "10px"
+                marginBottom: "2px"
+                border: "none"
+                justifySelf: "stretch"
+                placeholder: "Say something..."
+                onKeyDown: (e) =>
+                    if e.keyCode == 13
+                        form_submit()
+                    else if e.keyCode == 9
+                        e.preventDefault()
+                        (@refs["post-url"] or @refs["post-body"]).getDOMNode().focus()
+
+
+            if @local.text
+                TEXTAREA
+                    key: "body"
+                    ref: "post-body"
+                    gridArea: "content"
+                    rows: 4
+                    resize: "vertical"
+                    placeholder: "Add some details..."
+            else
+                INPUT
+                    key: "url"
+                    ref: "post-url"
+                    gridArea: "content"
+                    fontSize: "12px"
+                    color: "#999"
+                    whiteSpace: "nowrap"
+                    placeholder: "https://..."
+                    border: "none"
+                    onKeyDown: (e) =>
+                        if e.keyCode == 13
+                            form_submit()
+                        else if e.keyCode == 9
+                            e.preventDefault()
+            
+            DIV
+                key: "submit"
+                gridArea: "submit"
+                fontSize: "14px"
+                padding: "3px 8px 1px 8px"
+                color: "#999"
+                onClick: form_submit
+                cursor: "pointer"
+                "Submit"
 
 
 

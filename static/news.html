@@ -57,7 +57,6 @@
     .post-main-grid {
         grid: "icon title       slider more" auto
               "icon domain_time slider more" 16px
-              ".    delete       .     .   " auto
             /  50px  1fr        225px  50px;
         width: min(800px, calc(100vw - 50px));
     }
@@ -71,12 +70,16 @@
     
     @media only screen and (max-width: 650px) {
 
+        div[data-widget=POST] {
+            width: 100vw;
+        }
         .post-main-grid {
             grid: "icon title more" auto
                   "icon domain_time more" 16px
                   "slider   slider slider" auto
                 /  50px  1fr  30px;
             width: calc(100vw - 20px);
+            margin: auto;
         }
 
         .user-main-grid {
