@@ -531,15 +531,18 @@ dom.COMMENTS = ->
             # Post-a-comment
             DIV
                 key: "post-comment"
-                display: "flex"
-                flexDirection: "row"
-                alignContent: "stretch"
+                display: "grid"
+                grid: "\"avatar comment comment\" auto
+                       \".      comment comment\" 1fr
+                       \".      .       submit \" 16px
+                       / auto   1fr     auto"
+                gridColumnGap: "8px"
 
                 AVATAR
                     key: "my-avatar"
+                    gridArea: "avatar"
                     user: c.user.key
                     hide_tooltip: yes
-                    marginRight: "8px"
                     style:
                         borderRadius: "50%"
                         width: 24
@@ -549,7 +552,7 @@ dom.COMMENTS = ->
                 TEXTAREA
                     key: "comment"
                     ref: "comment"
-                    marginRight: "5px"
+                    gridArea: "comment"
                     rows: 3
                     flexGrow: 1
                     flexShrink: 0
@@ -558,7 +561,10 @@ dom.COMMENTS = ->
 
                 SPAN
                     key: "add"
-                    className: "material-icons-outlined md-dark"
+                    gridArea: "submit"
+                    fontSize: "12px"
+                    color: "#999"
+                    alignSelf: "end"
                     cursor: "pointer"
                     onClick: () =>
                         box = @refs.comment?.getDOMNode()
@@ -576,7 +582,7 @@ dom.COMMENTS = ->
                                 # Store post time in seconds, not ms
                                 time: Math.floor (Date.now() / 1000)
 
-                    "add_comment"
+                    "Submit"
 
         DIV
             key: "comments-iter"
@@ -666,6 +672,7 @@ dom.COMMENT = ->
                         key: "time"
                         gridArea: "time"
                         fontSize: "12px"
+                        alignSelf: "end"
                         color: "#999"
                         whiteSpace: "nowrap"
                         overflowX: "hidden"
@@ -676,6 +683,7 @@ dom.COMMENT = ->
                         key: "reply"
                         gridArea: "reply"
                         fontSize: "12px"
+                        alignSelf: "end"
                         color: "#999"
                         cursor: "pointer"
                         onClick: () =>
@@ -688,6 +696,7 @@ dom.COMMENT = ->
                         SPAN
                             key: "modify"
                             gridArea: "modify"
+                            alignSelf: "end"
                             fontSize: "12px"
                             color: "#999"
 
@@ -713,11 +722,10 @@ dom.COMMENT = ->
                 DIV
                     key: "post-body"
                     display: "grid"
-                    grid: "\"textbox cancel\" auto
-                           \"textbox save\" auto
-                           \"textbox .\" 1fr
-                            / 1fr auto"
-                    gridGap: "5px"
+                    grid: "\"textbox textbox textbox\" 1fr
+                           \".       cancel  save\" 16px
+                            / 1fr auto auto"
+                    gridColumnGap: "8px"
 
                     TEXTAREA
                         key: "editbox"
@@ -731,18 +739,22 @@ dom.COMMENT = ->
                     SPAN
                         key: "cancel"
                         gridArea: "cancel"
-                        className: "material-icons-outlined md-dark"
                         cursor: "pointer"
+                        fontSize: "12px"
+                        color: "#999"
+                        alignSelf: "end"
                         onClick: () =>
                             @local.editing = false
                             save @local
-                        "close"
+                        "Cancel"
 
                     SPAN
                         key: "save"
                         gridArea: "save"
-                        className: "material-icons-outlined md-dark"
                         cursor: "pointer"
+                        fontSize: "12px"
+                        color: "#999"
+                        alignSelf: "end"
                         onClick: () =>
                             save {
                                 com...
@@ -752,18 +764,18 @@ dom.COMMENT = ->
 
                             @local.editing = false
                             save @local
-                        "done"
+                        "Save"
 
             if @local.replying
                 # A textarea for the new comment
                 DIV
                     key: "post-reply"
                     display: "grid"
-                    grid: "\"avatar textbox cancel\" auto
-                           \"avatar textbox save\" auto
-                           \". textbox .\" 1fr
-                            / auto 1fr auto"
-                    gridGap: "3px"
+                    grid: "\"avatar comment comment comment\" auto
+                           \".      comment comment comment\" 1fr
+                           \".      .       cancel  save \" 16px
+                           / auto   1fr     auto    auto"
+                    gridColumnGap: "8px"
                     marginTop: "5px"
 
                     AVATAR
@@ -780,7 +792,7 @@ dom.COMMENT = ->
                     TEXTAREA
                         key: "comment"
                         ref: "comment"
-                        gridArea: "textbox"
+                        gridArea: "comment"
                         rows: 3
                         resize: "none"
                         placeholder: "Write a reply..."
@@ -788,17 +800,21 @@ dom.COMMENT = ->
                     SPAN
                         key: "cancel"
                         gridArea: "cancel"
-                        className: "material-icons-outlined md-dark"
+                        fontSize: "12px"
+                        color: "#999"
+                        alignSelf: "end"
                         cursor: "pointer"
                         onClick: () =>
                             @local.replying = false
                             save @local
-                        "close"
+                        "Cancel"
 
                     SPAN
                         key: "save"
                         gridArea: "save"
-                        className: "material-icons-outlined md-dark"
+                        fontSize: "12px"
+                        color: "#999"
+                        alignSelf: "end"
                         cursor: "pointer"
                         onClick: () =>
                             box = @refs.comment?.getDOMNode()
@@ -818,7 +834,7 @@ dom.COMMENT = ->
 
                             @local.replying = false
                             save @local
-                        "add_comment"
+                        "Submit"
 
 
 
