@@ -112,7 +112,7 @@ dom.POST = ->
     time_string = prettyDate(post.time * 1000)
     user_clickable = c.logged_in and (c.user.key != author.key)
 
-    DIV
+    ARTICLE
         margin: "5px 0"
         padding: "5px 0"
         boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
@@ -244,7 +244,7 @@ dom.POST_DETAILS = ->
                 value: post.body
 
         else
-            DIV
+            P
                 key: "body"
                 ref: "body"
                 display: "none" unless post.body
@@ -328,12 +328,15 @@ dom.POST_DETAILS = ->
             TAGS
                 key: "tags"
                 post: @props.post
-        DIV
+        A
             key: "permalink"
+            display: "block"
             textAlign: "center"
+            color: "#666"
+            textDecoration: "none"
             marginBottom: 5
-            cursor: "pointer"
-            onClick: () -> load_path post.key
+            href: post.key
+            "data-load-intern": true
             "Full comments and tags"
 
 
@@ -753,7 +756,8 @@ dom.COMMENT = ->
                            \"time reply modify\" 16px
                             / auto auto 1fr "
                     gridColumnGap: "8px"
-                    DIV
+                    
+                    P
                         key: "body"
                         ref: "body"
                         gridArea: "body"
@@ -945,7 +949,7 @@ dom.COMMENT = ->
 
 ### === HEADER AND POPUPS === ###
 # The BEEG header
-dom.HEADER = ->
+dom.MAIN_HEADER = ->
     c = fetch "/current_user"
     v = fetch "view"
 
@@ -954,13 +958,13 @@ dom.HEADER = ->
         users: ["Your", "view of", "all users"]
         search: ["Search", "for a", "post"]
    
-    DIV
+    HEADER
         ref: "headercontainer"
         position: "relative"
         zIndex: 10
         maxWidth: outer_width + 100
         width: "100%"
-        DIV
+        NAV
             key: "actual-header"
             ref: "header"
             display: "flex"
@@ -997,40 +1001,46 @@ dom.HEADER = ->
                         color: color2
                         title[2]
 
-            SPAN
+            A
                 key: "home"
                 className: "mobile-hide"
                 margin: 10
-                cursor: "pointer"
                 display: if v.page == "posts" then "none"
-                onClick: () -> load_path "/"
+                color: "inherit"
+                textDecoration: "none"
+                href: "/"
+                "data-load-intern": true
                 "Home"
 
             A
                 key: "about"
                 className: "mobile-hide"
                 margin: 10
-                href: "/about"
                 color: "inherit"
                 textDecoration: "none"
+                href: "/about"
                 "About"
 
-            SPAN
+            A
                 key: "users"
                 className: "mobile-hide"
                 margin: 10
-                cursor: "pointer"
+                color: "inherit"
+                textDecoration: "none"
                 display: if v.page == "users" then "none"
-                onClick: () -> load_path "/users"
+                href: "/users"
+                "data-load-intern": true
                 "Users"
 
-            SPAN
+            A
                 key: "search"
                 className: "mobile-hide"
                 margin: 10
-                cursor: "pointer"
+                color: "inherit"
+                textDecoration: "none"
                 display: if v.page == "search" then "none"
-                onClick: () -> load_path "/search"
+                href: "/search"
+                "data-load-intern": true
                 "Search"
 
             SPAN

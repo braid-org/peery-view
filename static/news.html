@@ -11,6 +11,11 @@
         padding: 0;
         margin: 0;
     }
+    /* unset some weird styles */
+    p {
+        margin: 0;
+        padding: 0;
+    }
     .material-icons-outlined { user-select: none; }
     /* Rules for using icons as black on a light background. */
     .material-icons-outlined.md-dark { color: rgba(0, 0, 0, 0.54); }
@@ -205,6 +210,15 @@
             parse_path popped.url
         else
             parse_path "/"
+    
+    window.addEventListener 'click', (e) ->
+        target = e.target ? e.srcElement
+        if target.tagName != "A"
+            target = target.closest "a"
+        if target?.getAttribute?("data-load-intern") and !e.ctrlKey and !e.shiftKey
+            e.preventDefault()
+            # Use target.getAttribute instead of target.href to get the raw href
+            load_path target.getAttribute "href"
             
 
     parse_path ((new URL window.location.href).pathname)
@@ -224,7 +238,7 @@
                 height: "2em"
                 marginTop: "1em"
             
-            HEADER
+            MAIN_HEADER
                 key: "header"
             unless v?.page == "post_details" or v?.page == "search"
                 BIG_MULTIGRAM
@@ -274,6 +288,7 @@
                     save copy
 
     r = () ->
+        # Set up the path parser for some local state
         parser = PPPParser bus
         parser("weights/user/<userid>").to_fetch = (key, t) ->
             {userid} = t._path
