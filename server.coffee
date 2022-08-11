@@ -13,7 +13,7 @@ bus = require('statebus').serve
             c = client.fetch "current_user"
             # So there's a few cases here. 
             # 1. A client is making a new post
-            # 3. A client is editing an existing post: this is not allowed!
+            # 3. A client is editing an existing post
             # 4. A client is adding a tag to an existing post
 
             # New post
@@ -33,6 +33,12 @@ bus = require('statebus').serve
                 (all_posts.arr ?= []).push val
                 bus.save all_posts
                 return t.done val
+
+            if old.body and val.body and old.body != val.body
+                old.body = val.body
+                old.edit_time = val.edit_time
+                bus.save.sync old
+                return t.done old
            
 
             # Adding a tag: 

@@ -221,32 +221,94 @@ dom.POST_DETAILS = ->
         width: inner_width
         margin: "0 auto"
 
-        DIV
-            key: "body"
-            display: "none" unless post.body
-            marginTop: "5px"
-            whiteSpace: "pre-line"
-            textAlign: "justify"
-            fontSize: "0.9375rem"
-            lineHeight: 1.4
-            color: "#444"
-            post.body
+        ### === Text-post body, editing, deletion. === ###
+        # Find a better way to organize these components?
+
+        if @local.editing
+            # A textbox with the text of the post body
+            TEXTAREA
+                key: "editbox"
+                ref: "editbox"
+                gridArea: "textbox"
+
+                # Make the textbox take the same space as the original comment
+                minHeight: @local.h
+                width: "100%"
+                boxSizing: "border-box"
+
+                rows: 3
+                resize: "vertical"
+                fontSize: "0.875rem" # 14px unless zoom
+
+                placeholder: "Edit your post..."
+                value: post.body
+
+        else
+            DIV
+                key: "body"
+                ref: "body"
+                display: "none" unless post.body
+                width: "100%"
+                marginTop: "5px"
+                whiteSpace: "pre-line"
+                textAlign: "justify"
+                fontSize: "0.9375rem" # 15px unless zoom
+                lineHeight: 1.4
+                color: "#444"
+                post.body
 
         DIV
             key: "controls"
             display: if c?.user?.key == post?.user_key then "flex" else "none"
             flexDirection: "row"
             justifyContent: "flex-start"
+            fontSize: "12px"
+            color: "#999"
+
+            SPAN
+                key: "cancel"
+                display: unless @local.editing then "none"
+                cursor: "pointer"
+                marginRight: 8
+                onClick: () =>
+                    @local.editing = false
+                    save @local
+                "Cancel"
+
+            SPAN
+                key: "save"
+                cursor: "pointer"
+                display: unless @local.editing then "none"
+                onClick: () =>
+                    save {
+                        post...
+                        body: @refs.editbox.getDOMNode().value.toString()
+                        edit_time: Math.floor (Date.now() / 1000)
+                    }
+
+                    @local.editing = false
+                    save @local
+                "Save"
 
             SPAN
                 key: "delete-btn"
                 className: "mobile-hide"
-                color: "#999"
-                fontSize: "12px"
+                display: if @local.editing then "none"
                 cursor: "pointer"
+                marginRight: 8
                 onClick: () -> del post.key
-                "Delete post"
-                key: "optional-controls"
+                "Delete"
+
+            SPAN
+                key: "edit-btn"
+                display: if post.url or @local.editing then "none"
+                className: "mobile-hide"
+                cursor: "pointer"
+                onClick: () =>
+                    @local.editing = true
+                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight
+                    save @local
+                "Edit"
 
         DIV
             key: "lr-panels-container"
@@ -693,8 +755,10 @@ dom.COMMENT = ->
                     gridColumnGap: "8px"
                     DIV
                         key: "body"
+                        ref: "body"
                         gridArea: "body"
                         fontSize: "14px"
+                        color: "#444"
                         whiteSpace: "pre-line"
                         com.body
 
@@ -720,7 +784,7 @@ dom.COMMENT = ->
                             @local.replying = true
                             @local.editing = false
                             save @local
-                        "reply"
+                        "Reply"
                     
                     if c.user?.key == com.user_key
                         SPAN
@@ -737,9 +801,13 @@ dom.COMMENT = ->
                                 onClick: () => 
                                     @local.editing = true
                                     @local.replying = false
+
+                                    body = @refs.body?.getDOMNode?()
+                                    @local.w = body?.clientWidth
+                                    @local.h = body?.clientHeight
                                     # Is it necessary to load the comment body into local for editing?
                                     save @local
-                                "edit"
+                                "Edit"
                             ###
                             SPAN
                                 key: "delete"
@@ -761,8 +829,15 @@ dom.COMMENT = ->
                         key: "editbox"
                         ref: "editbox"
                         gridArea: "textbox"
+
+
                         rows: 3
+                        # Make the textbox take the same space as the original comment
+                        minWidth: @local.w - 1
+                        minHeight: @local.h
+                        boxSizing: "border-box"
                         resize: "none"
+
                         placeholder: "Edit your comment..."
                         value: com.body
 
