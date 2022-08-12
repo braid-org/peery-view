@@ -1844,8 +1844,7 @@ dom.USER = ->
         if @local.expanded
             DIV
                 key: "details"
-                width: inner_width
-                margin: "5px auto"
+                margin: "5px 50px"
                 display: "flex"
                 flexDirection: "row"
                 justifyContent: "flex-end"
