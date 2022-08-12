@@ -217,6 +217,9 @@ dom.POST_DETAILS = ->
     if post?.key or typeof(post) == "string" then post = fetch post
     c = fetch "/current_user"
 
+    @local.live_body ?= post.body
+    save @local
+
     DIV
         width: inner_width
         margin: "0 auto"
@@ -241,7 +244,12 @@ dom.POST_DETAILS = ->
                 fontSize: "0.875rem" # 14px unless zoom
 
                 placeholder: "Edit your post..."
-                value: post.body
+                
+                value: @local.live_body
+                onChange: (e) =>
+                    @local.live_body = e.target.value
+                    save @local
+                
 
         else
             P
@@ -282,7 +290,7 @@ dom.POST_DETAILS = ->
                 onClick: () =>
                     save {
                         post...
-                        body: @refs.editbox.getDOMNode().value.toString()
+                        body: @local.live_body
                         edit_time: Math.floor (Date.now() / 1000)
                     }
 
@@ -820,6 +828,9 @@ dom.COMMENT = ->
                                 "delete"
                             ###
             else
+                @local.live_body ?= com.body
+                save @local
+
                 # A textbox with the text of the post body
                 DIV
                     key: "post-body"
@@ -834,7 +845,6 @@ dom.COMMENT = ->
                         ref: "editbox"
                         gridArea: "textbox"
 
-
                         rows: 3
                         # Make the textbox take the same space as the original comment
                         minWidth: @local.w - 1
@@ -843,7 +853,10 @@ dom.COMMENT = ->
                         resize: "none"
 
                         placeholder: "Edit your comment..."
-                        value: com.body
+                        value: @local.live_body
+                        onChange: (e) =>
+                            @local.live_body = e.target.value
+                            save @local
 
                     SPAN
                         key: "cancel"
@@ -867,7 +880,7 @@ dom.COMMENT = ->
                         onClick: () =>
                             save {
                                 com...
-                                body: @refs.editbox.getDOMNode().value.toString()
+                                body: @local.live_body
                                 edit_time: Math.floor (Date.now() / 1000)
                             }
 
@@ -1559,6 +1572,12 @@ dom.SETTINGS = ->
     c = fetch "/current_user"
     unless c.logged_in
         return
+
+    @local.name ?= c.user.name
+    @local.email ?= c.user.email
+    @local.pic ?= c.user.pic
+    @local.filter ?= c.user.filter ? -0.2
+
     DIV
         width: "300"
         display: "grid"
@@ -1582,7 +1601,10 @@ dom.SETTINGS = ->
             key: "name-change"
             gridArea: "namefield"
             ref: "name"
-            value: c.user.name
+            value: @local.name
+            onChange: (e) =>
+                @local.name = e.target.value
+                save @local
             id: "name-change"
 
         DIV
@@ -1595,7 +1617,10 @@ dom.SETTINGS = ->
             key: "email-change"
             gridArea: "emailfield"
             ref: "email"
-            value: c.user.email
+            value: @local.email
+            onChange: (e) =>
+                @local.email = e.target.value
+                save @local
             id: "email-change"
             type: "email"
 
@@ -1609,7 +1634,10 @@ dom.SETTINGS = ->
             key: "pic-change"
             gridArea: "picfield"
             ref: "pic"
-            value: c.user.pic
+            value: @local.pic
+            onChange: (e) =>
+                @local.pic = e.target.value
+                save @local
             placeholder: "http://..."
             id: "pic-change"
         DIV
@@ -1622,7 +1650,10 @@ dom.SETTINGS = ->
             key: "filter-change"
             gridArea: "filterfield"
             ref: "filter"
-            value: c.user.filter
+            value: @local.filter
+            onChange: (e) =>
+                @local.filter = e.target.value
+                save @local
             placeholder: -0.2
             id: "filter-change"
             type: "number"
@@ -1649,21 +1680,17 @@ dom.SETTINGS = ->
             gridArea: "save"
             onClick: () =>
                 
-                name = @refs.name.getDOMNode().value
-                email = @refs.email.getDOMNode().value
-                pic = @refs.pic.getDOMNode().value ? ""
-                filter = @refs.filter.getDOMNode().value
-                filter = Number.parseFloat filter
+                filter = Number.parseFloat @local.filter
                 if isNaN filter
                     filter = -0.2
 
-                c.user.name = name
-                c.user.email = email
-                c.user.pic = pic
+                c.user.name = @local.name
+                c.user.email = @local.email
+                c.user.pic = @local.pic
                 c.user.filter = filter
 
                 save c.user
-                
+
                 # Close the settings box
                 @props.close?()
             "Save"
