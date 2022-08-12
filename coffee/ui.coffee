@@ -677,7 +677,7 @@ dom.COMMENTS = ->
                                 # Store post time in seconds, not ms
                                 time: Math.floor (Date.now() / 1000)
 
-                    "Submit"
+                    "Post"
 
         DIV
             key: "comments-iter"
@@ -943,7 +943,7 @@ dom.COMMENT = ->
 
                             @local.replying = false
                             save @local
-                        "Submit"
+                        "Post"
 
 
 
@@ -1464,7 +1464,7 @@ dom.SUBMIT_POST = ->
                 color: "#999"
                 onClick: form_submit
                 cursor: "pointer"
-                "Submit"
+                "Post"
 
 
 
