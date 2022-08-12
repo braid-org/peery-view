@@ -234,7 +234,7 @@ dom.POST_DETAILS = ->
                 ref: "editbox"
                 gridArea: "textbox"
 
-                # Make the textbox take the same space as the original comment
+                # Make the textbox take the same space as the original post body
                 minHeight: @local.h
                 width: "100%"
                 boxSizing: "border-box"
@@ -300,7 +300,6 @@ dom.POST_DETAILS = ->
 
             SPAN
                 key: "delete-btn"
-                className: "mobile-hide"
                 display: if @local.editing then "none"
                 cursor: "pointer"
                 marginRight: 8
@@ -310,7 +309,6 @@ dom.POST_DETAILS = ->
             SPAN
                 key: "edit-btn"
                 display: if post.url or @local.editing then "none"
-                className: "mobile-hide"
                 cursor: "pointer"
                 onClick: () =>
                     @local.editing = true
@@ -318,24 +316,11 @@ dom.POST_DETAILS = ->
                     save @local
                 "Edit"
 
-        DIV
-            key: "lr-panels-container"
-            display: "flex"
-            flexDirection: "row"
-            justifyContent: "space-between"
-            alignContent: "stretch"
-            marginTop: 8
 
-            COMMENTS
-                key: "comments"
-                post_key: post.key
-                style:
-                    flexGrow: 1
-                    marginRight: 15
+        TAGS
+            key: "tags"
+            post: @props.post
 
-            TAGS
-                key: "tags"
-                post: @props.post
         A
             key: "permalink"
             display: "block"
@@ -345,7 +330,7 @@ dom.POST_DETAILS = ->
             marginBottom: 5
             href: post.key
             "data-load-intern": true
-            "Full comments and tags"
+            "Permalink"
 
 
 dom.FULL_PAGE_POST = ->
@@ -371,12 +356,6 @@ dom.FULL_PAGE_POST = ->
             maxWidth: 1150
             marginTop: 15
 
-            COMMENTS
-                key: "comments"
-                post_key: @props.post
-                max_depth: 15
-                max_comments: 1000
-                style: flexGrow: 1
 
             TAGS
                 key: "tags"
@@ -588,376 +567,6 @@ dom.TAGS = ->
                                 save @local
 
                             suggested
-
-# Comments list
-dom.COMMENTS = ->
-    c = fetch "/current_user"
-    post = @props.post_key
-
-    comments_arr = (fetch "#{post}/comments").arr ? []
-    # Arrange comments into a tree
-    children = post: []
-    comments_arr.forEach (com) ->
-        parent = com.parent_key ? "post"
-        (children[parent] ?= []).push com.key
-
-    # Flatten tree
-    # TODO: Deal with orphans
-    # TODO: Sort
-    # TODO: Incorporate weight
-    # TODO: Rather than increasing depth constantly, make it thready
-    flattened = []
-    too_many_comments = false
-    explore = (key, depth) =>
-        # Once we reach this many comments, stop the whole search
-        if too_many_comments ||= (flattened.length >= (@props.max_comments ? 10))
-            return
-        # Add the comment
-        flattened.push {key, depth}
-        # If there's a cut-off thread, add an etc
-        if depth == (@props.max_depth ? 4) and children[key]?.length
-            flattened.push { key: "#{key}-etc", depth: depth + 1, etc: true }
-        # Otherwise explore
-        else
-            children[key]?.forEach (c) -> explore c, depth + 1
-
-    children.post?.forEach (c) -> explore c, 0
-
-    DIV
-        key: "comments"
-        display: "flex"
-        flexDirection: "column"
-        alignContent: "stretch"
-        style: @props.style
-
-        if c.logged_in
-            # Post-a-comment
-            DIV
-                key: "post-comment"
-                display: "grid"
-                grid: "\"avatar comment comment\" auto
-                       \".      comment comment\" 1fr
-                       \".      .       submit \" 16px
-                       / auto   1fr     auto"
-                gridColumnGap: "8px"
-
-                AVATAR
-                    key: "my-avatar"
-                    gridArea: "avatar"
-                    user: c.user.key
-                    hide_tooltip: yes
-                    style:
-                        borderRadius: "50%"
-                        width: 24
-                        height: 24
-                        flexShrink: 0
-
-                TEXTAREA
-                    key: "comment"
-                    ref: "comment"
-                    gridArea: "comment"
-                    rows: 3
-                    flexGrow: 1
-                    flexShrink: 0
-                    resize: "none"
-                    placeholder: "Write a comment..."
-
-                SPAN
-                    key: "add"
-                    gridArea: "submit"
-                    fontSize: "12px"
-                    color: "#999"
-                    alignSelf: "end"
-                    cursor: "pointer"
-                    onClick: () =>
-                        box = @refs.comment?.getDOMNode()
-                        if box.value
-                            uid = Math.random().toString(36).substr(2)
-                            # Check for collision.?
-                            body = box.value.toString()
-                            box.value = ""
-                            save
-                                key: "#{post}/comment/#{uid}"
-                                body: body
-                                post_key: post
-                                user_key: c.user.key
-                                #parent_key: null
-                                # Store post time in seconds, not ms
-                                time: Math.floor (Date.now() / 1000)
-
-                    "Post"
-
-        DIV
-            key: "comments-iter"
-            display: "contents"
-
-            flattened.map ({key, depth, etc}, i) ->
-                if etc
-                    DIV
-                        key: key
-                        marginLeft: 24 * depth + 8
-                        marginBottom: 5
-                        color: "#999"
-                        fontSize: 14
-                        "This thread continues."
-                else
-                    COMMENT
-                        key: key
-                        comment: key
-                        style:
-                            # Since tooltips go below user icons, each comment needs to have a higher z-index than the one underneath it.
-                            position: "relative"
-                            zIndex: flattened.length - i
-                            marginLeft: 24 * depth
-            DIV
-                key: "too-many-comments"
-                display: unless too_many_comments then "none"
-                color: "#999"
-                fontSize: 14
-                "Further comments were truncated."
-                
-
-# A single comment in a thread.
-dom.COMMENT = ->
-    c = fetch "/current_user"
-    com = fetch @props.comment
-    unless com.user_key?
-        # The comment has actually just been deleted.
-        return
-
-    time_string = prettyDate(com.time * 1000)
-    edit_time_string = if com.edit_time then prettyDate(com.edit_time * 1000)
-    DIV
-        display: "flex"
-        flexDirection: "row"
-        alignContent: "stretch"
-
-        padding: "5px 0"
-        style: @props.style
-
-        AVATAR
-            key: "author"
-            user: com.user_key
-            style:
-                borderRadius: "50%"
-                width: 24
-                height: 24
-                marginRight: "8px"
-                # Since we set flexGrow on the right part, this needs to not shrink
-                flexShrink: 0
-                # Anchors tooltip position
-                position: "relative"
-
-
-        DIV
-            key: "right-side"
-            flexGrow: 1
-            display: "flex"
-            flexDirection: "column"
-
-            unless @local.editing
-                # The actual post body, displayed normally
-                DIV
-                    key: "post-body"
-                    display: "grid"
-                    grid: "\"body body body\" auto
-                           \"time reply modify\" 16px
-                            / auto auto 1fr "
-                    gridColumnGap: "8px"
-                    
-                    P
-                        key: "body"
-                        ref: "body"
-                        gridArea: "body"
-                        fontSize: "14px"
-                        color: "#444"
-                        whiteSpace: "pre-line"
-                        com.body
-
-                    SPAN
-                        key: "time"
-                        gridArea: "time"
-                        fontSize: "12px"
-                        alignSelf: "end"
-                        color: "#999"
-                        whiteSpace: "nowrap"
-                        overflowX: "hidden"
-                        textOverflow: "ellipsis"
-                        if edit_time_string then "#{time_string} (edited #{edit_time_string})" else time_string
-
-                    SPAN
-                        key: "reply"
-                        gridArea: "reply"
-                        fontSize: "12px"
-                        alignSelf: "end"
-                        color: "#999"
-                        cursor: "pointer"
-                        onClick: () =>
-                            @local.replying = true
-                            @local.editing = false
-                            save @local
-                        "Reply"
-                    
-                    if c.user?.key == com.user_key
-                        SPAN
-                            key: "modify"
-                            gridArea: "modify"
-                            alignSelf: "end"
-                            fontSize: "12px"
-                            color: "#999"
-
-                            SPAN
-                                key: "edit"
-                                cursor: "pointer"
-                                marginRight: "8px"
-                                onClick: () => 
-                                    @local.editing = true
-                                    @local.replying = false
-
-                                    body = @refs.body?.getDOMNode?()
-                                    @local.w = body?.clientWidth
-                                    @local.h = body?.clientHeight
-                                    # Is it necessary to load the comment body into local for editing?
-                                    save @local
-                                "Edit"
-                            ###
-                            SPAN
-                                key: "delete"
-                                cursor: "pointer"
-                                onClick: () -> del com.key
-                                "delete"
-                            ###
-            else
-                @local.live_body ?= com.body
-                save @local
-
-                # A textbox with the text of the post body
-                DIV
-                    key: "post-body"
-                    display: "grid"
-                    grid: "\"textbox textbox textbox\" 1fr
-                           \".       cancel  save\" 16px
-                            / 1fr auto auto"
-                    gridColumnGap: "8px"
-
-                    TEXTAREA
-                        key: "editbox"
-                        ref: "editbox"
-                        gridArea: "textbox"
-
-                        rows: 3
-                        # Make the textbox take the same space as the original comment
-                        minWidth: @local.w - 1
-                        minHeight: @local.h
-                        boxSizing: "border-box"
-                        resize: "none"
-
-                        placeholder: "Edit your comment..."
-                        value: @local.live_body
-                        onChange: (e) =>
-                            @local.live_body = e.target.value
-                            save @local
-
-                    SPAN
-                        key: "cancel"
-                        gridArea: "cancel"
-                        cursor: "pointer"
-                        fontSize: "12px"
-                        color: "#999"
-                        alignSelf: "end"
-                        onClick: () =>
-                            @local.editing = false
-                            save @local
-                        "Cancel"
-
-                    SPAN
-                        key: "save"
-                        gridArea: "save"
-                        cursor: "pointer"
-                        fontSize: "12px"
-                        color: "#999"
-                        alignSelf: "end"
-                        onClick: () =>
-                            save {
-                                com...
-                                body: @local.live_body
-                                edit_time: Math.floor (Date.now() / 1000)
-                            }
-
-                            @local.editing = false
-                            save @local
-                        "Save"
-
-            if @local.replying
-                # A textarea for the new comment
-                DIV
-                    key: "post-reply"
-                    display: "grid"
-                    grid: "\"avatar comment comment comment\" auto
-                           \".      comment comment comment\" 1fr
-                           \".      .       cancel  save \" 16px
-                           / auto   1fr     auto    auto"
-                    gridColumnGap: "8px"
-                    marginTop: "5px"
-
-                    AVATAR
-                        key: "my-avatar"
-                        gridArea: "avatar"
-                        user: c.user.key
-                        hide_tooltip: yes
-                        marginRight: "3px"
-                        style:
-                            borderRadius: "50%"
-                            width: 24
-                            height: 24
-
-                    TEXTAREA
-                        key: "comment"
-                        ref: "comment"
-                        gridArea: "comment"
-                        rows: 3
-                        resize: "none"
-                        placeholder: "Write a reply..."
-
-                    SPAN
-                        key: "cancel"
-                        gridArea: "cancel"
-                        fontSize: "12px"
-                        color: "#999"
-                        alignSelf: "end"
-                        cursor: "pointer"
-                        onClick: () =>
-                            @local.replying = false
-                            save @local
-                        "Cancel"
-
-                    SPAN
-                        key: "save"
-                        gridArea: "save"
-                        fontSize: "12px"
-                        color: "#999"
-                        alignSelf: "end"
-                        cursor: "pointer"
-                        onClick: () =>
-                            box = @refs.comment?.getDOMNode()
-                            if box.value
-                                uid = Math.random().toString(36).substr(2)
-                                # Check for collision.?
-                                body = box.value.toString()
-                                box.value = ""
-                                save
-                                    key: "#{com.post_key}/comment/#{uid}"
-                                    body: body
-                                    post_key: com.post_key
-                                    user_key: c.user.key
-                                    parent_key: com.key
-                                    # Store post time in seconds, not ms
-                                    time: Math.floor (Date.now() / 1000)
-
-                            @local.replying = false
-                            save @local
-                        "Post"
-
 
 
 ### === HEADER AND POPUPS === ###

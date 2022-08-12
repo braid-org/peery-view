@@ -62,13 +62,12 @@ bus = require('statebus').serve
 
             unless c.logged_in and c.user.key == old.user_key
                 return t.abort()
-            # We need to do six things.
+            # We need to do five things.
             # 1. Remove the post from `posts`.
             # 2. Delete `votes/post/<id>`.
             # 3. Remove the post from `user/<uid>/votes` for everyone who's voted on it.
             # 4. Delete the votes themselves.
-            # 5. Delete all the comments.
-            # 6. Delete the actual post.
+            # 5. Delete the actual post.
             
             
             # Fetch the votes and make a static copy
@@ -92,79 +91,10 @@ bus = require('statebus').serve
             # Delete all the individual votes
             votes.forEach (v) -> bus.delete v.key
 
-            # Delete the comments
-            comments = JSON.parse(JSON.stringify(bus.fetch "post/#{postid}/comments")).arr ? []
-            bus.delete "post/#{postid}/comments"
-            comments.forEach (c) -> bus.delete c.key
-                            
             # Finally delete the actual post
             bus.delete key
             t.done
 
-        parser('post/<postid>/comment/<commentid>').to_delete = (key, old, t) ->
-            {postid, commentid} = t._path
-            c = client.fetch "current_user"
-            # Make sure that the user has the right to delete
-            unless c.logged_in and c.user.key == old.user_key
-                return t.abort()
-            # Remove the comment from the relevant array
-            comments = bus.fetch "post/#{postid}/comments"
-            comments.arr = (comments.arr ? []).filter (c) -> c.key != key
-            bus.save.sync comments
-
-            # Now delete the key on the main bus
-            bus.delete key
-            t.done
-
-            # Hmm, what about if the comment has replies?
-
-
-        parser('post/<postid>/comment/<commentid>').to_save = (key, val, old, t) ->
-            {postid, _} = t._path
-            post_key = "post/#{postid}"
-            post = bus.fetch post_key
-
-            c = client.fetch "current_user"
-            # Check that user has the right to change the key
-            unless c.logged_in and c.user.key == val.user_key
-                return t.abort()
-            # Check that the key matches the contents
-            unless post_key == val.post_key
-                return t.abort()
-            # Check that the comment has a non-empty body
-            unless val?.body?.length
-                return t.abort()
-            # Check that the comment has a submission time
-            unless val.time
-                return t.abort()
-            # Alright, looks good.
-
-            # Is this an old comment being edited?
-            if old?.user_key
-                # Make sure the user isn't like, stealing someone else's comment
-                unless val.user_key == old.user_key
-                    return t.abort()
-                # Make sure the user hasn't changed the chaining
-                unless val.parent_key == old.parent_key
-                    return t.abort()
-                # Make sure the user hasn't changed the submission time
-                unless val.time == old.time
-                    return t.abort()
-                # Alright, the edit was fine.
-                bus.save val
-            # Ok, this a new comment
-            else
-                bus.save.sync val
-                # Put it in the relevant array.
-                post_comments = bus.fetch "post/#{postid}/comments"
-                (post_comments.arr ?= []).push val
-                bus.save post_comments
-
-            t.done val
-
-
-        parser('post/<postid>/comments').to_save = (t) ->
-            t.abort()
 
         parser('user/<userid>/votes').to_save = (t) ->
             t.abort()
@@ -621,6 +551,18 @@ migrate = (state) ->
         m.picborder = true
         state.save m
 
+    unless m.delete_comments
+        console.log "MIGRATION DAC: Delete All Comments."
+        posts = state.fetch "posts"
+        posts.arr.forEach (p) ->
+            comments = state.fetch "#{p.key}/comments"
+
+            static_comments = JSON.parse JSON.stringify ( comments?.arr ? [] )
+            state.delete comments
+            state.delete comment.key for comment in static_comments
+        console.log "MIGRATION DAC: Migration complete."
+        m.delete_comments = true
+        state.save m
 
 migrate bus
 
