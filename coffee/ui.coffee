@@ -1786,6 +1786,7 @@ dom.USER = ->
                 style:
                     gridArea: "icon"
                     alignSelf: "center"
+                    justifySelf: "center"
                     borderRadius: "50%"
 
             SPAN
