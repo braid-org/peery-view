@@ -38,8 +38,9 @@ dom.SLIDERGRAM = ->
 
   DIV
     ref: 'opinion_area'
-    display: 'flex'
+    display: 'inline-flex'
     flexDirection: 'column'
+    userSelect: "none"
 
     # These two handle ghosted slides
     onMouseEnter: if !read_only then (e) =>

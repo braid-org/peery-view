@@ -18,13 +18,21 @@ bus = require('statebus').serve
 
             # New post
             unless old.user_key?
+                console.log "User is making a new post..."
                 # Is the user logged in and making a post under their own name?
                 unless c.logged_in and (c.user.key == val.user_key)
+                    console.log "bad auth"
                     return t.abort()
                 # Does the post contain all the required fields?
-                unless val.user_key and val.title and (val.url or val.body) and val.time \
-                    and typeof(val.title) == "string" and typeof(val.url or val.body) == "string" and typeof(val.time) == "number" \
+                unless val.user_key and val.title and (val.url ? val.body) and val.time \
+                    and typeof(val.title) == "string" and typeof(val.url ? val.body) == "string" and typeof(val.time) == "number" \
                     and not (val.url and val.body)
+                    console.log val
+                    return t.abort()
+                
+                # If the post has a parent, does the parent exist?
+                if val.parent_key? and not bus.fetch(val.parent_key).user_key?
+                    console.log val.parent_key
                     return t.abort()
 
                 bus.save.sync val                
@@ -39,7 +47,6 @@ bus = require('statebus').serve
                 old.edit_time = val.edit_time
                 bus.save.sync old
                 return t.done old
-           
 
             # Adding a tag: 
             if val?.tags?.length

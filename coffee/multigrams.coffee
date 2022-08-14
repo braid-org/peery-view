@@ -6,6 +6,7 @@ dom.MULTIGRAM = ->
         display: 'flex'
         flexDirection: 'column'
         marginBottom: 16
+        userSelect: "none"
 
         onMouseOver: (e) =>
             # For some reason, trying to save the local_sldr while the element is loading throws errors in the console.

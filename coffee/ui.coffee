@@ -10,70 +10,29 @@ dom.POSTS = ->
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
-    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
     # KSON blob to be passed to the scores state
     score_kson = stringify_kson tag: v.tag, user: username
+    layout = fetch "post_layout#{score_kson}"
 
-    posts = ((fetch "/posts#{stringify_kson tag: v.tag}").arr ? [])
-        .filter (p) -> (fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight
-
-    two_weeks_ago = (Date.now() / 1000) - 60 * 60 * 24 * 14
-    # Recent posts with a positive score, sorted by time
-    posts_recent = posts
-        .filter (p) -> (p.time > two_weeks_ago)
-        .sort (a, b) -> b.time - a.time
-
-    # Older posts, sorted by score
-    posts_old = posts
-        .filter (p) -> (p.time <= two_weeks_ago)
-        .sort (a, b) -> (fetch("score#{b.key}#{score_kson}").value ? 0) - (fetch("score#{a.key}#{score_kson}").value ? 0)
-
-    
     DIV
         key: "posts"
-        # Recent posts are displayed at the top
-        posts_recent.map (post) ->
+        layout.arr.map (block) ->
+            CHAT_BLOCK
+                key: "block-#{block.end}"
+                block: block
+
+dom.CHAT_BLOCK = ->
+    block = @props.block
+    DIV
+        key: "block"
+        border: "1px solid black"
+        marginLeft: block.level * 10
+        marginBottom: 20
+
+        block.chain.map (post) ->
             POST
-                post: post.key
-                key: unslash post.key
-
-        # If there were no recent posts, don't show the time separator
-        if posts_recent.length
-            DIV
-                key: "sort-separator"
-                display: "flex"
-                flexDirection: "row"
-                justifyContent: "stretch"
-                alignItems: "center"
-
-                # Blue line on the left
-                DIV
-                    key: "dummy1"
-                    flexGrow: 1
-                    height: 1.5
-                    background: "#36a"
-                    borderRadius: 1
-
-                SPAN
-                    key: "text"
-                    color: "#36a"
-                    margin: "0px 1ch"
-                    "Two weeks ago"
-
-                # Blue line on the right
-                DIV
-                    key: "dummy2"
-                    flexGrow: 1
-                    height: 1.5
-                    background: "#36a"
-                    borderRadius: 1
-
-        # Older posts are displayed below the separator
-        posts_old.map (post) ->
-            POST
-                post: post.key
-                key: unslash post.key
-
+                key: post
+                post: post
 
 
 # The layout for a single post, including slidergram and such
@@ -112,103 +71,164 @@ dom.POST = ->
     time_string = prettyDate(post.time * 1000)
     user_clickable = c.logged_in and (c.user.key != author.key)
 
-    ARTICLE
-        margin: "5px 0"
-        padding: "5px 0"
-        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
-        position: "relative"
-        zIndex: if @local.expanded then 5
+    DIV
+        key: "container" 
+        display: "flex"
+        flexDirection: "column"
 
         DIV
-            key: "post-main"
-            display: "grid"
-            className: "post-main-grid"
-            alignItems: "center"
+            key: "dummy-shadow-top"
+            alignSelf: "stretch"
+            height: 4
+            opacity: if @local.expanded then 0.25 else 0
+            backgroundImage: "radial-gradient(50% 100% at bottom, black, transparent)"
 
-            AVATAR_WITH_SLIDER
-                key: "avatar"
-                user: author
-                clickable: user_clickable
-                width: slider_height - 10
-                height: slider_height - 10
-                style:
-                    gridArea: "icon"
-                    alignSelf: "center"
-                    justifySelf: "center"
+        ARTICLE
+            key: "expands"
+            padding: "5px 0"
+            #boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
+            position: "relative"
+            zIndex: if @local.expanded then 5
 
-            A
-                key: "title"
-                className: "post-title"
-                gridArea: "title"
-                paddingRight: "10px"
-                lineHeight: 1.3
-                justifySelf: "stretch"
-                textDecoration: "none"
-                href: if functional_url.length then functional_url
-                "#{post.title}"
-
-            SPAN
-                key: "url_time"
-                gridArea: "domain_time"
-                fontSize: "12px"
-                color: "#999"
-                whiteSpace: "nowrap"
-                overflowX: "hidden"
-                textOverflow: "ellipsis"
-                if post.body
-                    time_string
-                else
-                    "#{if @local.expanded then url else pretty_url} · #{time_string}"
-           
             DIV
-                key: "post-votes-slider"
-                gridArea: "slider"
-                className: "grid-slider"
-                alignSelf: "start"
-                height: slider_height + 5
-                # If we're viewing with respect to a tag, apply the tag to the slidergram
-                if v.tag
-                    SLIDERGRAM_WITH_TAG
-                        key: "slidergram"
-                        post: post
-                        tag: unslash v.tag
-                        width: slider_width
-                        height: slider_height
-                        max_avatar_radius: slider_height / 2
-                        read_only: !c.logged_in
-                else
-                    SLIDERGRAM
-                        key: "slidergram"
-                        sldr: "/votes/#{unslash post.key}(untagged)"
-                        width: slider_width
-                        height: slider_height
-                        max_avatar_radius: slider_height / 2
-                        read_only: !c.logged_in
-                        vote_key: "user_key"
-                        onsave: (vote) =>
-                            vote.key = "#{c.user.key}/vote/#{unslash post.key}"
-                            vote.target_key = post.key
-                            save vote
+                key: "post-main"
+                display: "grid"
+                className: "post-main-grid"
+                alignItems: "center"
 
-            SPAN
-                key: "more"
-                gridArea: "more"
-                color: "#999"
-                className: "material-icons-outlined md-dark"
-                fontSize: "24px"
+                AVATAR_WITH_SLIDER
+                    key: "avatar"
+                    user: author
+                    clickable: user_clickable
+                    width: slider_height - 10
+                    height: slider_height - 10
+                    style:
+                        gridArea: "icon"
+                        alignSelf: "center"
+                        justifySelf: "center"
+
+                A
+                    key: "title"
+                    className: "post-title"
+                    gridArea: "title"
+                    paddingRight: "10px"
+                    lineHeight: 1.3
+                    justifySelf: "stretch"
+                    textDecoration: "none"
+                    href: if functional_url.length then functional_url
+                    "#{post.title}"
+
+                SPAN
+                    key: "url_time"
+                    gridArea: "domain_time"
+                    fontSize: "12px"
+                    color: "#999"
+                    whiteSpace: "nowrap"
+                    overflowX: "hidden"
+                    textOverflow: "ellipsis"
+                    if post.body
+                        time_string
+                    else
+                        "#{if @local.expanded then url else pretty_url} · #{time_string}"
+               
+                DIV
+                    key: "post-votes-slider"
+                    gridArea: "slider"
+                    className: "grid-slider"
+                    alignSelf: "start"
+                    height: slider_height + 5
+                    # If we're viewing with respect to a tag, apply the tag to the slidergram
+                    if v.tag
+                        SLIDERGRAM_WITH_TAG
+                            key: "slidergram"
+                            post: post
+                            tag: unslash v.tag
+                            width: slider_width
+                            height: slider_height
+                            max_avatar_radius: slider_height / 2
+                            read_only: !c.logged_in
+                    else
+                        SLIDERGRAM
+                            key: "slidergram"
+                            sldr: "/votes/#{unslash post.key}(untagged)"
+                            width: slider_width
+                            height: slider_height
+                            max_avatar_radius: slider_height / 2
+                            read_only: !c.logged_in
+                            vote_key: "user_key"
+                            onsave: (vote) =>
+                                vote.key = "#{c.user.key}/vote/#{unslash post.key}"
+                                vote.target_key = post.key
+                                save vote
+
+                BUTTON
+                    key: "more"
+                    gridArea: "more"
+                    color: "#999"
+                    className: "material-icons-outlined md-dark unbutton"
+                    fontSize: "24px"
+                    cursor: "pointer"
+                    textAlign: "center"
+                    display: if @props.no_expand then "none"
+                    onClick: () => 
+                        @local.expanded = !@local.expanded
+                        save @local
+                    if @local.expanded then "expand_less" else "expand_more"
+
+
+            if @local.expanded and !@props.no_expand
+                POST_DETAILS
+                    key: "details-dropdown"
+                    post: post
+
+        DIV
+            key: "dummy-shadow-bot"
+            alignSelf: "stretch"
+            height: 4
+            opacity: if @local.expanded then 0.25 else 0
+            backgroundImage: "radial-gradient(50% 100% at top, black, transparent)"
+
+        if @local.expanded and !@local.replying
+            BUTTON
+                key: "reply"
+                className: "unbutton"
                 cursor: "pointer"
-                textAlign: "center"
-                display: if @props.no_expand then "none"
+                margin: "0 auto 5px auto"
+                display: "inline-flex"
                 onClick: () => 
-                    @local.expanded = !@local.expanded
+                    @local.replying = true
                     save @local
-                if @local.expanded then "expand_less" else "expand_more"
 
+                SPAN
+                    key: "reply-text"
+                    color: "#999"
+                    lineHeight: "24px"
+                    marginRight: "2px"
+                    "Reply"
+                SPAN
+                    key: "reply-btn"
+                    color: "#999"
+                    className: "material-icons-outlined md-dark"
+                    fontSize: "24px"
+                    textAlign: "center"
+                    "reply"
+                
+        # This SUBMIT needs to have a cancel button
+        if @local.replying
+            DIV
+                key: "reply-container"
+                borderLeft: "2px solid #ddd"
+                padding: "15px 0 0 10px"
+                marginLeft: 23 # TODO: Calculate correct left margin
+                # ideally the border aligns with the middle of the avatars
 
-        if @local.expanded and !@props.no_expand
-            POST_DETAILS
-                key: "details-dropdown"
-                post: post
+                SUBMIT_POST
+                    key: "reply-form"
+                    parent: post.key
+                    cancel: yes
+                    close: () =>
+                        @local.replying = false
+                        save @local
 
 
 # The expanded part underneath a post.
@@ -221,116 +241,117 @@ dom.POST_DETAILS = ->
     save @local
 
     DIV
-        width: inner_width
-        margin: "0 auto"
-
-        ### === Text-post body, editing, deletion. === ###
-        # Find a better way to organize these components?
-
-        if @local.editing
-            # A textbox with the text of the post body
-            TEXTAREA
-                key: "editbox"
-                ref: "editbox"
-                gridArea: "textbox"
-
-                # Make the textbox take the same space as the original post body
-                minHeight: @local.h
-                width: "100%"
-                boxSizing: "border-box"
-
-                rows: 3
-                resize: "vertical"
-                fontSize: "0.875rem" # 14px unless zoom
-
-                placeholder: "Edit your post..."
-                
-                value: @local.live_body
-                onChange: (e) =>
-                    @local.live_body = e.target.value
-                    save @local
-                
-
-        else
-            P
-                key: "body"
-                ref: "body"
-                display: "none" unless post.body
-                width: "100%"
-                marginTop: "5px"
-                whiteSpace: "pre-line"
-                textAlign: "justify"
-                fontSize: "0.9375rem" # 15px unless zoom
-                lineHeight: 1.4
-                color: "#444"
-                post.body
+        margin: "0 50px 10px 50px"
+        display: "flex"
+        flexDirection: "row"
 
         DIV
-            key: "controls"
-            display: if c?.user?.key == post?.user_key then "flex" else "none"
-            flexDirection: "row"
-            justifyContent: "flex-start"
-            fontSize: "12px"
-            color: "#999"
+            key: "post-body-edit"
+            flexGrow: 1
+            marginRight: 10
 
-            SPAN
-                key: "cancel"
-                display: unless @local.editing then "none"
-                cursor: "pointer"
-                marginRight: 8
-                onClick: () =>
-                    @local.editing = false
-                    save @local
-                "Cancel"
+            ### === Text-post body, editing, deletion. === ###
+            # Find a better way to organize these components?
 
-            SPAN
-                key: "save"
-                cursor: "pointer"
-                display: unless @local.editing then "none"
-                onClick: () =>
-                    save {
-                        post...
-                        body: @local.live_body
-                        edit_time: Math.floor (Date.now() / 1000)
-                    }
+            if @local.editing
+                # A textbox with the text of the post body
+                TEXTAREA
+                    key: "editbox"
+                    ref: "editbox"
+                    gridArea: "textbox"
 
-                    @local.editing = false
-                    save @local
-                "Save"
+                    # Make the textbox take the same space as the original post body
+                    minHeight: @local.h
+                    width: "100%"
+                    boxSizing: "border-box"
 
-            SPAN
-                key: "delete-btn"
-                display: if @local.editing then "none"
-                cursor: "pointer"
-                marginRight: 8
-                onClick: () -> del post.key
-                "Delete"
+                    rows: 3
+                    resize: "vertical"
+                    fontSize: "0.875rem" # 14px unless zoom
 
-            SPAN
-                key: "edit-btn"
-                display: if post.url or @local.editing then "none"
-                cursor: "pointer"
-                onClick: () =>
-                    @local.editing = true
-                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight
-                    save @local
-                "Edit"
+                    placeholder: "Edit your post..."
+                    
+                    value: @local.live_body
+                    onChange: (e) =>
+                        @local.live_body = e.target.value
+                        save @local
+                    
+
+            else
+                P
+                    key: "body"
+                    ref: "body"
+                    display: "none" unless post.body
+                    width: "100%"
+                    marginTop: "5px"
+                    whiteSpace: "pre-line"
+                    textAlign: "justify"
+                    fontSize: "0.9375rem" # 15px unless zoom
+                    lineHeight: 1.4
+                    color: "#444"
+                    post.body
+
+            DIV
+                key: "controls"
+                display: if c?.user?.key == post?.user_key then "flex" else "none"
+                flexDirection: "row"
+                justifyContent: "flex-start"
+                fontSize: "12px"
+                color: "#999"
+
+                BUTTON
+                    key: "cancel"
+                    className: "unbutton"
+                    display: unless @local.editing then "none"
+                    cursor: "pointer"
+                    marginRight: 8
+                    onClick: () =>
+                        @local.editing = false
+                        save @local
+                    "Cancel"
+
+                BUTTON
+                    key: "save"
+                    className: "unbutton"
+                    cursor: "pointer"
+                    display: unless @local.editing then "none"
+                    onClick: () =>
+                        save {
+                            post...
+                            body: @local.live_body
+                            edit_time: Math.floor (Date.now() / 1000)
+                        }
+
+                        @local.editing = false
+                        save @local
+                    "Save"
+
+                BUTTON
+                    key: "delete-btn"
+                    className: "unbutton"
+                    display: if @local.editing then "none"
+                    cursor: "pointer"
+                    marginRight: 8
+                    onClick: () -> del post.key
+                    "Delete"
+
+                BUTTON
+                    key: "edit-btn"
+                    className: "unbutton"
+                    display: if post.url or @local.editing then "none"
+                    cursor: "pointer"
+                    onClick: () =>
+                        @local.editing = true
+                        @local.h = @refs?.body?.getDOMNode?()?.clientHeight
+                        save @local
+                    "Edit"
 
 
         TAGS
             key: "tags"
             post: @props.post
-
-        A
-            key: "permalink"
-            display: "block"
-            textAlign: "center"
-            color: "#666"
-            textDecoration: "none"
-            marginBottom: 5
-            href: post.key
-            "data-load-intern": true
-            "Permalink"
+            style:
+                width: slider_width
 
 
 dom.FULL_PAGE_POST = ->
@@ -361,7 +382,6 @@ dom.FULL_PAGE_POST = ->
                 key: "tags"
                 post: @props.post
                 max_tags: 1000
-                style: marginLeft: 30
 
 dom.TAGS = ->
 
@@ -396,23 +416,12 @@ dom.TAGS = ->
         # The tags that are actually on the post, plus their sliders
         DIV
             key: "tags-grid"
-            display: "grid"
-            gridTemplateColumns: "minmax(5em, auto) #{slider_width}px"
-            gridColumnGap: 10
-            gridAutoRows: slider_height + 5
-            alignItems: "center"
+            width: slider_width
 
             for tag in tags_shown
                 DIV
                     key: "tag-#{tag}"
-                    display: "contents"
-                    SPAN
-                        key: "tag-text"
-                        fontSize: 16
-                        lineHeight: 1.1
-                        textTransform: "capitalize"
-                        color: "#444"
-                        "#{tag}:"
+                    display: "flex"
 
                     SLIDERGRAM_WITH_TAG
                         key: "tag-slidergram"
@@ -422,6 +431,19 @@ dom.TAGS = ->
                         height: slider_height
                         max_avatar_radius: slider_height / 2
                         read_only: !c.logged_in
+
+                    SPAN
+                        key: "tag-text"
+                        fontSize: 14
+                        lineHeight: "#{slider_height}px"
+                        marginLeft: 15
+                        textTransform: "capitalize"
+                        color: "#444"
+                        whiteSpace: "nowrap"
+                        alignSelf: "flex-end"
+
+                        tag
+
         if too_many_tags
             SPAN
                 key: "too-many-tags"
@@ -513,11 +535,12 @@ dom.TAGS = ->
                             save @local
 
                             
-                    SPAN
+                    BUTTON
                         key: "textbox-replacement"
+                        className: "unbutton"
                         display: if @local.addtagvisible then "none"
                         color: "#999"
-                        marginLeft: 40
+                        marginLeft: 60
                         cursor: "pointer"
                         onClick: () =>
                             @local.addtagvisible = !@local.addtagvisible
@@ -527,11 +550,11 @@ dom.TAGS = ->
                         "Add Tag"
 
 
-                    SPAN
+                    BUTTON
                         key: "addbutton"
                         ref: "addbutton"
                         color: "#999"
-                        className: "material-icons-outlined md-dark"
+                        className: "material-icons-outlined md-dark unbutton"
                         fontSize: "24px"
                         cursor: "pointer"
                         marginLeft: 6
@@ -665,9 +688,9 @@ dom.MAIN_HEADER = ->
                 "data-load-intern": true
                 "Search"
 
-            SPAN
+            BUTTON
                 key: "post"
-                className: "mobile-hide"
+                className: "mobile-hide unbutton"
                 margin: 10
                 cursor: "pointer"
                 display: unless c.logged_in then "none"
@@ -677,8 +700,9 @@ dom.MAIN_HEADER = ->
                 "Post"
 
             if c.logged_in
-                SPAN
+                BUTTON
                     key: "user"
+                    className: "unbutton"
                     cursor: "pointer"
                     display: "contents"
                     onClick: () => 
@@ -701,8 +725,9 @@ dom.MAIN_HEADER = ->
                             height: 40
                             overflow: "hidden"
             else
-                SPAN
+                BUTTON
                     key: "user"
+                    className: "unbutton"
                     margin: 10
                     cursor: "pointer"
                     onClick: () => 
@@ -973,6 +998,7 @@ dom.SUBMIT_POST = ->
                 title: title.value
                 url: url?.value
                 body: body?.value
+                parent: @props.parent
             title.value = ""
             if @local.text
                 body.value = ""
@@ -982,111 +1008,121 @@ dom.SUBMIT_POST = ->
         @props.close?()
 
     DIV
-        key: "root"
-        
+        key: "submit-container"
+        display: "grid"
+        width: 600
+        grid: "\" icon title   title   switcher\" auto
+               \" icon content content switcher\" auto
+               \" .    .       cancel  submit\"   auto
+                / auto 1fr     auto    auto "
+        gridColumnGap: 8
+        gridRowGap: 2
+        alignItems: "center"
+
         DIV
-            key: "link-or-text"
+            key: "switcher"
+            gridArea: "switcher"
+            userSelect: "none"
             display: "flex"
-            flexDirection: "row"
-            justifyContent: "center"
-            marginBottom: 4
+            flexDirection: "column"
+            alignSelf: "stretch"
             fontSize: "14px"
 
-            SPAN
+            BUTTON
                 key: "link"
+                className: "unbutton"
                 color: if @local.text then "#999" else "#444"
                 cursor: if @local.text then "pointer"
-                margin: "0 5px"
                 onClick: () => 
                     @local.text = false
                     save @local
                 "Link"
 
-            SPAN
+            BUTTON
                 key: "text"
+                className: "unbutton"
                 color: if @local.text then "#444" else "#999"
                 cursor: unless @local.text then "pointer"
-                margin: "0 5px"
                 onClick: () =>
                     @local.text = true
                     save @local
                 "Text"
-        DIV
-            key: "submit-container"
-            display: "grid"
-            width: 600
-            grid: "\"icon title   title\" auto
-                   \"icon content content\" auto
-                   \".    .       submit\"   auto
-                    / auto 1fr auto"
-            gridColumnGap: 8
-            gridRowGap: 2
-            alignItems: "center"
 
-            AVATAR
-                key: "avatar"
-                user: c.user
-                hide_tooltip: true
-                gridArea: "icon"
-                style:
-                    width: slider_height - 10
-                    height: slider_height - 10
-                    borderRadius: "50%"
-                    alignSelf: "start"
-                    justifySelf: "center"
-                    opacity: 0.5
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            gridArea: "icon"
+            style:
+                width: slider_height - 10
+                height: slider_height - 10
+                borderRadius: "50%"
+                alignSelf: "start"
+                justifySelf: "center"
+                opacity: 0.5
 
+        INPUT
+            key: "title"
+            ref: "post-title"
+            gridArea: "title"
+            fontSize: "18px"
+            paddingRight: "10px"
+            marginBottom: "2px"
+            border: "none"
+            justifySelf: "stretch"
+            placeholder: "Say something..."
+            onKeyDown: (e) =>
+                if e.keyCode == 13
+                    form_submit()
+                else if e.keyCode == 9
+                    e.preventDefault()
+                    (@refs["post-url"] or @refs["post-body"]).getDOMNode().focus()
+
+
+        if @local.text
+            TEXTAREA
+                key: "body"
+                ref: "post-body"
+                gridArea: "content"
+                rows: 4
+                resize: "vertical"
+                placeholder: "Add some details..."
+        else
             INPUT
-                key: "title"
-                ref: "post-title"
-                gridArea: "title"
-                fontSize: "18px"
-                paddingRight: "10px"
-                marginBottom: "2px"
+                key: "url"
+                ref: "post-url"
+                gridArea: "content"
+                fontSize: "12px"
+                color: "#999"
+                whiteSpace: "nowrap"
+                placeholder: "https://..."
                 border: "none"
-                justifySelf: "stretch"
-                placeholder: "Say something..."
                 onKeyDown: (e) =>
                     if e.keyCode == 13
                         form_submit()
                     else if e.keyCode == 9
                         e.preventDefault()
-                        (@refs["post-url"] or @refs["post-body"]).getDOMNode().focus()
+        
+        BUTTON
+            key: "cancel"
+            className: "unbutton"
+            gridArea: "cancel"
+            fontSize: "14px"
+            display: unless @props.cancel then "none"
+            color: "#999"
+            onClick: @props.close
+            cursor: "pointer"
+            "Cancel"
 
-
-            if @local.text
-                TEXTAREA
-                    key: "body"
-                    ref: "post-body"
-                    gridArea: "content"
-                    rows: 4
-                    resize: "vertical"
-                    placeholder: "Add some details..."
-            else
-                INPUT
-                    key: "url"
-                    ref: "post-url"
-                    gridArea: "content"
-                    fontSize: "12px"
-                    color: "#999"
-                    whiteSpace: "nowrap"
-                    placeholder: "https://..."
-                    border: "none"
-                    onKeyDown: (e) =>
-                        if e.keyCode == 13
-                            form_submit()
-                        else if e.keyCode == 9
-                            e.preventDefault()
-            
-            DIV
-                key: "submit"
-                gridArea: "submit"
-                fontSize: "14px"
-                padding: "3px 8px 1px 8px"
-                color: "#999"
-                onClick: form_submit
-                cursor: "pointer"
-                "Post"
+        BUTTON
+            key: "submit"
+            className: "unbutton"
+            gridArea: "submit"
+            fontSize: "14px"
+            color: "#999"
+            onClick: form_submit
+            cursor: "pointer"
+            "Post"
 
 
 
@@ -1339,8 +1375,9 @@ dom.USERS = ->
             justifyContent: "space-evenly"
 
             ["top", "new", "old"].map (s) =>
-                SPAN
+                BUTTON
                     key: s
+                    className: "unbutton"
                     textTransform: "capitalize"
                     fontSize: 20
                     color: if @local.sort == s then "black" else "#999"
@@ -1436,12 +1473,12 @@ dom.USER = ->
                         vote.target_key = user.key
                         save vote
 
-            SPAN
+            BUTTON
                 key: "more"
                 ref: "more"
                 gridArea: "more"
                 color: "#999"
-                className: "material-icons-outlined md-dark"
+                className: "material-icons-outlined md-dark unbutton"
                 fontSize: "24px"
                 cursor: "pointer"
                 textAlign: "center"

@@ -10,11 +10,26 @@
         width: 100%;
         padding: 0;
         margin: 0;
+        overflow-x: hidden;
     }
     /* unset some weird styles */
     p {
         margin: 0;
         padding: 0;
+    }
+    .unbutton {
+        margin: 0;
+        padding: 0;
+        border: none;
+        color: unset;
+        display: inline-block;
+        background: none;
+        font-size: unset;
+        box-shadow: none;
+        text-decoration: none;
+        text-align: left;
+        -webkit-appearance: none;
+        -moz-appearance: none;
     }
     .material-icons-outlined { user-select: none; }
     /* Rules for using icons as black on a light background. */
@@ -59,18 +74,23 @@
         display: none;
     }
 
+    div[data-widget=POST] {
+        width: min(800px, calc(100vw - 20ch));
+    }
+    div[data-widget=USER] {
+        width: min(700px, calc(100vw - 20ch));
+    }
+
     .post-main-grid {
         grid: "icon title       slider more" auto
               "icon domain_time slider more" 16px
             /  50px  1fr        225px  50px;
-        width: min(800px, calc(100vw - 50px));
     }
 
     .user-main-grid {
         grid: "icon name       slider more" auto
               "icon joined     slider more" 16px
             /  50px  1fr        225px  50px;
-        width: min(700px, calc(100vw - 50px));
     }
     
     @media only screen and (max-width: 650px) {
@@ -122,8 +142,7 @@
             flex-direction: column !important;
         }
         div[data-widget=POST_DETAILS] {
-            width: calc(100vw - 50px) !important;
-            margin-top: 10px !important;
+            margin: 10px 20px !important;
         }
         span[data-key=tag-text] {
             font-size: 14px !important;
@@ -351,6 +370,90 @@
             {
                 key: key,
                 value: res
+            }
+
+        # discussion threading layout calculation
+        parser("post_layout").to_fetch = (key, t) ->
+            kson = stringify_kson t._params
+            user = t._params.user
+            min_score = (fetch user)?.filter ? 0.2
+            posts = fetch "/posts"
+            
+            # assemble posts into an array of trees
+            # also mark which posts are good
+            children_of = root: []
+            is_good = {}
+            posts.arr?.forEach (post) ->
+                parent = post.parent_key ? "root"
+                (children_of[parent] ?= []).push post
+
+                is_good[post.key] = (fetch "score#{post.key}#{kson}").value > min_score
+
+            # assemble trees of posts into trees of collapsed good blocks
+            blocks = root: {chain: null, context: null, end: 'root', children: []}
+            # TODO: Handle the special case where a bad post interrupts a long string of good posts
+            f_chain = (post, block, parent, skipped) ->
+                # we might have to start a new block
+                block ?= chain: [], context: post.parent_key, children: [], skipped: skipped
+                if is_good[post.key]
+                    block.chain.push post.key
+
+                good_children = (children_of[post.key] ? [])
+                    .filter (c) -> is_good[c.key]
+                # if we only have one good child, continue the block
+                if good_children.length == 1
+                    f_chain good_children[0], block, parent, skipped
+                # otherwise, end the block and then tell all the children to start new blocks
+                else
+                    new_parent = parent
+                    new_skipped = skipped + 1
+                    if block.chain?.length
+                        # add the block to blocks and children
+                        block.end = post.key
+                        blocks[block.end] = block
+                        blocks[parent].children.push block.end
+                        # children will create blocks that are children of this block
+                        new_parent = block.end
+                        # nothing got skipped
+                        new_skipped = 0
+                    # chilren will need to start new blocks as children of the new parent
+                    good_children.forEach (c) -> f_chain c, null, new_parent, new_skipped
+
+            children_of.root.forEach (post) -> f_chain post, null, 'root', 0
+
+            # TODO: dont just sort blocks by raw score
+            # ie, give new content a bonus
+
+            aggregate_score = (block) ->
+                sum = block.chain
+                    .map (c) -> 
+                        val = (fetch "score#{c}#{kson}").value
+                        # nonlinearity means that negative scores arent counted as heavily
+                        # but might be more interesting to do something like E[exp(v(c))]
+                        Math.max val, -Math.sqrt Math.abs val
+                    .reduce (a, b) -> a + b
+                
+                sum / block.chain.length
+
+            # flatten the blocks
+            blocks_arr = []
+            f_flatten = (block, level) ->
+                block.level = level
+                blocks_arr.push block
+                # sort the children to flatten in the right order
+                block.children
+                    .map (c) -> blocks[c]
+                    .sort (a, b) -> (aggregate_score b) - aggregate_score a
+                    .forEach (c) -> f_flatten c, level + 1
+
+
+            f_flatten blocks.root, -1
+            # the first element is root, which isn't real
+            blocks_arr.shift()
+
+            {
+                key: key,
+                arr: blocks_arr
             }
 
 

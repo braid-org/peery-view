@@ -45,10 +45,11 @@ make_post = (props) ->
     v = fetch "view"
     post =
         key: id
-        user_key: props.user
+        user_key: props.user_key ? props.user
         title: props.title
         url: props.url
         body: props.body
+        parent_key: props.parent_key ? props.parent
         time: Math.floor (Date.now() / 1000)
         tags: if v.tag then [v.tag]
 

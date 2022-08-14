@@ -50,6 +50,7 @@ dom.AVATAR = ->
         hue = parseInt(md5(user?.key ? name).substr(0, 2), 16)
         @props.style.backgroundColor ?= "hsl(#{hue},45%,70%)"
         @props.style.zIndex ?= 1
+        @props.style.userSelect ?= "none"
 
     if add_initials
         if name == 'Anonymous'
