@@ -530,7 +530,7 @@ migrate = (state) ->
         console.log "MIGRATION UJD: User Join Date."
         console.log "MIGRATION UJD: Inferring user join order from their position in user array."
         users = state.fetch "users"
-        users.all.forEach (v, i) ->
+        users?.all?.forEach (v, i) ->
             unless v.joined
                 v.joined = i * 5000 + 1500000000000
                 state.save.fire v
@@ -542,7 +542,7 @@ migrate = (state) ->
         console.log "MIGRATION WPP: White Profile Pictures."
         console.log "MIGRATION WPP: Analyzing all current profile pictures."
         users = state.fetch "users"
-        users.all.forEach (v, i) ->
+        users?.all?.forEach (v, i) ->
             if v.pic
                 validate_pic v.key, v.pic, (pic_results) =>
                     unless pic_results.exists
@@ -557,7 +557,7 @@ migrate = (state) ->
     unless m.delete_comments
         console.log "MIGRATION DAC: Delete All Comments."
         posts = state.fetch "posts"
-        posts.arr.forEach (p) ->
+        posts?.arr?.forEach (p) ->
             comments = state.fetch "#{p.key}/comments"
 
             static_comments = JSON.parse JSON.stringify ( comments?.arr ? [] )
