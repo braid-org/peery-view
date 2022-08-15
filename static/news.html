@@ -391,7 +391,7 @@
 
             # assemble trees of posts into trees of collapsed blocks, each of which is uniform in color
             blocks = root: {chain: null, context: null, end: 'root', children: []}
-            f_chain_color = (post, block, parent) ->
+            f_chain = (post, block, parent) ->
                 # we might have to start a new block
                 block ?= chain: [], context: post.parent_key, children: [], good: is_good[post.key], skipped: 0
                 block.chain.push post.key
@@ -399,7 +399,7 @@
                 children = children_of[post.key] ? []
                 # if we have exactly one child and its the same color, keep the block going
                 if children.length == 1 and (is_good[children[0].key] == is_good[post.key])
-                    has_good_descendents = f_chain_color children[0], block, parent
+                    f_chain children[0], block, parent
                 # otherwise, end the block and then tell all the children to start new blocks
                 else
                     # put the block in blocks, so that our children can find us
@@ -408,13 +408,13 @@
                     # children will need to start new blocks as children of the new parent
                     # if any children have good descendents, or we are good, then so do we
                     has_good_descendents = children
-                            .map (c) -> f_chain_color c, null, block.end
+                            .map (c) -> f_chain c, null, block.end
                             .reduce ((a, b) -> a or b), block.good
                     # trim completely bad branches by just not adding them
                     if has_good_descendents
                         # block.children should be populated with blocks that are good or have good descends
                         # our entire subtree is maximally merged.
-                        # so now we need to merge children with ourselves.
+                        # so now we need to merge/adopt children,
                         # according to the following rules:
                         # 1. if we have one child and its the same color, merge with it.
                         if block.children.length == 1 and (is_good[block.children[0]] == block.good)
@@ -426,29 +426,36 @@
                             block = child
                             
                         # 2. otherwise, if we have bad children, adopt their children and increment their skipped
-                        else # avoid creating a new array here?
-                            new_children = []
-                            block.children
-                                .forEach (c) ->
-                                    child = blocks[c]
-                                    if child.good
-                                        new_children.push c
-                                    else if child.children?.length
-                                        new_children.push child.children...
-                                        child.children.forEach (gc) ->
-                                            blocks[gc].skipped += child.chain.length
-                            block.children = new_children
+                        else
+                            disown_bad_children block
 
                         # 3. TODO: handle the "1 bad context" case?
 
                         # done. attach to the parent
                         blocks[parent].children.push block.end
                 
-                has_good_descendents
+                    has_good_descendents
 
-            children_of.root.forEach (post) -> f_chain_color post, null, 'root'
-
-            # Now perform the second pass: removing bad blocks.
+            # removes bad children and adopts any children of the disowned 
+            disown_bad_children = (block) ->
+                # avoid creating a new array here?
+                new_children = []
+                block.children
+                    .forEach (c) ->
+                        child = blocks[c]
+                        if child.good
+                            new_children.push c
+                        else if child.children?.length
+                            # add all children of the bad child to our children
+                            # if all children have already called disown_bad_children,
+                            # any grandchildren we find will be good.
+                            new_children.push child.children...
+                            child.children.forEach (gc) -> blocks[gc].skipped += child.chain.length
+                block.children = new_children
+       
+            children_of.root.forEach (post) -> f_chain post, null, 'root'
+            # root needs to adopt grandchildren
+            disown_bad_children blocks.root
 
             # TODO: dont just sort blocks by raw score
             # ie, give new content a bonus
