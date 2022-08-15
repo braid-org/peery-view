@@ -25,9 +25,17 @@ dom.CHAT_BLOCK = ->
     block = @props.block
     DIV
         key: "block"
-        border: "1px solid black"
-        marginLeft: block.level * 10
+        border: "1px solid #{if block.good then "blue" else "red"}"
+        marginLeft: block.level * 20
         marginBottom: 20
+        position: "relative"
+
+        SPAN
+            key: "n-skipped"
+            position: "absolute"
+            top: 5
+            left: 5
+            "#{block.skipped}"
 
         block.chain.map (post) ->
             POST
