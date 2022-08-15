@@ -460,8 +460,9 @@
             # TODO: dont just sort blocks by raw score
             # ie, give new content a bonus
 
+            block_scores = {}
             aggregate_score = (block) ->
-                sum = block.chain
+                block_scores[block.end] ?= block.chain
                     .map (c) -> 
                         val = (fetch "score#{c}#{kson}").value
                         # nonlinearity means that negative scores arent counted as heavily
@@ -469,7 +470,7 @@
                         Math.max val, -Math.sqrt Math.abs val
                     .reduce (a, b) -> Math.max a, b
                 
-                sum
+                block_scores[block.end]
 
             # flatten the blocks
             blocks_arr = []
