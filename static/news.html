@@ -419,21 +419,21 @@
                         # 1. if we have one child and its the same color, merge with it.
                         if block.children.length == 1 and (is_good[block.children[0]] == block.good)
                             child = blocks[block.children[0]]
-                            child.chain = block.chain.concat child.chain
+                            child.chain.unshift block.chain...
                             child.context = block.context
                             child.skipped = block.skipped # ?? not sure about this. probably always 0
                             delete blocks[block.end]
                             block = child
                             
                         # 2. otherwise, if we have bad children, adopt their children and increment their skipped
-                        else
+                        else # avoid creating a new array here?
                             new_children = []
                             block.children
                                 .forEach (c) ->
-                                    if is_good[c]
+                                    child = blocks[c]
+                                    if child.good
                                         new_children.push c
-                                    else
-                                        child = blocks[c]
+                                    else if child.children?.length
                                         new_children.push child.children...
                                         child.children.forEach (gc) ->
                                             blocks[gc].skipped += child.chain.length
