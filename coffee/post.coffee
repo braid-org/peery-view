@@ -30,7 +30,7 @@ sort_posts = (posts, user, tag) ->
 ###
 
 compute_score = (p) ->
-    p.score + p.author
+    p.score# + p.author
 
 make_post = (props) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2)

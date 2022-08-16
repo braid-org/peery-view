@@ -16,6 +16,7 @@ dom.POSTS = ->
 
     DIV
         key: "posts"
+        style: @props?.style
         layout.arr.map (block) ->
             CHAT_BLOCK
                 key: "block-#{block.end}"
@@ -108,8 +109,8 @@ dom.POST = ->
                     key: "avatar"
                     user: author
                     clickable: user_clickable
-                    width: slider_height - 10
-                    height: slider_height - 10
+                    width: post_height
+                    height: post_height
                     style:
                         gridArea: "icon"
                         alignSelf: "center"
@@ -153,7 +154,7 @@ dom.POST = ->
                             tag: unslash v.tag
                             width: slider_width
                             height: slider_height
-                            max_avatar_radius: slider_height / 2
+                            max_avatar_radius: slider_height / 2.5
                             read_only: !c.logged_in
                     else
                         SLIDERGRAM
@@ -161,7 +162,7 @@ dom.POST = ->
                             sldr: "/votes/#{unslash post.key}(untagged)"
                             width: slider_width
                             height: slider_height
-                            max_avatar_radius: slider_height / 2
+                            max_avatar_radius: slider_height / 2.5
                             read_only: !c.logged_in
                             vote_key: "user_key"
                             onsave: (vote) =>
@@ -437,7 +438,7 @@ dom.TAGS = ->
                         tag: tag
                         width: slider_width
                         height: slider_height
-                        max_avatar_radius: slider_height / 2
+                        max_avatar_radius: slider_height / 2.5
                         read_only: !c.logged_in
 
                     SPAN
@@ -695,17 +696,6 @@ dom.MAIN_HEADER = ->
                 href: "/search"
                 "data-load-intern": true
                 "Search"
-
-            BUTTON
-                key: "post"
-                className: "mobile-hide unbutton"
-                margin: 10
-                cursor: "pointer"
-                display: unless c.logged_in then "none"
-                onClick: () => 
-                    @local.modal = if @local.modal == "post" then false else "post"
-                    save @local
-                "Post"
 
             if c.logged_in
                 BUTTON
@@ -987,74 +977,43 @@ dom.ROLODEX.refresh = ->
 
 # The submit-post modal
 dom.SUBMIT_POST = ->
-
-    @local.typed ?= false
-
     c = fetch "/current_user"
     unless c.logged_in
         return
 
     form_submit = =>
+        body = @refs["post-main"].getDOMNode()
         title = @refs["post-title"].getDOMNode()
-        if @local.text
-            body = @refs["post-body"].getDOMNode()
-        else
-            url = @refs["post-url"].getDOMNode()
-        if title?.value and (url?.value or body?.value)
+        body_val = body?.value.trim()
+        title_val = title?.value.trim()
+
+        if body_val and (title_val or !@local.show_title)
             make_post
                 user: c.user.key
                 title: title.value
-                url: url?.value
-                body: body?.value
+                url: if @local.show_title then body_val
+                body: unless @local.show_title then body_val
                 parent: @props.parent
+
+            # reset the form
             title.value = ""
-            if @local.text
-                body.value = ""
-            else
-                url.value = ""
+            body.value = ""
+            @local.typed = @local.show_title = false
+            save @local
 
         @props.close?()
 
     DIV
         key: "submit-container"
         display: "grid"
-        width: 600
-        grid: "\" icon title   title   switcher\" auto
-               \" icon content content switcher\" auto
-               \" .    .       cancel  submit\"   auto
-                / auto 1fr     auto    auto "
+        width: inner_width
+        grid: "\" icon main  main   main \"  auto
+               \" .    title title  title\"  auto
+               \" .    .     cancel submit\" 18px
+                / auto 1fr   auto    auto "
         gridColumnGap: 8
         gridRowGap: 2
         alignItems: "center"
-
-        DIV
-            key: "switcher"
-            gridArea: "switcher"
-            userSelect: "none"
-            display: "flex"
-            flexDirection: "column"
-            alignSelf: "stretch"
-            fontSize: "14px"
-
-            BUTTON
-                key: "link"
-                className: "unbutton"
-                color: if @local.text then "#999" else "#444"
-                cursor: if @local.text then "pointer"
-                onClick: () => 
-                    @local.text = false
-                    save @local
-                "Link"
-
-            BUTTON
-                key: "text"
-                className: "unbutton"
-                color: if @local.text then "#444" else "#999"
-                cursor: unless @local.text then "pointer"
-                onClick: () =>
-                    @local.text = true
-                    save @local
-                "Text"
 
         AVATAR
             key: "avatar"
@@ -1062,54 +1021,78 @@ dom.SUBMIT_POST = ->
             hide_tooltip: true
             gridArea: "icon"
             style:
-                width: slider_height - 10
-                height: slider_height - 10
+                width: post_height
+                height: post_height
                 borderRadius: "50%"
                 alignSelf: "start"
                 justifySelf: "center"
                 opacity: 0.5
 
+        TEXTAREA
+            key: "main"
+            ref: "post-main"
+            className: "stylish-input"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            gridArea: "main"
+            fontSize: "0.9375rem" # 15px but scales
+            lineHeight: 1.2
+            padding: padding_unit
+            justifySelf: "stretch"
+            resize: "vertical"
+            minHeight: post_height
+            boxSizing: "border-box"
+            placeholder: "Say something..."
+            style: height: "#{post_height}px"
+            ###
+            onKeyDown: (e) =>
+                # enter
+                if e.keyCode == 13
+                    form_submit()
+                # tab
+                else if e.keyCode == 9
+                    e.preventDefault()
+                    @refs["post-url"].getDOMNode().focus()
+            ###
+            onInput: (e) =>
+                # check if current value is a link
+                val = e.target.value?.trim()
+                try
+                    the_url = new URL val
+                    # must be an http or https url
+                    @local.show_title = (the_url.protocol == "http:") or (the_url.protocol == "https:")
+                catch
+                    # value is not a url
+                    @local.show_title = false
+                finally
+                    @local.typed = val?.length > 0
+                    save @local
+                # if an event handler returns false, some browsers will interpret as a call to e.preventDefault()
+                return
+
+
         INPUT
             key: "title"
             ref: "post-title"
             gridArea: "title"
-            fontSize: "18px"
-            paddingRight: "10px"
-            marginBottom: "2px"
-            border: "none"
-            justifySelf: "stretch"
-            placeholder: "Say something..."
+            className: "stylish-input"
+            borderWidth: "2px"
+            borderStyle: "solid"
+            padding: padding_unit
+            boxSizing: "border-box"
+            placeholder: "Add a title..."
+            fontSize: "0.9375rem"
+            lineHeight: "#{post_height - 2 * padding_unit}px"
+            whiteSpace: "nowrap"
+            display: unless @local.show_title then "none"
+            style: height: "#{post_height}px"
+            ###
             onKeyDown: (e) =>
                 if e.keyCode == 13
                     form_submit()
                 else if e.keyCode == 9
                     e.preventDefault()
-                    (@refs["post-url"] or @refs["post-body"]).getDOMNode().focus()
-
-
-        if @local.text
-            TEXTAREA
-                key: "body"
-                ref: "post-body"
-                gridArea: "content"
-                rows: 4
-                resize: "vertical"
-                placeholder: "Add some details..."
-        else
-            INPUT
-                key: "url"
-                ref: "post-url"
-                gridArea: "content"
-                fontSize: "12px"
-                color: "#999"
-                whiteSpace: "nowrap"
-                placeholder: "https://..."
-                border: "none"
-                onKeyDown: (e) =>
-                    if e.keyCode == 13
-                        form_submit()
-                    else if e.keyCode == 9
-                        e.preventDefault()
+            ###
         
         BUTTON
             key: "cancel"
@@ -1130,8 +1113,8 @@ dom.SUBMIT_POST = ->
             color: "#999"
             onClick: form_submit
             cursor: "pointer"
+            display: unless @local.typed then "none"
             "Post"
-
 
 
 # The login/register modal
@@ -1435,8 +1418,8 @@ dom.USER = ->
             AVATAR
                 key: "avatar"
                 user: user
-                width: slider_height - 10
-                height: slider_height - 10
+                width: post_height
+                height: post_height
                 style:
                     gridArea: "icon"
                     alignSelf: "center"
@@ -1473,7 +1456,7 @@ dom.USER = ->
                     sldr: "/votes/#{unslash user.key}(untagged)"
                     width: slider_width
                     height: slider_height
-                    max_avatar_radius: slider_height / 2
+                    max_avatar_radius: slider_height / 2.5
                     read_only: !c.logged_in
                     vote_key: "user_key"
                     onsave: (vote) =>

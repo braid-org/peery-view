@@ -49,6 +49,19 @@
     .post-title:hover {
         color: #111;
     }
+    .stylish-input {
+        border-color: rgba(0, 0, 0, 0.2);
+        outline: none;
+        -webkit-box-shadow: none;
+        box-shadow: none;
+    }
+    .stylish-input:hover {
+        border-color: rgba(0, 0, 50, 0.3);
+    }
+    .stylish-input:focus {
+        border-color: rgba(10, 100, 200, 0.7);
+    }
+
     .tooltip {
         width: -moz-fit-content;
         width: -webkit-fit-content;
@@ -84,13 +97,13 @@
     .post-main-grid {
         grid: "icon title       slider more" auto
               "icon domain_time slider more" 16px
-            /  50px  1fr        225px  50px;
+            /  50px  1fr        175px  50px;
     }
 
     .user-main-grid {
         grid: "icon name       slider more" auto
               "icon joined     slider more" 16px
-            /  50px  1fr        225px  50px;
+            /  50px  1fr        175px  50px;
     }
     
     @media only screen and (max-width: 650px) {
@@ -154,8 +167,10 @@
 <script type=coffee>
     window.outer_width = 800
     window.inner_width = 700
-    window.slider_width = 225
-    window.slider_height = 45
+    window.post_height = 45
+    window.padding_unit = 10
+    window.slider_width = 175
+    window.slider_height = 40
 
     window.unslash = (t) -> if t?.startsWith?("/") then t.substr(1) else t
     window.slash = (t) -> if t?.startsWith?("/") then t else "/#{t}"
@@ -259,6 +274,7 @@
             
             MAIN_HEADER
                 key: "header"
+
             unless v?.page == "post_details" or v?.page == "search"
                 BIG_MULTIGRAM
                     key: "multigram"
@@ -267,11 +283,15 @@
                 SEARCH_BOX
                     key: "search"
 
+            if v?.page == "posts"
+                SUBMIT_POST
+                    key: "submit"
+
             switch v?.page
                 when "users" then USERS key: "users"
                 when "post_details" then FULL_PAGE_POST key: "post", post: v.post_key
                 when "search" then POSTS_SEARCH key: "posts"
-                else POSTS key: "posts"
+                else POSTS key: "posts", style: marginTop: padding_unit
             
 
     dom.BIG_MULTIGRAM = ->
@@ -378,7 +398,7 @@
             user = t._params.user
             min_score = (fetch user)?.filter ? 0.2
             posts = fetch "/posts"
-            
+
             # assemble posts into an array of trees
             # also mark which posts are good
             children_of = root: []

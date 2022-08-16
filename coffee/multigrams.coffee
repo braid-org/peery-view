@@ -5,7 +5,6 @@ dom.MULTIGRAM = ->
     DIV
         display: 'flex'
         flexDirection: 'column'
-        marginBottom: 16
         userSelect: "none"
 
         onMouseOver: (e) =>
