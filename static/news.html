@@ -80,52 +80,14 @@
         scrollbar-width: none;
     }
 
-
-    .post-title {
-        font-size: 16px;
-    }
     .mobile-show {
         display: none;
     }
 
-    div[data-widget=POST], .post-width {
-        width: min(800px, calc(100vw - 20ch));
-    }
-    div[data-widget=USER], .user-width {
-        width: min(700px, calc(100vw - 20ch));
-    }
-
-    .post-main-grid {
-        grid: "icon content     slider more" auto
-            /  50px  1fr        175px  50px;
-    }
-
-    .user-main-grid {
-        grid: "icon name       slider more" auto
-              "icon joined     slider more" 16px
-            /  50px  1fr        175px  50px;
-    }
-    
     @media only screen and (max-width: 650px) {
 
         div[data-widget=POST] {
             width: 100vw;
-        }
-        .post-main-grid {
-            grid: "icon title more" auto
-                  "icon domain_time more" 16px
-                  "slider   slider slider" auto
-                /  50px  1fr  30px;
-            width: calc(100vw - 20px);
-            margin: auto;
-        }
-
-        .user-main-grid {
-            grid: "icon name       more" auto
-                  "icon joined     more" 16px
-                  "slider slider slider" auto
-                /  50px  1fr       30px;
-            width: min(700px, calc(100vw - 50px));
         }
         .grid-slider {
             justify-self: center;
@@ -153,9 +115,6 @@
         }
         div[data-key=lr-panels-container] {
             flex-direction: column !important;
-        }
-        div[data-widget=POST_DETAILS] {
-            margin: 10px 20px !important;
         }
         span[data-key=tag-text] {
             font-size: 14px !important;
@@ -263,7 +222,8 @@
             key: "body-container"
             display: "flex"
             flexDirection: "column"
-            alignItems: "center"
+            alignItems: "left"
+            padding: 10
 
             IMG
                 key: "peery-logo"
@@ -291,7 +251,7 @@
                 when "users" then USERS key: "users"
                 when "post_details" then FULL_PAGE_POST key: "post", post: v.post_key
                 when "search" then POSTS_SEARCH key: "posts"
-                else POSTS key: "posts", style: marginTop: padding_unit
+                else POSTS key: "posts"
             
 
     dom.BIG_MULTIGRAM = ->
@@ -299,19 +259,21 @@
         v = fetch "view"
 
         username = v.user_key ? c?.user?.key ? "/user/default" 
-        params = 
+        kson = stringify_kson
             computed: true
             tag: v.tag
             untagged: !v.tag
+
         w = inner_width
 
         DIV
             width: w
             className: "mobile-hide"
+            alignSelf: "center"
 
             MULTIGRAM
                 key: "multigram-inner"
-                sldr: "#{username}/votes/people#{stringify_kson params}"
+                sldr: "#{username}/votes/people#{kson}"
                 width: w
                 height: 130
                 max_avatar_radius: 60

@@ -14,35 +14,56 @@ dom.POSTS = ->
     score_kson = stringify_kson tag: v.tag, user: username
     layout = fetch "post_layout#{score_kson}"
 
+    num_blocks = layout.arr?.length
     DIV
         key: "posts"
-        className: "post-width"
-        style: @props?.style
-        layout.arr.map (block) ->
+        marginLeft: 20
+        layout.arr.map (block, i) ->
             CHAT_BLOCK
                 key: "block-#{block.end}"
                 block: block
+                index: num_blocks - i
 
 dom.CHAT_BLOCK = ->
     block = @props.block
+    left = block.level * padding_unit * 2
     DIV
         key: "block"
-        className: "post-width"
-        marginLeft: block.level * 2 * padding_unit
+        marginLeft: left
         marginBottom: 20
         position: "relative"
+        zIndex: @props.index + 1
 
-        block.chain.map (post) ->
-            POST
+        num_posts = block.chain?.length
+        block.chain.map (post, i) ->
+            DIV
                 key: post
-                post: post
+                display: "flex"
+                flexDirection: "row"
+                position: "relative"
+                zIndex: num_posts + 1 - i
+
+                POST
+                    key: "post"
+                    post: post
+                    width: 600 - left
+
+                DIV
+                    key: "tags-container"
+                    height: post_height
+                    marginLeft: padding_unit
+
+                    TAGS
+                        key: "tags"
+                        post: post
+                        style: background: "white"
 
         unless block.children?.length
             MINI_REPLY
                 key: "mini-reply"
                 parent: block.end
+                width: 600 - left
         
-
 # The layout for a single post, including slidergram and such
 dom.POST = ->
     post = @props.post
@@ -79,296 +100,216 @@ dom.POST = ->
     time_string = prettyDate(post.time * 1000)
     user_clickable = c.logged_in and (c.user.key != author.key)
 
-    DIV
-        key: "container" 
+    ARTICLE
+        position: "relative"
         display: "flex"
-        flexDirection: "column"
+        flexDirection: "row"
+        width: @props.width
 
+        AVATAR_WITH_SLIDER
+            key: "avatar"
+            user: author
+            clickable: user_clickable
+            width: post_height - 5
+            height: post_height - 5
+            style:
+                justifySelf: "center"
+                alignSelf: "flex-start"
+                flexShrink: 0
+                flexGrow: 0
+                marginRight: 5
 
-        ARTICLE
-            key: "expands"
-            padding: "5px 0"
-            #boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
-            position: "relative"
-            zIndex: if @local.expanded then 5
+        DIV
+            key: "content"
+            justifySelf: "stretch"
+            alignSelf: "stretch"
+            display: "flex"
+            flexDirection: "column"
+            background: "#eee" unless post.url 
+            flexGrow: 1
+
+            if post.url then [
+                A
+                    key: "title"
+                    className: "post-title"
+                    marginRight: "10px"
+                    lineHeight: 1.3
+                    justifySelf: "stretch"
+                    textDecoration: "none"
+                    href: if functional_url.length then functional_url
+                    "#{post.title}"
+
+                SPAN
+                    key: "url_time"
+                    fontSize: "12px"
+                    color: "#999"
+                    whiteSpace: "nowrap"
+                    overflowX: "hidden"
+                    textOverflow: "ellipsis"
+                    if post.body
+                        time_string
+                    else
+                        "#{if @local.expanded then url else pretty_url} · #{time_string}"
+                ]
+            else
+                DIV
+                    key: "post-body-edit"
+                    flexGrow: 1
+                    marginRight: 10
+
+                    ### === Text-post body, editing, deletion. === ###
+                    # Find a better way to organize these components?
+
+                    if @local.editing
+                        # A textbox with the text of the post body
+                        TEXTAREA
+                            key: "editbox"
+                            ref: "editbox"
+                            gridArea: "textbox"
+                            padding: padding_unit
+
+                            # Make the textbox take the same space as the original post body
+                            minHeight: @local.h
+                            width: "100%"
+                            boxSizing: "border-box"
+
+                            rows: 3
+                            resize: "vertical"
+                            fontSize: "0.875rem" # 14px unless zoom
+
+                            placeholder: "Edit your post..."
+                            
+                            value: @local.live_body
+                            onChange: (e) =>
+                                @local.live_body = e.target.value
+                                save @local
+                            
+
+                    else
+                        P
+                            key: "body"
+                            ref: "body"
+                            whiteSpace: "pre-line"
+                            textAlign: "justify"
+                            fontSize: "0.9375rem" # 15px unless zoom
+                            lineHeight: 1.4
+                            padding: padding_unit
+                            post.body
+                   
+        if @local.expanded and !@props.no_expand
+            @local.live_body ?= post.body
+            save @local
 
             DIV
-                key: "post-main"
-                display: "grid"
-                className: "post-main-grid"
-                alignItems: "start"
-                gridColumnGap: 5
+                margin: "0 50px 10px 55px"
+                display: "flex"
+                flexDirection: "row"
 
-                AVATAR_WITH_SLIDER
-                    key: "avatar"
-                    user: author
-                    clickable: user_clickable
-                    width: post_height - 5
-                    height: post_height - 5
-                    style:
-                        gridArea: "icon"
-                        justifySelf: "center"
+                    DIV
+                        key: "controls"
+                        display: if c?.user?.key == post?.user_key then "flex" else "none"
+                        flexDirection: "row"
+                        justifyContent: "flex-start"
+                        fontSize: "12px"
+                        color: "#999"
+                        flexGrow: 1
 
-                DIV
-                    key: "content"
-                    gridArea: "content"
-                    marginRight: 2 * padding_unit
-                    justifySelf: "stretch"
-                    alignSelf: "stretch"
-                    display: "flex"
-                    flexDirection: "column"
-                    background: "#eee" unless post.url 
+                        BUTTON
+                            key: "cancel"
+                            className: "unbutton"
+                            display: unless @local.editing then "none"
+                            cursor: "pointer"
+                            marginRight: 8
+                            onClick: () =>
+                                @local.editing = false
+                                save @local
+                            "Cancel"
 
-                    if post.url then [
-                        A
-                            key: "title"
-                            className: "post-title"
-                            marginRight: "10px"
-                            lineHeight: 1.3
-                            justifySelf: "stretch"
-                            textDecoration: "none"
-                            href: if functional_url.length then functional_url
-                            "#{post.title}"
+                        BUTTON
+                            key: "save"
+                            className: "unbutton"
+                            cursor: "pointer"
+                            display: unless @local.editing then "none"
+                            onClick: () =>
+                                save {
+                                    post...
+                                    body: @local.live_body
+                                    edit_time: Math.floor (Date.now() / 1000)
+                                }
 
-                        SPAN
-                            key: "url_time"
-                            fontSize: "12px"
-                            color: "#999"
-                            whiteSpace: "nowrap"
-                            overflowX: "hidden"
-                            textOverflow: "ellipsis"
-                            if post.body
-                                time_string
-                            else
-                                "#{if @local.expanded then url else pretty_url} · #{time_string}"
-                        ]
-                    else
-                        DIV
-                            key: "post-body-edit"
-                            flexGrow: 1
-                            marginRight: 10
+                                @local.editing = false
+                                save @local
+                            "Save"
 
-                            ### === Text-post body, editing, deletion. === ###
-                            # Find a better way to organize these components?
+                        BUTTON
+                            key: "delete-btn"
+                            className: "unbutton"
+                            display: if @local.editing then "none"
+                            cursor: "pointer"
+                            marginRight: 8
+                            onClick: () -> del post.key
+                            "Delete"
 
-                            if @local.editing
-                                # A textbox with the text of the post body
-                                TEXTAREA
-                                    key: "editbox"
-                                    ref: "editbox"
-                                    gridArea: "textbox"
-                                    padding: padding_unit
+                        BUTTON
+                            key: "edit-btn"
+                            className: "unbutton"
+                            display: if post.url or @local.editing then "none"
+                            cursor: "pointer"
+                            onClick: () =>
+                                @local.editing = true
+                                @local.h = @refs?.body?.getDOMNode?()?.clientHeight
+                                save @local
+                            "Edit"
 
-                                    # Make the textbox take the same space as the original post body
-                                    minHeight: @local.h
-                                    width: "100%"
-                                    boxSizing: "border-box"
-
-                                    rows: 3
-                                    resize: "vertical"
-                                    fontSize: "0.875rem" # 14px unless zoom
-
-                                    placeholder: "Edit your post..."
-                                    
-                                    value: @local.live_body
-                                    onChange: (e) =>
-                                        @local.live_body = e.target.value
-                                        save @local
-                                    
-
-                            else
-                                P
-                                    key: "body"
-                                    ref: "body"
-                                    whiteSpace: "pre-line"
-                                    textAlign: "justify"
-                                    fontSize: "0.9375rem" # 15px unless zoom
-                                    lineHeight: 1.4
-                                    padding: padding_unit
-                                    post.body
-                       
-                DIV
-                    key: "post-votes-slider"
-                    gridArea: "slider"
-                    className: "grid-slider"
-                    height: slider_height + 5
-                    # If we're viewing with respect to a tag, apply the tag to the slidergram
-                    if v.tag
-                        SLIDERGRAM_WITH_TAG
-                            key: "slidergram"
-                            post: post
-                            tag: unslash v.tag
-                            width: slider_width
-                            height: slider_height
-                            max_avatar_radius: slider_height / 2.5
-                            read_only: !c.logged_in
-                    else
-                        SLIDERGRAM
-                            key: "slidergram"
-                            sldr: "/votes/#{unslash post.key}(untagged)"
-                            width: slider_width
-                            height: slider_height
-                            max_avatar_radius: slider_height / 2.5
-                            read_only: !c.logged_in
-                            vote_key: "user_key"
-                            onsave: (vote) =>
-                                vote.key = "#{c.user.key}/vote/#{unslash post.key}"
-                                vote.target_key = post.key
-                                save vote
-
-                BUTTON
-                    key: "more"
-                    gridArea: "more"
-                    color: "#999"
-                    className: "material-icons-outlined md-dark unbutton"
-                    fontSize: "24px"
-                    height: 50
-                    cursor: "pointer"
-                    textAlign: "center"
-                    display: if @props.no_expand then "none"
-                    onClick: () => 
-                        @local.expanded = !@local.expanded
-                        save @local
-                    if @local.expanded then "expand_less" else "expand_more"
-
-
-            if @local.expanded and !@props.no_expand
-                @local.live_body ?= post.body
-                save @local
-
-                DIV
-                    margin: "0 50px 10px 55px"
-                    display: "flex"
-                    flexDirection: "row"
-
-                        DIV
-                            key: "controls"
-                            display: if c?.user?.key == post?.user_key then "flex" else "none"
-                            flexDirection: "row"
-                            justifyContent: "flex-start"
-                            fontSize: "12px"
-                            color: "#999"
-                            flexGrow: 1
-
-                            BUTTON
-                                key: "cancel"
-                                className: "unbutton"
-                                display: unless @local.editing then "none"
-                                cursor: "pointer"
-                                marginRight: 8
-                                onClick: () =>
-                                    @local.editing = false
-                                    save @local
-                                "Cancel"
-
-                            BUTTON
-                                key: "save"
-                                className: "unbutton"
-                                cursor: "pointer"
-                                display: unless @local.editing then "none"
-                                onClick: () =>
-                                    save {
-                                        post...
-                                        body: @local.live_body
-                                        edit_time: Math.floor (Date.now() / 1000)
-                                    }
-
-                                    @local.editing = false
-                                    save @local
-                                "Save"
-
-                            BUTTON
-                                key: "delete-btn"
-                                className: "unbutton"
-                                display: if @local.editing then "none"
-                                cursor: "pointer"
-                                marginRight: 8
-                                onClick: () -> del post.key
-                                "Delete"
-
-                            BUTTON
-                                key: "edit-btn"
-                                className: "unbutton"
-                                display: if post.url or @local.editing then "none"
-                                cursor: "pointer"
-                                onClick: () =>
-                                    @local.editing = true
-                                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight
-                                    save @local
-                                "Edit"
-
-
-                    TAGS
-                        key: "tags"
-                        post: @props.post
-                        style:
-                            width: slider_width
-
-dom.FULL_PAGE_POST = ->
-
-    DIV
-        display: "flex"
-        flexDirection: "column"
-        alignItems: "center"
-        marginTop: 15
-        POST
-            key: "the-post"
-            post: @props.post
-            no_expand: yes
-        DIV
-            key: "lr-panels-container"
-            display: "flex"
-            flexGrow: 1
-            flexDirection: "row"
-            justifyContent: "space-between"
-            alignContent: "stretch"
-            width: "80vw"
-            minWidth: outer_width
-            maxWidth: 1150
-            marginTop: 15
-
-
-            TAGS
-                key: "tags"
-                post: @props.post
-                max_tags: 1000
+###
+###
 
 dom.TAGS = ->
-
     c = fetch "/current_user"
     post = fetch @props.post
-    # Cache this?
-    potential_tags = (fetch "/tags").arr.filter (f) -> f not in (post.tags || [])
-    max_suggestions = @props.max_suggestions ? 4
-    # Setup default values in @local
-    # These values are used for the tag search box
-    @local.selected_idx ?= -1
-    @local.tagsearch ?= []
-    @local.typed ?= ""
-    @local.addtagvisible ?= false
-    save @local
 
-    tags_shown = (post.tags || [])
-    max_tags = @props.max_tags ? 5
-    too_many_tags = false
-    if tags_shown.length > max_tags
-        tags_shown = tags_shown[...max_tags]
-        # Save some state indicating that the post display is too long
-        too_many_tags = true
-        
-
-    DIV
+    ASIDE
         display: "flex"
         flexDirection: "column"
         alignContent: "stretch"
+        padding: "0 #{padding_unit}px"
+        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
         style: @props.style
 
-        # The tags that are actually on the post, plus their sliders
         DIV
-            key: "tags-grid"
-            width: slider_width
+            key: "untagged-slider"
+            display: "flex"
 
-            for tag in tags_shown
+            SLIDERGRAM
+                key: "slidergram"
+                sldr: "/votes/#{unslash post.key}(untagged)"
+                width: slider_width
+                height: slider_height
+                max_avatar_radius: slider_height / 2
+                read_only: !c.logged_in
+                vote_key: "user_key"
+                onsave: (vote) =>
+                    vote.key = "#{c.user.key}/vote/#{unslash post.key}"
+                    vote.target_key = post.key
+                    save vote
+
+            BUTTON
+                key: "more"
+                color: "#999"
+                className: "material-icons-outlined md-dark unbutton"
+                fontSize: "24px"
+                cursor: "pointer"
+                textAlign: "center"
+                display: if @props.no_expand then "none"
+                marginLeft: padding_unit
+                onClick: () => 
+                    @local.expanded = !@local.expanded
+                    save @local
+                if @local.expanded then "expand_less" else "expand_more"
+
+        # The tags that are actually on the post, plus their sliders
+        if @local.expanded then [
+            post.tags?.map (tag) =>
                 DIV
                     key: "tag-#{tag}"
                     display: "flex"
@@ -385,161 +326,148 @@ dom.TAGS = ->
                     SPAN
                         key: "tag-text"
                         fontSize: 14
-                        lineHeight: "#{slider_height}px"
                         marginLeft: 15
                         textTransform: "capitalize"
-                        color: "#444"
+                        color: "#666"
                         whiteSpace: "nowrap"
-                        alignSelf: "flex-end"
+                        alignSelf: "center"
 
                         tag
-
-        if too_many_tags
-            SPAN
-                key: "too-many-tags"
-                marginTop: 8
-                alignSelf: "center"
-                color: "#999"
-                fontSize: 14
-                "Some tags were hidden."
-        else
-            # Add-tag searchbox
-            SPAN
+            
+            DIV
                 key: "add-tag"
-                marginTop: 8
-                overflowY: "visible"
-                height: 24
-                alignSelf: "center"
+                display: if c.logged_in then "flex" else "none"
+                alignItems: "flex-end"
+                height: slider_height + 12
 
-                confirm_add = () =>
-                    box = @refs.addlabel.getDOMNode()
-                    if @local.addtagvisible and box.value.length
-                        post.tags ||= []
-                        new_tag = box.value.toString().toLowerCase()
-                        # Disable adding certain tags.
-                        # In the future, we should make this check serverside so it can't be bypassed.
-                        if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
-                            post.tags.push new_tag
-                        box.value = ""
-                        save post
-                    
-                    @local.addtagvisible = !@local.addtagvisible
-                    @local.tagsearch = []
+                SLIDER_BOTTOM
+                    key: "empty-slider"
+                    width: slider_width
+                    linewidth: 1.75
+                
+                ADD_TAG
+                    key: "textbox-and-dropdown"
+                    post: post.key
+                    style: marginLeft: 15, height: 20, alignSelf: "center"
+
+            ]
+
+dom.ADD_TAG = ->
+    post = fetch @props.post
+
+    potential_tags = (fetch "/tags").arr.filter (f) -> f not in (post.tags || [])
+    max_suggestions = @props.max_suggestions ? 4
+    # Setup default values in @local
+    # These values are used for the tag search box
+    @local.selected_idx ?= -1
+    @local.tagsearch ?= []
+    @local.typed ?= ""
+    @local.addtagvisible ?= false
+    save @local
+
+    # Add-tag searchbox
+    SPAN
+        overflowY: "visible"
+        style: @props.style
+
+        confirm_add = () =>
+            console.log "Adding tag!"
+            box = @refs.addlabel.getDOMNode()
+            if box.value.length
+                post.tags ||= []
+                new_tag = box.value.toString().toLowerCase()
+                # Disable adding certain tags.
+                # In the future, we should make this check serverside so it can't be bypassed.
+                if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
+                    post.tags.push new_tag
+                box.value = ""
+                save post
+            
+            @local.tagsearch = []
+            save @local
+
+        DIV
+            key: "input-and-suggestions"
+            display: "inline-flex"
+            flexDirection: "row"
+            alignItems: "center"
+
+            INPUT
+                key: "textbox"
+                ref: "addlabel"
+                placeholder: "New Tag..."
+                fontSize: 15
+                color: "#666"
+                border: "none"
+                # Handle arrow keys, enter, etc
+                onKeyDown: (e) =>
+                    switch e.keyCode
+                        # Enter
+                        when 13
+                            e.preventDefault()
+                            confirm_add()
+                        # Up/down, tab
+                        when 38, 40, 9
+                            e.preventDefault()
+                            v = @refs.addlabel.getDOMNode()
+                            # Up arrow is 38, down arrow is 40, tab is 9
+                            di = switch e.keyCode
+                                when 38 then -1
+                                when 40 then 1
+                                when 9 then 1
+                            # Increment or decrement the index
+                            @local.selected_idx += di
+                            switch @local.selected_idx
+                                # If we scrolled past the last one, or up from the 1st/0th, unselect
+                                when @local.tagsearch.length, -1, -2
+                                    @local.selected_idx = -1
+                                    v.value = @local.typed
+                                else
+                                    # Otherwise, set the textbox value to the right name
+                                    v.value = @local.tagsearch[@local.selected_idx]
+                        # Escape
+                        when 27
+                            @local.tagsearch = []
                     save @local
 
+                # Handle actual text entry
+                onInput: (e) =>
+                    v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
+                    @local.typed = v
+                    # Get the tags that start with the query
+                    # In the future, could do a fuzzy search
+                    @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
+                                                     .slice 0, max_suggestions
+                    @local.selected_idx = -1
+                    unless v.length then @local.tagsearch = []
+                    save @local
+
+        DIV
+            key: "results-overflow"
+            marginTop: 5
+            overflowY: "visible"
+            background: "white"
+            boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
+            # match the input box width, with the symmetrical padding
+            # Using map instead of for ... in prevents scoping issues, and allows access to the index
+            @local.tagsearch.map (suggested, i) =>
                 DIV
-                    key: "input-and-suggestions"
-                    display: "inline-flex"
-                    flexDirection: "row"
-                    alignItems: "center"
-                    # So that the dropdown suggestions can align with the search bar
-                    marginLeft: 4
+                    key: "#{suggested}-res"
+                    cursor: "pointer"
+                    className: "hover-select"
+                    fontSize: 16
+                    lineHeight: 1
+                    color: "#444"
+                    padding: 4
+                    background: if i == @local.selected_idx then "#eee"
+                    textTransform: "capitalize"
+                    onClick: (e) =>
+                        # Save text of the selected result in the widget state
+                        @refs.addlabel.getDOMNode().value = suggested
+                        @local.selected_idx = i
+                        save @local
 
-                    INPUT
-                        key: "textbox"
-                        ref: "addlabel"
-                        placeholder: "Relevant tag..."
-                        display: unless @local.addtagvisible then "none"
-                        width: slider_width
-                        border: "none"
-                        # Handle arrow keys, enter, etc
-                        onKeyDown: (e) =>
-                            switch e.keyCode
-                                # Enter
-                                when 13
-                                    e.preventDefault()
-                                    confirm_add()
-                                # Up/down, tab
-                                when 38, 40, 9
-                                    e.preventDefault()
-                                    v = @refs.addlabel.getDOMNode()
-                                    # Up arrow is 38, down arrow is 40, tab is 9
-                                    di = switch e.keyCode
-                                        when 38 then -1
-                                        when 40 then 1
-                                        when 9 then 1
-                                    # Increment or decrement the index
-                                    @local.selected_idx += di
-                                    switch @local.selected_idx
-                                        # If we scrolled past the last one, or up from the 1st/0th, unselect
-                                        when @local.tagsearch.length, -1, -2
-                                            @local.selected_idx = -1
-                                            v.value = @local.typed
-                                        else
-                                            # Otherwise, set the textbox value to the right name
-                                            v.value = @local.tagsearch[@local.selected_idx]
-                                # Escape
-                                when 27
-                                    @local.tagsearch = []
-                            save @local
-                        # Handle actual text entry
-                        onInput: (e) =>
-                            v = @refs.addlabel.getDOMNode().value.toString().toLowerCase()
-                            @local.typed = v
-                            # Get the tags that start with the query
-                            # In the future, could do a fuzzy search
-                            @local.tagsearch = potential_tags.filter((t) => t.startsWith v)
-                                                             .slice 0, max_suggestions
-                            @local.selected_idx = -1
-                            unless v.length then @local.tagsearch = []
-                            save @local
-
-                            
-                    BUTTON
-                        key: "textbox-replacement"
-                        className: "unbutton"
-                        display: if @local.addtagvisible then "none"
-                        color: "#999"
-                        marginLeft: 60
-                        cursor: "pointer"
-                        onClick: () =>
-                            @local.addtagvisible = !@local.addtagvisible
-                            @local.tagsearch = []
-                            save @local
-
-                        "Add Tag"
-
-
-                    BUTTON
-                        key: "addbutton"
-                        ref: "addbutton"
-                        color: "#999"
-                        className: "material-icons-outlined md-dark unbutton"
-                        fontSize: "24px"
-                        cursor: "pointer"
-                        marginLeft: 6
-                        onClick: confirm_add
-
-                        # Have an X instead when the field is empty?
-                        if @local.addtagvisible then "done" else "add_box"
-
-                DIV
-                    key: "results-overflow"
-                    marginTop: 5
-                    overflowY: "visible"
-                    background: "white"
-                    boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
-                    # match the input box width, with the symmetrical padding
-                    width: slider_width + 4
-                    # Using map instead of for ... in prevents scoping issues, and allows access to the index
-                    @local.tagsearch.map (suggested, i) =>
-                        DIV
-                            key: "#{suggested}-res"
-                            cursor: "pointer"
-                            className: "hover-select"
-                            fontSize: 16
-                            lineHeight: 1
-                            color: "#444"
-                            padding: 4
-                            background: if i == @local.selected_idx then "#eee"
-                            textTransform: "capitalize"
-                            onClick: (e) =>
-                                # Save text of the selected result in the widget state
-                                @refs.addlabel.getDOMNode().value = suggested
-                                @local.selected_idx = i
-                                save @local
-
-                            suggested
+                    suggested
 
 
 ### === HEADER AND POPUPS === ###
@@ -947,7 +875,7 @@ dom.SUBMIT_POST = ->
     DIV
         key: "submit-container"
         display: "grid"
-        width: inner_width
+        width: 600
         grid: "\" icon main  main   main \"  auto
                \" .    title title  title\"  auto
                \" .    .     cancel submit\" 18px
@@ -955,6 +883,7 @@ dom.SUBMIT_POST = ->
         gridColumnGap: 5
         gridRowGap: 2
         alignItems: "center"
+        marginLeft: 20
 
         AVATAR
             key: "avatar"
@@ -1063,11 +992,11 @@ dom.MINI_REPLY = ->
         return
 
     DIV
-        className: "post-width"
+        width: @props.width
         display: "grid"
-        grid: "\" .    avatar        input .\" auto
-               \" .    .             btn   .\" 16px
-               / #{2 * padding_unit}px  #{post_height}px 1fr  #{slider_width + 50 + 3 * padding_unit}px"
+        grid: "\" avatar        input\" auto
+               \" .             btn  \" 16px
+               / #{post_height}px 1fr"
         ###
         onMouseEnter: () =>
             @local.hover = true
