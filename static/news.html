@@ -54,6 +54,7 @@
         outline: none;
         -webkit-box-shadow: none;
         box-shadow: none;
+        font-family: Lato;
     }
     .stylish-input:hover {
         border-color: rgba(0, 0, 50, 0.3);
@@ -87,16 +88,15 @@
         display: none;
     }
 
-    div[data-widget=POST] {
+    div[data-widget=POST], .post-width {
         width: min(800px, calc(100vw - 20ch));
     }
-    div[data-widget=USER] {
+    div[data-widget=USER], .user-width {
         width: min(700px, calc(100vw - 20ch));
     }
 
     .post-main-grid {
-        grid: "icon title       slider more" auto
-              "icon domain_time slider more" 16px
+        grid: "icon content     slider more" auto
             /  50px  1fr        175px  50px;
     }
 

@@ -265,6 +265,7 @@ dom.SLIDER_BOTTOM = ->
         width: width
         height: htop + hheight
         viewBox: "#{-side} 0 #{width} #{htop + hheight}"
+        overflow: "visible"
 
         POLYGON
             key: "triangle"

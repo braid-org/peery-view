@@ -16,6 +16,7 @@ dom.POSTS = ->
 
     DIV
         key: "posts"
+        className: "post-width"
         style: @props?.style
         layout.arr.map (block) ->
             CHAT_BLOCK
@@ -26,23 +27,21 @@ dom.CHAT_BLOCK = ->
     block = @props.block
     DIV
         key: "block"
-        border: "1px solid #{if block.good then "blue" else "red"}"
-        marginLeft: block.level * 20
+        className: "post-width"
+        marginLeft: block.level * 2 * padding_unit
         marginBottom: 20
         position: "relative"
-
-        SPAN
-            key: "n-skipped"
-            position: "absolute"
-            top: 5
-            left: 5
-            "#{block.skipped}"
 
         block.chain.map (post) ->
             POST
                 key: post
                 post: post
 
+        unless block.children?.length
+            MINI_REPLY
+                key: "mini-reply"
+                parent: block.end
+        
 
 # The layout for a single post, including slidergram and such
 dom.POST = ->
@@ -85,12 +84,6 @@ dom.POST = ->
         display: "flex"
         flexDirection: "column"
 
-        DIV
-            key: "dummy-shadow-top"
-            alignSelf: "stretch"
-            height: 4
-            opacity: if @local.expanded then 0.25 else 0
-            backgroundImage: "radial-gradient(50% 100% at bottom, black, transparent)"
 
         ARTICLE
             key: "expands"
@@ -103,48 +96,101 @@ dom.POST = ->
                 key: "post-main"
                 display: "grid"
                 className: "post-main-grid"
-                alignItems: "center"
+                alignItems: "start"
+                gridColumnGap: 5
 
                 AVATAR_WITH_SLIDER
                     key: "avatar"
                     user: author
                     clickable: user_clickable
-                    width: post_height
-                    height: post_height
+                    width: post_height - 5
+                    height: post_height - 5
                     style:
                         gridArea: "icon"
-                        alignSelf: "center"
                         justifySelf: "center"
 
-                A
-                    key: "title"
-                    className: "post-title"
-                    gridArea: "title"
-                    paddingRight: "10px"
-                    lineHeight: 1.3
+                DIV
+                    key: "content"
+                    gridArea: "content"
+                    marginRight: 2 * padding_unit
                     justifySelf: "stretch"
-                    textDecoration: "none"
-                    href: if functional_url.length then functional_url
-                    "#{post.title}"
+                    alignSelf: "stretch"
+                    display: "flex"
+                    flexDirection: "column"
+                    background: "#eee" unless post.url 
 
-                SPAN
-                    key: "url_time"
-                    gridArea: "domain_time"
-                    fontSize: "12px"
-                    color: "#999"
-                    whiteSpace: "nowrap"
-                    overflowX: "hidden"
-                    textOverflow: "ellipsis"
-                    if post.body
-                        time_string
+                    if post.url then [
+                        A
+                            key: "title"
+                            className: "post-title"
+                            marginRight: "10px"
+                            lineHeight: 1.3
+                            justifySelf: "stretch"
+                            textDecoration: "none"
+                            href: if functional_url.length then functional_url
+                            "#{post.title}"
+
+                        SPAN
+                            key: "url_time"
+                            fontSize: "12px"
+                            color: "#999"
+                            whiteSpace: "nowrap"
+                            overflowX: "hidden"
+                            textOverflow: "ellipsis"
+                            if post.body
+                                time_string
+                            else
+                                "#{if @local.expanded then url else pretty_url} · #{time_string}"
+                        ]
                     else
-                        "#{if @local.expanded then url else pretty_url} · #{time_string}"
-               
+                        DIV
+                            key: "post-body-edit"
+                            flexGrow: 1
+                            marginRight: 10
+
+                            ### === Text-post body, editing, deletion. === ###
+                            # Find a better way to organize these components?
+
+                            if @local.editing
+                                # A textbox with the text of the post body
+                                TEXTAREA
+                                    key: "editbox"
+                                    ref: "editbox"
+                                    gridArea: "textbox"
+                                    padding: padding_unit
+
+                                    # Make the textbox take the same space as the original post body
+                                    minHeight: @local.h
+                                    width: "100%"
+                                    boxSizing: "border-box"
+
+                                    rows: 3
+                                    resize: "vertical"
+                                    fontSize: "0.875rem" # 14px unless zoom
+
+                                    placeholder: "Edit your post..."
+                                    
+                                    value: @local.live_body
+                                    onChange: (e) =>
+                                        @local.live_body = e.target.value
+                                        save @local
+                                    
+
+                            else
+                                P
+                                    key: "body"
+                                    ref: "body"
+                                    whiteSpace: "pre-line"
+                                    textAlign: "justify"
+                                    fontSize: "0.9375rem" # 15px unless zoom
+                                    lineHeight: 1.4
+                                    padding: padding_unit
+                                    post.body
+                       
                 DIV
                     key: "post-votes-slider"
                     gridArea: "slider"
                     className: "grid-slider"
-                    alignSelf: "start"
                     height: slider_height + 5
                     # If we're viewing with respect to a tag, apply the tag to the slidergram
                     if v.tag
@@ -176,6 +222,7 @@ dom.POST = ->
                     color: "#999"
                     className: "material-icons-outlined md-dark unbutton"
                     fontSize: "24px"
+                    height: 50
                     cursor: "pointer"
                     textAlign: "center"
                     display: if @props.no_expand then "none"
@@ -186,182 +233,76 @@ dom.POST = ->
 
 
             if @local.expanded and !@props.no_expand
-                POST_DETAILS
-                    key: "details-dropdown"
-                    post: post
+                @local.live_body ?= post.body
+                save @local
 
-        DIV
-            key: "dummy-shadow-bot"
-            alignSelf: "stretch"
-            height: 4
-            opacity: if @local.expanded then 0.25 else 0
-            backgroundImage: "radial-gradient(50% 100% at top, black, transparent)"
+                DIV
+                    margin: "0 50px 10px 55px"
+                    display: "flex"
+                    flexDirection: "row"
 
-        if @local.expanded and !@local.replying
-            BUTTON
-                key: "reply"
-                className: "unbutton"
-                cursor: "pointer"
-                margin: "0 auto 5px auto"
-                display: "inline-flex"
-                onClick: () => 
-                    @local.replying = true
-                    save @local
+                        DIV
+                            key: "controls"
+                            display: if c?.user?.key == post?.user_key then "flex" else "none"
+                            flexDirection: "row"
+                            justifyContent: "flex-start"
+                            fontSize: "12px"
+                            color: "#999"
+                            flexGrow: 1
 
-                SPAN
-                    key: "reply-text"
-                    color: "#999"
-                    lineHeight: "24px"
-                    marginRight: "2px"
-                    "Reply"
-                SPAN
-                    key: "reply-btn"
-                    color: "#999"
-                    className: "material-icons-outlined md-dark"
-                    fontSize: "24px"
-                    textAlign: "center"
-                    "reply"
-                
-        # This SUBMIT needs to have a cancel button
-        if @local.replying
-            DIV
-                key: "reply-container"
-                borderLeft: "2px solid #ddd"
-                padding: "15px 0 0 10px"
-                marginLeft: 23 # TODO: Calculate correct left margin
-                # ideally the border aligns with the middle of the avatars
+                            BUTTON
+                                key: "cancel"
+                                className: "unbutton"
+                                display: unless @local.editing then "none"
+                                cursor: "pointer"
+                                marginRight: 8
+                                onClick: () =>
+                                    @local.editing = false
+                                    save @local
+                                "Cancel"
 
-                SUBMIT_POST
-                    key: "reply-form"
-                    parent: post.key
-                    cancel: yes
-                    close: () =>
-                        @local.replying = false
-                        save @local
+                            BUTTON
+                                key: "save"
+                                className: "unbutton"
+                                cursor: "pointer"
+                                display: unless @local.editing then "none"
+                                onClick: () =>
+                                    save {
+                                        post...
+                                        body: @local.live_body
+                                        edit_time: Math.floor (Date.now() / 1000)
+                                    }
 
+                                    @local.editing = false
+                                    save @local
+                                "Save"
 
-# The expanded part underneath a post.
-dom.POST_DETAILS = ->
-    post = @props.post
-    if post?.key or typeof(post) == "string" then post = fetch post
-    c = fetch "/current_user"
+                            BUTTON
+                                key: "delete-btn"
+                                className: "unbutton"
+                                display: if @local.editing then "none"
+                                cursor: "pointer"
+                                marginRight: 8
+                                onClick: () -> del post.key
+                                "Delete"
 
-    @local.live_body ?= post.body
-    save @local
-
-    DIV
-        margin: "0 50px 10px 50px"
-        display: "flex"
-        flexDirection: "row"
-
-        DIV
-            key: "post-body-edit"
-            flexGrow: 1
-            marginRight: 10
-
-            ### === Text-post body, editing, deletion. === ###
-            # Find a better way to organize these components?
-
-            if @local.editing
-                # A textbox with the text of the post body
-                TEXTAREA
-                    key: "editbox"
-                    ref: "editbox"
-                    gridArea: "textbox"
-
-                    # Make the textbox take the same space as the original post body
-                    minHeight: @local.h
-                    width: "100%"
-                    boxSizing: "border-box"
-
-                    rows: 3
-                    resize: "vertical"
-                    fontSize: "0.875rem" # 14px unless zoom
-
-                    placeholder: "Edit your post..."
-                    
-                    value: @local.live_body
-                    onChange: (e) =>
-                        @local.live_body = e.target.value
-                        save @local
-                    
-
-            else
-                P
-                    key: "body"
-                    ref: "body"
-                    display: "none" unless post.body
-                    width: "100%"
-                    marginTop: "5px"
-                    whiteSpace: "pre-line"
-                    textAlign: "justify"
-                    fontSize: "0.9375rem" # 15px unless zoom
-                    lineHeight: 1.4
-                    color: "#444"
-                    post.body
-
-            DIV
-                key: "controls"
-                display: if c?.user?.key == post?.user_key then "flex" else "none"
-                flexDirection: "row"
-                justifyContent: "flex-start"
-                fontSize: "12px"
-                color: "#999"
-
-                BUTTON
-                    key: "cancel"
-                    className: "unbutton"
-                    display: unless @local.editing then "none"
-                    cursor: "pointer"
-                    marginRight: 8
-                    onClick: () =>
-                        @local.editing = false
-                        save @local
-                    "Cancel"
-
-                BUTTON
-                    key: "save"
-                    className: "unbutton"
-                    cursor: "pointer"
-                    display: unless @local.editing then "none"
-                    onClick: () =>
-                        save {
-                            post...
-                            body: @local.live_body
-                            edit_time: Math.floor (Date.now() / 1000)
-                        }
-
-                        @local.editing = false
-                        save @local
-                    "Save"
-
-                BUTTON
-                    key: "delete-btn"
-                    className: "unbutton"
-                    display: if @local.editing then "none"
-                    cursor: "pointer"
-                    marginRight: 8
-                    onClick: () -> del post.key
-                    "Delete"
-
-                BUTTON
-                    key: "edit-btn"
-                    className: "unbutton"
-                    display: if post.url or @local.editing then "none"
-                    cursor: "pointer"
-                    onClick: () =>
-                        @local.editing = true
-                        @local.h = @refs?.body?.getDOMNode?()?.clientHeight
-                        save @local
-                    "Edit"
+                            BUTTON
+                                key: "edit-btn"
+                                className: "unbutton"
+                                display: if post.url or @local.editing then "none"
+                                cursor: "pointer"
+                                onClick: () =>
+                                    @local.editing = true
+                                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight
+                                    save @local
+                                "Edit"
 
 
-        TAGS
-            key: "tags"
-            post: @props.post
-            style:
-                width: slider_width
-
+                    TAGS
+                        key: "tags"
+                        post: @props.post
+                        style:
+                            width: slider_width
 
 dom.FULL_PAGE_POST = ->
 
@@ -1011,7 +952,7 @@ dom.SUBMIT_POST = ->
                \" .    title title  title\"  auto
                \" .    .     cancel submit\" 18px
                 / auto 1fr   auto    auto "
-        gridColumnGap: 8
+        gridColumnGap: 5
         gridRowGap: 2
         alignItems: "center"
 
@@ -1021,8 +962,8 @@ dom.SUBMIT_POST = ->
             hide_tooltip: true
             gridArea: "icon"
             style:
-                width: post_height
-                height: post_height
+                width: post_height - 5
+                height: post_height - 5
                 borderRadius: "50%"
                 alignSelf: "start"
                 justifySelf: "center"
@@ -1115,6 +1056,71 @@ dom.SUBMIT_POST = ->
             cursor: "pointer"
             display: unless @local.typed then "none"
             "Post"
+
+dom.MINI_REPLY = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    DIV
+        className: "post-width"
+        display: "grid"
+        grid: "\" .    avatar        input .\" auto
+               \" .    .             btn   .\" 16px
+               / #{2 * padding_unit}px  #{post_height}px 1fr  #{slider_width + 50 + 3 * padding_unit}px"
+        ###
+        onMouseEnter: () =>
+            @local.hover = true
+            save @local
+        onMouseLeave: (e) =>
+            @local.hover = false
+            save @local
+        ###
+
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            style:
+                gridArea: "avatar"
+                width: post_height - 5
+                height: post_height - 5
+                borderRadius: "50%"
+                alignSelf: "start"
+                justifySelf: "center"
+                display: if @local.expanded then "flex" else "none"
+
+        TEXTAREA
+            key: "content"
+            ref: "post-main"
+            gridArea: "input"
+            className: "stylish-input"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            fontSize: "0.875rem" # 14px but scales
+            lineHeight: 1.2
+            padding: padding_unit
+            justifySelf: "stretch"
+            resize: "vertical"
+            minHeight: post_height
+            boxSizing: "border-box"
+            placeholder: "Say something..."
+            height: post_height
+            flexGrow: 1
+            display: "none" unless @local.expanded
+
+        BUTTON
+            key: "submit"
+            gridArea: "btn"
+            className: "unbutton"
+            fontSize: "14px"
+            color: "#999"
+            cursor: "pointer"
+            justifySelf: "end"
+            onClick: () =>
+                @local.expanded = true
+                save @local
+            if @local.expanded then "Post" else "Reply"
 
 
 # The login/register modal
