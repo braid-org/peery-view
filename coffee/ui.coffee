@@ -289,6 +289,8 @@ dom.POST = ->
                         ### === Text-post body, editing, deletion. === ###
                         # Find a better way to organize these components?
 
+
+
                         if @local.editing
                             # A textbox with the text of the post body
                             TEXTAREA
@@ -326,6 +328,17 @@ dom.POST = ->
                                 boxSizing: "border-box"
                                 padding: padding_unit
                                 paddingBottom: if @local.hover then 0 else 16
+
+                                if post.title
+                                    SPAN
+                                        display: "block"
+                                        key: "title"
+                                        fontSize: "1rem" # 16px unless zoom
+                                        lineHeight: 1.5
+                                        className: "post-title"
+                                        fontWeight: "bold"
+                                        post.title
+
                                 post.body
 
                         info_line
