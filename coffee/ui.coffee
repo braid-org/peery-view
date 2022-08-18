@@ -34,7 +34,7 @@ dom.CHAT_BLOCK = ->
     DIV
         key: "block"
         marginLeft: left
-        marginBottom: 20
+        marginBottom: padding_unit
         position: "relative"
         zIndex: @props.index + 1
 
@@ -273,7 +273,12 @@ dom.POST = ->
                         whiteSpace: "nowrap"
                         overflowX: "hidden"
                         textOverflow: "ellipsis"
+                        paddingBottom: if @local.hover then 0 else 16
                         pretty_url
+
+                    info_line
+                        display: if @local.hover then "flex" else "none"
+                        height: 16
                     ]
                 else
                     DIV
