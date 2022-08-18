@@ -14,15 +14,19 @@ dom.POSTS = ->
     score_kson = stringify_kson tag: v.tag, user: username
     layout = fetch "post_layout#{score_kson}"
 
+    max_depth = @props.max_depth ? 5
     num_blocks = layout.arr?.length
     DIV
         key: "posts"
         marginLeft: 20
-        layout.arr.map (block, i) ->
-            CHAT_BLOCK
-                key: "block-#{block.end}"
-                block: block
-                index: num_blocks - i
+        layout.arr
+            .filter (block) -> block.level <= max_depth
+            .map (block, i) ->
+                CHAT_BLOCK
+                    key: "block-#{block.end}"
+                    block: block
+                    index: num_blocks - i
+                    deep_link: block.level == max_depth
 
 dom.CHAT_BLOCK = ->
     block = @props.block
@@ -89,6 +93,17 @@ dom.CHAT_BLOCK = ->
 
                         "reply"
                     ###
+        else if @props.deep_link
+            # the children have been hidden.
+            A
+                key: "collapsed-link"
+                marginLeft: post_height
+                fontSize: "0.9375rem"
+                color: "#444"
+                href: block.end
+                "data-load-intern": true
+                "Further children were hidden."
+
 
         
 # The layout for a single post, including slidergram and such
