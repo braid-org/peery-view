@@ -359,7 +359,7 @@
         parser("post_layout").to_fetch = (key, t) ->
             kson = stringify_kson t._params
             user = t._params.user
-            min_score = (fetch user)?.filter ? 0.2
+            min_score = (fetch user)?.filter ? -0.2
             posts = fetch "/posts"
             v = fetch "view"
 
