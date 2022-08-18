@@ -361,6 +361,7 @@
             user = t._params.user
             min_score = (fetch user)?.filter ? 0.2
             posts = fetch "/posts"
+            v = fetch "view"
 
             # assemble posts into an array of trees
             # also mark which posts are good
@@ -370,7 +371,9 @@
                 parent = post.parent_key ? "root"
                 (children_of[parent] ?= []).push post
 
-                is_good[post.key] = (fetch "score#{post.key}#{kson}").value > min_score
+                tag_filter = (!v.tag) or v.tag in (post.tags ? [])
+                score_filter = (fetch "score#{post.key}#{kson}").value > min_score
+                is_good[post.key] = tag_filter and score_filter
 
             # assemble trees of posts into trees of collapsed blocks, each of which is uniform in color
             blocks = root: {chain: null, context: null, end: 'root', children: []}
