@@ -236,24 +236,25 @@
             MAIN_HEADER
                 key: "header"
 
-            unless v?.page == "post_details" or v?.page == "search"
-                BIG_MULTIGRAM
-                    key: "multigram"
-
-            if v?.page == "search"
-                SEARCH_BOX
-                    key: "search"
-
-            if v?.page == "posts"
-                SUBMIT_POST
-                    key: "submit"
-
             switch v?.page
-                when "users" then USERS key: "users"
-                when "post_details" then FULL_PAGE_POST key: "post", post: v.post_key
-                when "search" then POSTS_SEARCH key: "posts"
-                else POSTS key: "posts"
-            
+                when "users" then [
+                    BIG_MULTIGRAM key: "multigram"
+                    USERS key: "users"
+                    ]
+                when "post_details"
+                    FULL_PAGE_POST key: "post", post: v.post_key
+                when "search" then [
+                    SEARCH_BOX key: "search"
+                    FILTER key: "filter"
+                    POSTS_SEARCH key: "posts"
+                    ]
+
+                else [
+                    BIG_MULTIGRAM key: "multigram"
+                    FILTER key: "filter"
+                    SUBMIT_POST key: "submit"
+                    POSTS key: "posts"
+                    ]
 
     dom.BIG_MULTIGRAM = ->
         c = fetch "/current_user"
@@ -359,8 +360,9 @@
         parser("post_layout").to_fetch = (key, t) ->
             kson = stringify_kson t._params
             user = t._params.user
-            min_score = (fetch user)?.filter ? -0.2
+
             posts = fetch "/posts"
+            min_score = (fetch "filter")?.min ? -0.2
             v = fetch "view"
 
             # assemble posts into an array of trees

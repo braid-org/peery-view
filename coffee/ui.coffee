@@ -1242,7 +1242,6 @@ dom.SETTINGS = ->
     @local.name ?= c.user.name
     @local.email ?= c.user.email
     @local.pic ?= c.user.pic
-    @local.filter ?= c.user.filter ? -0.2
 
     DIV
         width: "300"
@@ -1252,7 +1251,6 @@ dom.SETTINGS = ->
         grid: '"nametag namefield namefield" 32px
                "emailtag emailfield emailfield" 32px
                "pictag picfield picfield" 32px
-               "filtertag filterfield filterfield" 32px
                "logout cancel save" 24px
                 / auto auto auto'
         gridGap: "5px"
@@ -1306,25 +1304,6 @@ dom.SETTINGS = ->
                 save @local
             placeholder: "http://..."
             id: "pic-change"
-        DIV
-            key: "filter"
-            gridArea: "filtertag"
-            color: "#333"
-            fontSize: "12px"
-            "Min post score"
-        INPUT
-            key: "filter-change"
-            gridArea: "filterfield"
-            ref: "filter"
-            value: @local.filter
-            onChange: (e) =>
-                @local.filter = e.target.value
-                save @local
-            placeholder: -0.2
-            id: "filter-change"
-            type: "number"
-            step: 0.1
-
 
         BUTTON
             key: "cancel"
@@ -1346,14 +1325,9 @@ dom.SETTINGS = ->
             gridArea: "save"
             onClick: () =>
                 
-                filter = Number.parseFloat @local.filter
-                if isNaN filter
-                    filter = -0.2
-
                 c.user.name = @local.name
                 c.user.email = @local.email
                 c.user.pic = @local.pic
-                c.user.filter = filter
 
                 save c.user
 
@@ -1563,7 +1537,7 @@ dom.SEARCH_BOX = ->
             "Search"
         
     
-# S
+# Search results
 dom.POSTS_SEARCH = ->
     c = fetch "/current_user"
     v = fetch "view"
@@ -1572,7 +1546,7 @@ dom.POSTS_SEARCH = ->
     username = v.user_key ? c?.user?.key ? "/user/default"
     score_kson = stringify_kson user: username
 
-    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
+    min_weight = (fetch "filter").min ? -0.2
     # Should we even do filtering in search?
     posts = ((fetch "/posts").arr ? [])
         .filter (p) -> ((fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight) and
@@ -1585,3 +1559,54 @@ dom.POSTS_SEARCH = ->
             POST
                 post: post.key
                 key: unslash post.key
+
+# filter
+dom.FILTER = ->
+    
+    filter = fetch "filter"
+    @local.val ?= Math.pow(filter.min ? 0, 1/3)
+
+    register_window_event "filter", "mouseup", (e) =>
+        if @local.mouse_down
+            @local.mouse_down = false
+            save @local
+            filter.min = Math.pow(@local.val, 3)
+            save filter
+
+    DIV
+        key: "container"
+        style: @props.style
+        display: "flex"
+        maxWidth: 600
+        marginLeft: 20
+        marginBottom: 10
+        color: "#666"
+
+        LABEL
+            key: "text"
+            marginRight: 5
+            "Filter (min score): "
+
+        INPUT
+            key: "range"
+            ref: "range"
+            type: "range"
+            value: @local.val
+            min: -3
+            max: 3
+            step: "any"
+            flexGrow: 1
+
+            onChange: (e) =>
+                @local.val = e.target.value
+                save @local
+
+            onMouseDown: () =>
+                @local.mouse_down = true
+                save @local
+
+        SPAN
+            key: "val-precise"
+            marginLeft: 5
+            Number(Math.pow(@local.val, 3)).toFixed 2
+
