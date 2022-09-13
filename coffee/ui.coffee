@@ -273,11 +273,9 @@ dom.POST = ->
                         whiteSpace: "nowrap"
                         overflowX: "hidden"
                         textOverflow: "ellipsis"
-                        paddingBottom: if @local.hover then 0 else 16
                         pretty_url
 
-                    info_line
-                        height: 16
+                    info_line height: 16
                     ]
                 else
                     DIV
