@@ -277,7 +277,6 @@ dom.POST = ->
                         pretty_url
 
                     info_line
-                        display: if @local.hover then "flex" else "none"
                         height: 16
                     ]
                 else
