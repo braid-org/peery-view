@@ -1,36 +1,22 @@
-###
-att_curve = (delta) ->
-    xs = delta / (60*60*24*30)
-    Math.max(1 / (xs*xs + 1), 0.1)
-
 compute_score = (p) ->
-    sqsc = (Math.sqrt Math.abs p.score) * (if p.score > 0 then 1 else -1)
-    att = att_curve p.age
-    sqsc + att + att * (sqsc + p.author)
- 
-sort_posts = (posts, user, tag) ->
-    c = fetch "/current_user"
+    # Computes an interpolated sorting key for posts
+    # Inputs:
+    #  p = {score, author, age, volume, t}
+    #  t in [0, 1] is the interpolation parameter
+    #  t = 0 means sort by new
+    #  t = 1 means sort by top score
+    #  t in between adjusts the relative importance of age and score
+    t = p.t
+    switch
+        when t < 0.02 then 1 / Math.log(p.age)
+        when t > 0.98 then p.score
+        else
+            # Interpolate between new and top score
+            decay_score = t
+            decay_age = Math.pow(1 - t, 2)
+            (1 + p.score * decay_score) / (1 + Math.log(p.age) * decay_age)
 
-    me = slash (user ? c.user?.key ? "/user/default")
-    min_weight = (if c.logged_in then (fetch c.user)?.filter) ? -0.2
-        
-    if loading()
-        return posts
 
-    kson = stringify_kson tag: tag, user: me
-    scores = {}
-    posts.forEach (p) ->
-        score = fetch "score#{p.key}#{kson}"
-        scores[p.key] = score.value ? 0
-
-    # Filter posts:              based on the minimum score       or we made this post
-    posts.filter (v) -> (scores[v.key] > min_weight or v.user == me)
-    # Filter before sorting!!
-        .sort (a, b) -> scores[b.key] - scores[a.key]
-###
-
-compute_score = (p) ->
-    p.score# + p.author
 
 make_post = (props) ->
     get_id = () -> "/post/" + Math.random().toString(36).substr(2)

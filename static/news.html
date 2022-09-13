@@ -320,6 +320,7 @@
             user ?= "/user/default"
 
             weights = fetch "weights/#{unslash user}#{stringify_kson {tag}}"
+            sort_t = (fetch "filter").sort ? 0.5
                 
             now = Date.now() / 1000
 
@@ -350,10 +351,12 @@
                 author: author_weight
                 score: sum_votes
                 volume: sum_weights
+                t: sort_t
 
             {
                 key: key,
-                value: res
+                sort: res,
+                filter: sum_votes
             }
 
         # discussion threading layout calculation
@@ -374,7 +377,7 @@
                 (children_of[parent] ?= []).push post
 
                 tag_filter = (!v.tag) or v.tag in (post.tags ? [])
-                score_filter = (fetch "score#{post.key}#{kson}").value > min_score
+                score_filter = (fetch "score#{post.key}#{kson}").filter > min_score
                 is_good[post.key] = tag_filter and score_filter
 
             # assemble trees of posts into trees of collapsed blocks, each of which is uniform in color
@@ -445,17 +448,10 @@
             # root needs to adopt grandchildren
             disown_bad_children blocks.root
 
-            # TODO: dont just sort blocks by raw score
-            # ie, give new content a bonus
-
             block_scores = {}
             aggregate_score = (block) ->
                 block_scores[block.end] ?= block.chain
-                    .map (c) -> 
-                        val = (fetch "score#{c}#{kson}").value
-                        # nonlinearity means that negative scores arent counted as heavily
-                        # but might be more interesting to do something like E[exp(v(c))]
-                        Math.max val, -Math.sqrt Math.abs val
+                    .map (c) -> (fetch "score#{c}#{kson}").sort
                     .reduce (a, b) -> Math.max a, b
 
             # flatten the blocks

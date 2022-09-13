@@ -1577,41 +1577,51 @@ dom.POSTS_SEARCH = ->
 dom.FILTER = ->
     
     filter = fetch "filter"
-    @local.val ?= Math.pow(filter.min ? 0, 1/3)
+    @local.filter_val ?= Math.pow(filter.min ? 0, 1/3)
+    if isNaN(@local.filter_val) then @local.filter_val = 0
+
+    @local.sort_val ?= 0.5
 
     register_window_event "filter", "mouseup", (e) =>
         if @local.mouse_down
             @local.mouse_down = false
             save @local
-            filter.min = Math.pow(@local.val, 3)
+            filter.min = Math.pow(@local.filter_val, 3)
+            filter.sort = @local.sort_val
             save filter
 
     DIV
         key: "container"
         style: @props.style
-        display: "flex"
+        display: "grid"
         maxWidth: 600
         marginLeft: 20
         marginBottom: 10
         color: "#666"
+        grid: '"filter-label filter-range filter-text" auto
+               "sort-label-left sort-range sort-label-right" auto
+               / auto 1fr auto'
 
+        # filter slider
         LABEL
-            key: "text"
+            key: "filter-text"
+            gridArea: "filter-label"
             marginRight: 5
             "Filter (min score): "
 
         INPUT
-            key: "range"
-            ref: "range"
+            key: "filter-range"
+            gridArea: "filter-range"
+            ref: "filter-range"
             type: "range"
-            value: @local.val
+            value: @local.filter_val
             min: -3
             max: 3
             step: "any"
             flexGrow: 1
 
             onChange: (e) =>
-                @local.val = e.target.value
+                @local.filter_val = e.target.value
                 save @local
 
             onMouseDown: () =>
@@ -1619,7 +1629,39 @@ dom.FILTER = ->
                 save @local
 
         SPAN
-            key: "val-precise"
+            key: "filter-val-precise"
+            gridArea: "filter-text"
             marginLeft: 5
-            Number(Math.pow(@local.val, 3)).toFixed 2
+            Number(Math.pow(@local.filter_val, 3)).toFixed 2
 
+        # sort slider
+        LABEL
+            key: "sort-label-left"
+            gridArea: "sort-label-left"
+            marginRight: 5
+            "New"
+
+        INPUT
+            key: "sort-range"
+            gridArea: "sort-range"
+            ref: "sort-range"
+            type: "range"
+            value: @local.val
+            min: 0
+            max: 1
+            step: "any"
+            flexGrow: 1
+
+            onChange: (e) =>
+                @local.sort_val = e.target.value
+                save @local
+
+            onMouseDown: () =>
+                @local.mouse_down = true
+                save @local
+
+        SPAN
+            key: "sort-label-right"
+            gridArea: "sort-label-right"
+            marginLeft: 5
+            "Top"
