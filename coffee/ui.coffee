@@ -358,6 +358,7 @@ dom.POST = ->
 
 dom.TAGS = ->
     c = fetch "/current_user"
+    v = fetch "view"
     post = fetch @props.post
 
     ASIDE
@@ -372,18 +373,13 @@ dom.TAGS = ->
             key: "untagged-slider"
             display: "flex"
 
-            SLIDERGRAM
+            SLIDERGRAM_WITH_TAG
                 key: "slidergram"
-                sldr: "/votes/#{unslash post.key}(untagged)"
+                post: post
                 width: slider_width
                 height: slider_height
-                max_avatar_radius: slider_height / 2
+                max_avatar_radius: slider_height / 2.5
                 read_only: !c.logged_in
-                vote_key: "user_key"
-                onsave: (vote) =>
-                    vote.key = "#{c.user.key}/vote/#{unslash post.key}"
-                    vote.target_key = post.key
-                    save vote
 
             BUTTON
                 key: "more"
@@ -1614,7 +1610,7 @@ dom.FILTER = ->
             value: @local.filter_val
             min: -3
             max: 3
-            step: "any"
+            step: 0.01
             flexGrow: 1
 
             onChange: (e) =>
@@ -1646,7 +1642,7 @@ dom.FILTER = ->
             value: @local.val
             min: 0
             max: 1
-            step: "any"
+            step: 0.01
             flexGrow: 1
 
             onChange: (e) =>

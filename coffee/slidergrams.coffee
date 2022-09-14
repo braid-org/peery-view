@@ -16,10 +16,11 @@ dom.SLIDERGRAM_WITH_TAG = ->
     post = @props.post
     tag = @props.tag
     c = fetch "/current_user"
-    kson = stringify_kson {tag}
-    @props.sldr = "/votes/#{unslash post.key}#{kson}"
+    votes_kson = if tag then stringify_kson {tag} else "(untagged)"
+    vote_kson  = if tag then stringify_kson {tag} else ""
+    @props.sldr = "/votes/#{unslash post.key}#{votes_kson}"
     @props.onsave = (vote) =>
-        vote.key = "#{c?.user?.key}/vote/#{unslash post.key}#{kson}"
+        vote.key = "#{c?.user?.key}/vote/#{unslash post.key}#{vote_kson}"
         vote.target_key = post.key
         vote.tag = tag
         save vote

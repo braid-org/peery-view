@@ -8,8 +8,8 @@ compute_score = (p) ->
     #  t in between adjusts the relative importance of age and score
     t = p.t
     switch
-        when t < 0.02 then 1 / Math.log(p.age)
-        when t > 0.98 then p.score
+        when t <= 0.01 then 1 / Math.log(p.age)
+        when t >= 0.99 then p.score
         else
             # Interpolate between new and top score
             decay_score = t
