@@ -51,7 +51,7 @@ dom.CHAT_BLOCK = ->
                     key: "post"
                     post: post
                     width: 600 - left
-                    hide_reply: i == num_posts - 1
+                    hide_reply: i == num_posts - 1 and not block.children?.length
 
                 DIV
                     key: "tags-container"
@@ -1570,7 +1570,7 @@ dom.POSTS_SEARCH = ->
 dom.FILTER = ->
     
     filter = fetch "filter"
-    @local.filter_val ?= Math.pow(filter.min ? 0, 1/3)
+    @local.filter_val ?= (Math.sqrt Math.abs(filter.min ? 0)) * Math.sign(filter.min ? 0)
     if isNaN(@local.filter_val) then @local.filter_val = 0
 
     @local.sort_val ?= 0.5
@@ -1608,9 +1608,9 @@ dom.FILTER = ->
             ref: "filter-range"
             type: "range"
             value: @local.filter_val
-            min: -3
-            max: 3
-            step: 0.01
+            min: -Math.sqrt 10
+            max: Math.sqrt 10
+            step: "any"
             flexGrow: 1
 
             onChange: (e) =>
@@ -1625,7 +1625,7 @@ dom.FILTER = ->
             key: "filter-val-precise"
             gridArea: "filter-text"
             marginLeft: 5
-            Number(Math.pow(@local.filter_val, 3)).toFixed 2
+            Number(Math.pow(@local.filter_val, 2) * Math.sign @local.filter_val ).toFixed 2
 
         # sort slider
         LABEL
