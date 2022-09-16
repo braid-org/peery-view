@@ -15,22 +15,64 @@ dom.POSTS = ->
     layout = fetch "post_layout#{score_kson}"
 
     max_depth = @props.max_depth ? 5
-    num_blocks = layout.arr?.length
+    # Function to output a chat blocks layout, given a flattened array
+    blocks = (arr, key) ->
+        num_blocks = arr?.length
+        DIV
+            key: key
+            marginLeft: 20
+            arr
+                .filter (block) -> block.level <= max_depth
+                .map (block, i) ->
+                    CHAT_BLOCK
+                        key: "block-#{block.end}"
+                        block: block
+                        index: num_blocks - i
+                        deep_link: block.level == max_depth
     DIV
         key: "posts"
-        marginLeft: 20
-        layout.arr
-            .filter (block) -> block.level <= max_depth
-            .map (block, i) ->
-                CHAT_BLOCK
-                    key: "block-#{block.end}"
-                    block: block
-                    index: num_blocks - i
-                    deep_link: block.level == max_depth
+
+        blocks layout.new, "new-posts"
+
+        DIV
+           key: "sort-separator"
+           display: if layout.new.length then "flex" else "none"
+           flexDirection: "row"
+           justifyContent: "stretch"
+           alignItems: "center"
+
+           # Blue line on the left
+           DIV
+               key: "dummy1"
+               flexGrow: 1
+               height: 1.5
+               background: "#36a"
+               borderRadius: 1
+
+           SPAN
+               key: "text"
+               color: "#36a"
+               margin: "0px 1ch"
+               "Two weeks ago"
+
+           # Blue line on the right
+           DIV
+               key: "dummy2"
+               flexGrow: 1
+               height: 1.5
+               background: "#36a"
+               borderRadius: 1
+
+
+        blocks layout.top, "top-posts"
 
 dom.CHAT_BLOCK = ->
     block = @props.block
     left = block.level * (post_height - 5) / 2
+
+    num_posts = block.chain?.length
+    has_context = block.context? and @props.show_context
+    posts = if has_context then [block.context, ...block.chain] else block.chain
     DIV
         key: "block"
         marginLeft: left
@@ -38,20 +80,23 @@ dom.CHAT_BLOCK = ->
         position: "relative"
         zIndex: @props.index + 1
 
-        num_posts = block.chain?.length
-        block.chain.map (post, i) ->
+        posts.map (post, i) ->
+            is_context = i == 0 and has_context
+            is_last = if has_context then i == num_posts else i == num_posts - 1
             DIV
                 key: post
                 display: "flex"
                 flexDirection: "row"
                 position: "relative"
                 zIndex: num_posts + 1 - i
+                opacity: if is_context then 0.5 else 1
 
                 POST
                     key: "post"
                     post: post
                     width: 600 - left
-                    hide_reply: i == num_posts - 1 and not block.children?.length
+                    hide_reply: (is_last and not block.children?.length) or is_context
+                    no_controls: is_context
 
                 DIV
                     key: "tags-container"
@@ -217,7 +262,7 @@ dom.POST = ->
                     @local.editing = false
                     save @local
                 "Reply"
-               
+
 
 
     DIV
@@ -275,7 +320,7 @@ dom.POST = ->
                         textOverflow: "ellipsis"
                         pretty_url
 
-                    info_line height: 16
+                    unless @props.no_controls then info_line height: 16
                     ]
                 else
                     DIV
@@ -324,7 +369,7 @@ dom.POST = ->
                                 lineHeight: 1.4
                                 boxSizing: "border-box"
                                 padding: padding_unit
-                                paddingBottom: if @local.hover then 0 else 16
+                                paddingBottom: if @local.hover and not @props.no_controls then 0 else 16
 
                                 if post.title
                                     SPAN
@@ -338,7 +383,7 @@ dom.POST = ->
 
                                 post.body
 
-                        info_line
+                        unless @props.no_controls then info_line
                             display: if @local.hover or @local.editing then "flex" else "none"
                             padding: "0 #{padding_unit}px"
                             height: 16
@@ -1573,27 +1618,21 @@ dom.FILTER = ->
     @local.filter_val ?= (Math.sqrt Math.abs(filter.min ? 0)) * Math.sign(filter.min ? 0)
     if isNaN(@local.filter_val) then @local.filter_val = 0
 
-    @local.sort_val ?= 0.5
-
     register_window_event "filter", "mouseup", (e) =>
         if @local.mouse_down
             @local.mouse_down = false
             save @local
             filter.min = Math.pow(@local.filter_val, 3)
-            filter.sort = @local.sort_val
             save filter
 
     DIV
         key: "container"
         style: @props.style
-        display: "grid"
+        display: "flex"
         maxWidth: 600
         marginLeft: 20
         marginBottom: 10
         color: "#666"
-        grid: '"filter-label filter-range filter-text" auto
-               "sort-label-left sort-range sort-label-right" auto
-               / auto 1fr auto'
 
         # filter slider
         LABEL
@@ -1626,35 +1665,3 @@ dom.FILTER = ->
             gridArea: "filter-text"
             marginLeft: 5
             Number(Math.pow(@local.filter_val, 2) * Math.sign @local.filter_val ).toFixed 2
-
-        # sort slider
-        LABEL
-            key: "sort-label-left"
-            gridArea: "sort-label-left"
-            marginRight: 5
-            "New"
-
-        INPUT
-            key: "sort-range"
-            gridArea: "sort-range"
-            ref: "sort-range"
-            type: "range"
-            value: @local.val
-            min: 0
-            max: 1
-            step: 0.01
-            flexGrow: 1
-
-            onChange: (e) =>
-                @local.sort_val = e.target.value
-                save @local
-
-            onMouseDown: () =>
-                @local.mouse_down = true
-                save @local
-
-        SPAN
-            key: "sort-label-right"
-            gridArea: "sort-label-right"
-            marginLeft: 5
-            "Top"
