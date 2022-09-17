@@ -101,18 +101,18 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
     {
         key: key
         sort_top: compute_score 1, p
-        sort_new: compute_score 0.25, p
+        sort_new: compute_score 0.2, p
         filter: sum_votes
     }
+
 
 # chat block layout calculation
 parser("post_layout").to_fetch = (key, t) ->
     kson = stringify_kson t._params
-    user = t._params.user
+    {user, tag} = t._params
 
     posts = fetch "/posts"
     min_score = (fetch "filter")?.min ? -0.2
-    v = fetch "view"
 
     # assemble posts into an array of trees
     # also mark which posts are good
@@ -128,7 +128,7 @@ parser("post_layout").to_fetch = (key, t) ->
         parent = post.parent_key ? "root_top"
         (children_of[parent] ?= []).push post
 
-        tag_filter = (!v.tag) or v.tag in (post.tags ? [])
+        tag_filter = (!tag) or tag in (post.tags ? [])
         score_filter = (fetch "score#{post.key}#{kson}").filter > min_score
         is_good[post.key] = tag_filter and score_filter
         is_new[post.key] = post.time > two_weeks_ago

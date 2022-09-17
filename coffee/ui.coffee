@@ -29,7 +29,10 @@ dom.POSTS = ->
                         block: block
                         index: num_blocks - i
                         deep_link: block.level == max_depth
-                        show_context: block.level == 0
+                        # if the block level is 0 then it either has a detached parent
+                        # or no parent (in which case there's no context to show)
+                        # if the block has a skip count, then its parent was hidden for being bad.
+                        show_context: block.level == 0 or block.skipped
     DIV
         key: "posts"
 
@@ -468,6 +471,8 @@ dom.TAGS = ->
     c = fetch "/current_user"
     v = fetch "view"
     post = fetch @props.post
+
+    @local.expanded &= !@props.no_expand
 
     ASIDE
         display: "flex"
