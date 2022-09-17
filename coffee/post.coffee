@@ -8,9 +8,8 @@ compute_score = (t, p) ->
     #  t = 1 means sort by top score
     #  t in between adjusts the relative importance of age and score
     theta = t * Math.PI / 2
-    # dividing age by a constant (perhaps the length of one day) just translates by some c_t.
-    # but it might make the sorting numbers more meaningful.
-    Math.sin(theta) * p.score - Math.cos(theta) * Math.log(p.age / 80000)
+    # We add a constant to the age to reduce the impact on very very new posts
+    Math.sin(theta) * p.score - Math.cos(theta) * Math.log(1 + p.age / 3600)
 
 
 make_post = (props) ->
@@ -102,7 +101,7 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
     {
         key: key
         sort_top: compute_score 1, p
-        sort_new: compute_score 0.1, p
+        sort_new: compute_score 0.25, p
         filter: sum_votes
     }
 

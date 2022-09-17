@@ -16,7 +16,7 @@ dom.POSTS = ->
 
     max_depth = @props.max_depth ? 5
     # Function to output a chat blocks layout, given a flattened array
-    blocks = (arr, key, show_context) ->
+    blocks = (arr, key) ->
         num_blocks = arr?.length
         DIV
             key: key
@@ -29,11 +29,11 @@ dom.POSTS = ->
                         block: block
                         index: num_blocks - i
                         deep_link: block.level == max_depth
-                        show_context: show_context and block.level == 0
+                        show_context: block.level == 0
     DIV
         key: "posts"
 
-        blocks layout.new, "new-posts", true
+        blocks layout.new, "new-posts"
 
         DIV
            key: "sort-separator"
@@ -251,7 +251,7 @@ dom.POST = ->
                     @local.replying = false
                     @local.editing = true
                     @local.live_body = post.body
-                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight
+                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight + 16
                     save @local
                 "Edit"
 
