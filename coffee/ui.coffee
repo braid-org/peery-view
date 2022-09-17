@@ -16,7 +16,7 @@ dom.POSTS = ->
 
     max_depth = @props.max_depth ? 5
     # Function to output a chat blocks layout, given a flattened array
-    blocks = (arr, key) ->
+    blocks = (arr, key, show_context) ->
         num_blocks = arr?.length
         DIV
             key: key
@@ -29,10 +29,11 @@ dom.POSTS = ->
                         block: block
                         index: num_blocks - i
                         deep_link: block.level == max_depth
+                        show_context: show_context and block.level == 0
     DIV
         key: "posts"
 
-        blocks layout.new, "new-posts"
+        blocks layout.new, "new-posts", true
 
         DIV
            key: "sort-separator"
@@ -64,7 +65,7 @@ dom.POSTS = ->
                borderRadius: 1
 
 
-        blocks layout.top, "top-posts"
+        blocks layout.top, "top-posts", false
 
 dom.CHAT_BLOCK = ->
     block = @props.block
@@ -97,6 +98,7 @@ dom.CHAT_BLOCK = ->
                     width: 600 - left
                     hide_reply: (is_last and not block.children?.length) or is_context
                     no_controls: is_context
+                    max_lines: if is_context then 2
 
                 DIV
                     key: "tags-container"
@@ -105,6 +107,7 @@ dom.CHAT_BLOCK = ->
 
                     TAGS
                         key: "tags"
+                        no_expand: is_context
                         post: post
                         style: background: "white"
 
@@ -328,11 +331,6 @@ dom.POST = ->
                         flexGrow: 1
                         background: "#eee"
 
-                        ### === Text-post body, editing, deletion. === ###
-                        # Find a better way to organize these components?
-
-
-
                         if @local.editing
                             # A textbox with the text of the post body
                             TEXTAREA
@@ -360,28 +358,45 @@ dom.POST = ->
                                 
 
                         else
-                            P
+                            DIV
                                 key: "body"
                                 ref: "body"
-                                whiteSpace: "pre-line"
-                                textAlign: "justify"
-                                fontSize: "0.9375rem" # 15px unless zoom
-                                lineHeight: 1.4
                                 boxSizing: "border-box"
                                 padding: padding_unit
                                 paddingBottom: if @local.hover and not @props.no_controls then 0 else 16
 
                                 if post.title
                                     SPAN
-                                        display: "block"
                                         key: "title"
+                                        display: "block"
                                         fontSize: "1rem" # 16px unless zoom
                                         lineHeight: 1.5
                                         className: "post-title"
                                         fontWeight: "bold"
                                         post.title
 
-                                post.body
+                                # could try with webkit clamp?
+                                # webkit clamp breaks words though
+                                if @props.max_lines
+                                    CLIP_BOX
+                                        key: "body-intern"
+                                        body: post.body
+                                        max_lines: @props.max_lines
+                                        style:
+                                            whiteSpace: "pre-line"
+                                            textAlign: "justify"
+                                            fontSize: "0.9375rem" # 15px unless zoom
+                                            lineHeight: 1.4
+                                else
+                                    SPAN
+                                        key: "body-intern"
+                                        whiteSpace: "pre-line"
+                                        textAlign: "justify"
+                                        fontSize: "0.9375rem" # 15px unless zoom
+                                        lineHeight: 1.4
+                                        post.body
+
+
 
                         unless @props.no_controls then info_line
                             display: if @local.hover or @local.editing then "flex" else "none"
@@ -399,7 +414,55 @@ dom.POST = ->
                     @local.replying = false
                     save @local
 
+dom.CLIP_BOX = ->
+    @local.body_clipped ?= @props.body
+    @local.n_words = @props.body.split(" ").length
+    DIV
+        display: "contents"
+        P
+            key: "box"
+            ref: "box"
+            style: @props.style
+            @local.body_clipped
 
+        unless @local.profiled
+            # hidden, uninteractive element to measure the size of the text
+            P
+                key: "profile"
+                ref: "profile"
+                style: @props.style
+                whiteSpace: "nowrap"
+                opacity: 0
+                pointerEvents: "none"
+                userSelect: "none"
+                position: "absolute"
+                @props.body
+            
+
+dom.CLIP_BOX.refresh = ->
+
+    box = @refs.box.getDOMNode()
+    lh = parseFloat window.getComputedStyle(box).lineHeight
+    l = Math.round (box.clientHeight / lh)
+
+    # first run, where we ran with nowrap.
+    # compute some statistics about the text dimensions
+    unless @local.profiled
+        profile = @refs?.profile?.getDOMNode()
+        @local.px_per_word = profile.clientWidth / @local.n_words
+        @local.profiled = true
+    # once we've profiled, we can begin chopping
+    if @local.profiled and l > @props.max_lines
+        # use the stats from the profile to get an O(1) approximation of the number of words that fit
+        unless @local.profile_applied
+            max_words_estim = @props.max_lines * box.clientWidth / @local.px_per_word
+            @local.body_clipped = @props.body.split(" ")[..max_words_estim].join(" ") + " …"
+            @local.profile_applied = true
+        # generally, the profiler will be off by a few words, so we need to refine the estimate
+        # we could do binary search, but this causes less flickering and for practical purposes is faster
+        else
+            @local.body_clipped = @local.body_clipped.split(" ")[...-2].join(" ") + " …"
+    save @local
 
 dom.TAGS = ->
     c = fetch "/current_user"
@@ -1665,3 +1728,4 @@ dom.FILTER = ->
             gridArea: "filter-text"
             marginLeft: 5
             Number(Math.pow(@local.filter_val, 2) * Math.sign @local.filter_val ).toFixed 2
+
