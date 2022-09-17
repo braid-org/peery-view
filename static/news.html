@@ -149,7 +149,7 @@
         if path.endsWith "/"
             path = path[...-1]
         v = fetch "view"
-        v.tag = v.user_key = v.page = null
+        v.tag = v.user_key = v.page = v.post_key = null
         switch
             # User list
             when path == "/users"
@@ -241,8 +241,13 @@
                     BIG_MULTIGRAM key: "multigram"
                     USERS key: "users"
                     ]
-                when "post_details"
-                    FULL_PAGE_POST key: "post", post: v.post_key
+                when "post_details" then [
+                    POST
+                        key: "post"
+                        post: v.post_key
+                        width: 600
+                    POSTS key: "posts"
+                ]
                 when "search" then [
                     SEARCH_BOX key: "search"
                     FILTER key: "filter"

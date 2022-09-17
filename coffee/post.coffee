@@ -105,11 +105,11 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
         filter: sum_votes
     }
 
-
 # chat block layout calculation
 parser("post_layout").to_fetch = (key, t) ->
-    kson = stringify_kson t._params
-    {user, tag} = t._params
+    {user, tag, root_post} = t._params
+    # don't put the post into the kson
+    kson = stringify_kson {user, tag}
 
     posts = fetch "/posts"
     min_score = (fetch "filter")?.min ? -0.2
@@ -124,6 +124,7 @@ parser("post_layout").to_fetch = (key, t) ->
     two_weeks_ago = now - 60 * 60 * 24 * 14
     is_new = {}
 
+
     posts.arr?.forEach (post) ->
         parent = post.parent_key ? "root_top"
         (children_of[parent] ?= []).push post
@@ -135,20 +136,24 @@ parser("post_layout").to_fetch = (key, t) ->
 
     # Now kidnap young children from their old parents >:)
     f_kidnap = (post) ->
-        children_of[post.key] = children_of[post.key]?.filter (c) ->
+        children_of[post] = children_of[post]?.filter (c) ->
             if is_new[c.key]
                 children_of.root_new.push c
                 return false
             else
-                f_kidnap c
+                f_kidnap c.key
                 true
 
-    f_kidnap key: "root_top"
+    # we've assembled the tree for all the posts (yes, inefficient), but from here on out we're only interested in a certain subtree
+    root = root_post ? "root_top"
+    children_of[root] ?= []
+    f_kidnap root
 
     # assemble trees of posts into trees of collapsed blocks, each of which is uniform in color
-    blocks =
-        root_top: {chain: null, context: null, end: 'root_top', children: []}
-        root_new: {chain: null, context: null, end: 'root_new', children: []}
+    # we have two top level trees, one for new posts and one for old posts
+    blocks = root_new: {chain: null, context: null, end: 'root_new', children: []}
+    blocks[root] = {chain: null, context: null, end: root, children: []}
+
     f_chain = (post, block, parent) ->
         # we might have to start a new block
         block ?= chain: [], context: post.parent_key, children: [], good: is_good[post.key], skipped: 0
@@ -211,10 +216,10 @@ parser("post_layout").to_fetch = (key, t) ->
                     child.children.forEach (gc) -> blocks[gc].skipped += child.chain.length
         block.children = new_children
 
-    children_of.root_top.forEach (post) -> f_chain post, null, 'root_top'
+    children_of[root].forEach (post) -> f_chain post, null, root
     children_of.root_new.forEach (post) -> f_chain post, null, 'root_new'
     # root needs to adopt grandchildren
-    disown_bad_children blocks.root_top
+    disown_bad_children blocks[root]
     disown_bad_children blocks.root_new
 
     block_scores = {}
@@ -236,11 +241,12 @@ parser("post_layout").to_fetch = (key, t) ->
 
     top_arr = []
     new_arr = []
-    f_flatten blocks.root_top, -1, top_arr, "sort_top"
+    f_flatten blocks[root], -1, top_arr, "sort_top"
     f_flatten blocks.root_new, -1, new_arr, "sort_new"
     # the first element is root, which isn't real
     top_arr.shift()
     new_arr.shift()
+
 
     {
         key: key

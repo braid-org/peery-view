@@ -10,9 +10,8 @@ dom.POSTS = ->
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
-    # KSON blob to be passed to the scores state
-    score_kson = stringify_kson tag: v.tag, user: username
-    layout = fetch "post_layout#{score_kson}"
+    kson = stringify_kson tag: v.tag, user: username, root_post: v.post_key
+    layout = fetch "post_layout#{kson}"
 
     max_depth = @props.max_depth ? 5
     # Function to output a chat blocks layout, given a flattened array
@@ -22,8 +21,8 @@ dom.POSTS = ->
             key: key
             marginLeft: 20
             arr
-                .filter (block) -> block.level <= max_depth
-                .map (block, i) ->
+                ?.filter (block) -> block.level <= max_depth
+                ?.map (block, i) ->
                     CHAT_BLOCK
                         key: "block-#{block.end}"
                         block: block
@@ -32,7 +31,7 @@ dom.POSTS = ->
                         # if the block level is 0 then it either has a detached parent
                         # or no parent (in which case there's no context to show)
                         # if the block has a skip count, then its parent was hidden for being bad.
-                        show_context: block.level == 0 or block.skipped
+                        show_context: (block.level == 0 or block.skipped) and (block.context != v.post_key)
     DIV
         key: "posts"
 
@@ -236,6 +235,15 @@ dom.POST = ->
                     @local.editing = false
                     save @local
                 "Save"
+
+            A
+                key: "permalink-btn"
+                className: "unbutton"
+                marginLeft: 8
+                display: if @local.editing or @local.replying then "none"
+                href: post.key
+                "data-load-intern": true
+                "Focus"
 
             BUTTON
                 key: "delete-btn"
