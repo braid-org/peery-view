@@ -11,7 +11,7 @@ dom.POSTS = ->
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
     kson = stringify_kson tag: v.tag, user: username, root_post: v.post_key
-    layout = fetch "post_layout#{kson}"
+    layout = fetch "blocks_layout#{kson}"
 
     max_depth = @props.max_depth ? 5
     # Function to output a chat blocks layout, given a flattened array

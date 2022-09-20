@@ -99,29 +99,48 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
         volume: sum_weights
 
     {
-        key: key
+        key,
         sort_top: compute_score 1, p
         sort_new: compute_score 0.2, p
         filter: sum_votes
     }
 
-# chat block layout calculation
-parser("post_layout").to_fetch = (key, t) ->
+# cache good and new for posts
+# so that blocks_tree doesn't have to directly fetch post score
+parser("colors/post/<postid>").to_fetch = (key, t) ->
+    kson = stringify_kson t._params
+    {tag} = t._params
+    postid = t._path.postid
+
+    min_score = (fetch "filter")?.min ? -0.2
+    now = Date.now() / 1000
+    two_weeks_ago = now - 60 * 60 * 24 * 14
+
+    post = fetch "/post/#{postid}"
+
+    tag_filter = (!tag) or tag in (post.tags ? [])
+    score_filter = (fetch "score#{post.key}#{kson}").filter > min_score
+
+    {
+        key,
+        good: score_filter and tag_filter
+        new: post.time > two_weeks_ago
+    }
+
+
+# chat block tree calculation
+parser("blocks_tree").to_fetch = (key, t) ->
     {user, tag, root_post} = t._params
     # don't put the post into the kson
     kson = stringify_kson {user, tag}
 
     posts = fetch "/posts"
-    min_score = (fetch "filter")?.min ? -0.2
 
     # assemble posts into an array of trees
     # also mark which posts are good
     # and mark which are new
     children_of = root_top: [], root_new: []
     is_good = {}
-
-    now = Date.now() / 1000
-    two_weeks_ago = now - 60 * 60 * 24 * 14
     is_new = {}
 
 
@@ -129,10 +148,9 @@ parser("post_layout").to_fetch = (key, t) ->
         parent = post.parent_key ? "root_top"
         (children_of[parent] ?= []).push post
 
-        tag_filter = (!tag) or tag in (post.tags ? [])
-        score_filter = (fetch "score#{post.key}#{kson}").filter > min_score
-        is_good[post.key] = tag_filter and score_filter
-        is_new[post.key] = post.time > two_weeks_ago
+        colors = fetch "colors#{post.key}#{kson}"
+        is_new[post.key] = colors.new
+        is_good[post.key] = colors.good
 
     # Now kidnap young children from their old parents >:)
     f_kidnap = (post) ->
@@ -222,6 +240,19 @@ parser("post_layout").to_fetch = (key, t) ->
     disown_bad_children blocks[root]
     disown_bad_children blocks.root_new
 
+    {
+        key: key,
+        blocks...
+    }
+
+
+# flattened layout calculation
+parser("blocks_layout").to_fetch = (key, t) ->
+    {root_post} = t._params
+    kson = stringify_kson t._params
+
+    blocks = fetch "blocks_tree#{kson}"
+
     block_scores = {}
     aggregate_score = (block, k) ->
         block_scores[block.end] ?= block.chain
@@ -241,7 +272,7 @@ parser("post_layout").to_fetch = (key, t) ->
 
     top_arr = []
     new_arr = []
-    f_flatten blocks[root], -1, top_arr, "sort_top"
+    f_flatten blocks[root_post ? "root_top"], -1, top_arr, "sort_top"
     f_flatten blocks.root_new, -1, new_arr, "sort_new"
     # the first element is root, which isn't real
     top_arr.shift()
@@ -254,4 +285,3 @@ parser("post_layout").to_fetch = (key, t) ->
         top: top_arr
 
     }
-
