@@ -83,7 +83,7 @@ bus = require('statebus').serve
 
             # Remove the post from `posts`
             all_posts.arr = all_posts.arr.filter (p) -> p.key != key
-            bus.save.sync all_posts
+            bus.save all_posts
 
             # Delete `votes/...`
             bus.delete "votes/post/#{postid}"
@@ -92,16 +92,13 @@ bus = require('statebus').serve
             voters.forEach (u) ->
                 votes_by = bus.fetch "#{u}/votes"
                 votes_by.arr = votes_by.arr?.filter (v) -> v.target_key != key
-                bus.save.sync votes_by
+                bus.save votes_by
 
             # Delete all the individual votes
             votes.forEach (v) -> bus.delete v.key
 
             # Finally delete the actual post
-            # WHY THE FUCK DOESN'T THIS WORK
-            # tell the client that the post is gone
-            client.save.fire {key}
-            bus.delete key
+            bus.save {key}
             t.done()
 
         parser('user/<userid>/votes').to_save = (t) ->
