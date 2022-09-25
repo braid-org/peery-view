@@ -252,6 +252,8 @@ parser("blocks_layout").to_fetch = (key, t) ->
     kson = stringify_kson t._params
 
     blocks = fetch "blocks_tree#{kson}"
+    collapsed_posts = fetch "collapsed_posts"
+    has_collapsed = (Object.keys collapsed_posts).length > 1
 
     block_scores = {}
     aggregate_score = (block, k) ->
@@ -263,11 +265,19 @@ parser("blocks_layout").to_fetch = (key, t) ->
     f_flatten = (block, level, out, k) ->
         block.level = level
         out.push block
-        # sort the children to flatten in the right order
-        block.children
-            .map (c) -> blocks[c]
-            .sort (a, b) -> (aggregate_score b, k) - aggregate_score a, k
-            .forEach (c) -> f_flatten c, level + 1, out, k
+
+        # Extremely ugly syntax, I'm so sorry
+        if has_collapsed and block.chain?.length and block.chain \
+            .map((c) -> collapsed_posts[c]) \
+            .reduce (a, b) -> a or b
+            # The block is collapsed, replace with a stub
+            block.collapsed = true
+        else
+            # sort the children to flatten in the right order
+            block.children
+                .map (c) -> blocks[c]
+                .sort (a, b) -> (aggregate_score b, k) - aggregate_score a, k
+                .forEach (c) -> f_flatten c, level + 1, out, k
 
 
     top_arr = []
