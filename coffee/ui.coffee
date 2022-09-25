@@ -73,9 +73,16 @@ dom.CHAT_BLOCK = ->
     block = @props.block
     left = block.level * (post_height - 5) / 2
 
-    num_posts = block.chain?.length
+    num_posts = block.chain.length
     has_context = block.context? and @props.show_context
     posts = if has_context then [block.context, ...block.chain] else block.chain
+    # We save our ui state with the last child instead of @local
+    # This is because if a new post is added onto the end of the block,
+    # the block key will change and the state in @local will be lost.
+    # If we save it instead on one of our children, then we can just check all of the children
+    # and determine if the reply box was open before the re-render
+    last_child = block.chain[num_posts - 1]
+    reply_open = fetch "block_reply#{last_child}"
     DIV
         key: "block"
         marginLeft: left
@@ -114,14 +121,15 @@ dom.CHAT_BLOCK = ->
                         style: background: "white"
 
         unless block.children?.length
-            if @local.reply_expanded
+            if reply_open.open
                 MINI_REPLY
                     key: "mini-reply"
                     parent: block.end
+                    ui: reply_open
                     style: width: 600 - left
-                    close: () =>
-                        @local.reply_expanded = false
-                        save @local
+                    close: () ->
+                        reply_open.open = false
+                        save reply_open
             else
                 BUTTON
                     key: "reply-expand"
@@ -129,9 +137,9 @@ dom.CHAT_BLOCK = ->
                     marginLeft: post_height
                     fontSize: "0.9375rem"
                     color: "#444"
-                    onClick: () =>
-                        @local.reply_expanded = true
-                        save @local
+                    onClick: () ->
+                        reply_open.open = true
+                        save reply_open
 
                     "Reply"
                     ###
@@ -154,8 +162,24 @@ dom.CHAT_BLOCK = ->
                 "data-load-intern": true
                 "Further children were hidden."
 
+dom.CHAT_BLOCK.refresh = ->
+    block = @props.block
+    last_child = block.chain[block.chain.length - 1]
+    reply_open = fetch "block_reply#{last_child}"
 
-        
+    # If the reply box is already open, then we don't need to check if it should be open
+    unless reply_open.open
+        block.chain[...-1].forEach (post) ->
+            # check if any of the posts in the chain were previously the parent-to-be of an open block reply
+            bus.fetch_once "block_reply#{post}", (s) ->
+                if s.open
+                    reply_open.open = true
+                    reply_open.text = s.text
+                    save reply_open
+
+                    save key: s.key
+
+
 # The layout for a single post, including slidergram and such
 dom.POST = ->
     post = @props.post
@@ -164,6 +188,7 @@ dom.POST = ->
     unless post.user_key?
         # The post has actually just been deleted.
         return
+    ui = fetch "post_state#{post.key}"
 
     author = fetch post.user_key
 
@@ -213,11 +238,11 @@ dom.POST = ->
             BUTTON
                 key: "cancel-btn"
                 className: "unbutton"
-                display: unless @local.editing then "none"
+                display: unless ui.editing then "none"
                 marginLeft: 8
                 onClick: () =>
-                    @local.editing = false
-                    save @local
+                    ui.editing = false
+                    save ui
                 "Cancel"
 
             BUTTON
@@ -228,19 +253,19 @@ dom.POST = ->
                 onClick: () =>
                     save {
                         post...
-                        body: @local.live_body
+                        body: ui.live_body
                         edit_time: Math.floor (Date.now() / 1000)
                     }
 
-                    @local.editing = false
-                    save @local
+                    ui.editing = false
+                    save ui
                 "Save"
 
             A
                 key: "permalink-btn"
                 className: "unbutton"
                 marginLeft: 8
-                display: if @local.editing or @local.replying then "none"
+                display: if ui.editing or ui.replying then "none"
                 href: post.key
                 "data-load-intern": true
                 "Focus"
@@ -248,7 +273,7 @@ dom.POST = ->
             BUTTON
                 key: "delete-btn"
                 className: "unbutton"
-                display: if @local.editing or !is_author then "none"
+                display: if ui.editing or !is_author then "none"
                 marginLeft: 8
                 onClick: () -> del post.key
                 "Delete"
@@ -257,24 +282,24 @@ dom.POST = ->
                 key: "edit-btn"
                 className: "unbutton"
                 marginLeft: 8
-                display: if post.url or @local.editing or !is_author then "none"
+                display: if post.url or ui.editing or !is_author then "none"
                 onClick: () =>
-                    @local.replying = false
-                    @local.editing = true
-                    @local.live_body = post.body
-                    @local.h = @refs?.body?.getDOMNode?()?.clientHeight + 16
-                    save @local
+                    ui.replying = false
+                    ui.editing = true
+                    ui.live_body = post.body
+                    ui.h = @refs?.body?.getDOMNode?()?.clientHeight + 16
+                    save ui
                 "Edit"
 
             BUTTON
                 key: "reply-btn"
                 className: "unbutton"
                 marginLeft: 8
-                display: if @local.editing or @local.replying or @props.hide_reply then "none"
+                display: if ui.editing or ui.replying or @props.hide_reply then "none"
                 onClick: () =>
-                    @local.replying = true
-                    @local.editing = false
-                    save @local
+                    ui.replying = true
+                    ui.editing = false
+                    save ui
                 "Reply"
 
 
@@ -309,11 +334,11 @@ dom.POST = ->
                 flexDirection: "column"
                 flexGrow: 1
                 onMouseEnter: () =>
-                    @local.hover = true
-                    save @local
+                    ui.hover = true
+                    save ui
                 onMouseLeave: () =>
-                    @local.hover = false
-                    save @local
+                    ui.hover = false
+                    save ui
 
                 if post.url then [
                     A
@@ -342,7 +367,7 @@ dom.POST = ->
                         flexGrow: 1
                         background: "#eee"
 
-                        if @local.editing
+                        if ui.editing
                             # A textbox with the text of the post body
                             TEXTAREA
                                 key: "editbox"
@@ -351,8 +376,8 @@ dom.POST = ->
                                 padding: padding_unit
 
                                 # Make the textbox take the same space as the original post body
-                                minHeight: @local.h
-                                height: @local.h
+                                minHeight: ui.h
+                                height: ui.h
                                 width: "100%"
                                 boxSizing: "border-box"
 
@@ -362,10 +387,10 @@ dom.POST = ->
 
                                 placeholder: "Edit your post..."
                                 
-                                value: @local.live_body
+                                value: ui.live_body
                                 onChange: (e) =>
-                                    @local.live_body = e.target.value
-                                    save @local
+                                    ui.live_body = e.target.value
+                                    save ui
                                 
 
                         else
@@ -374,7 +399,7 @@ dom.POST = ->
                                 ref: "body"
                                 boxSizing: "border-box"
                                 padding: padding_unit
-                                paddingBottom: if @local.hover and not @props.no_controls then 0 else 16
+                                paddingBottom: if ui.hover and not @props.no_controls then 0 else 16
 
                                 if post.title
                                     SPAN
@@ -410,20 +435,21 @@ dom.POST = ->
 
 
                         unless @props.no_controls then info_line
-                            display: if @local.hover or @local.editing then "flex" else "none"
+                            display: if ui.hover or ui.editing then "flex" else "none"
                             padding: "0 #{padding_unit}px"
                             height: 16
                             color: "#666"
 
-        if @local.replying
+        if ui.replying
             MINI_REPLY
                 key: "reply"
                 parent: post.key
+                ui: "inline_reply#{post.key}"
                 style:
                     marginLeft: (post_height - 5) / 2
                 close: () =>
-                    @local.replying = false
-                    save @local
+                    ui.replying = false
+                    save ui
 
 dom.CLIP_BOX = ->
     @local.body_clipped ?= @props.body
@@ -1196,6 +1222,8 @@ dom.MINI_REPLY = ->
     unless c.logged_in
         return
 
+    ui = fetch (@props.ui ? @local)
+
     DIV
         display: "grid"
         grid: "\" avatar        input  input\" auto
@@ -1219,7 +1247,6 @@ dom.MINI_REPLY = ->
 
         TEXTAREA
             key: "content"
-            ref: "post-main"
             gridArea: "input"
             className: "stylish-input"
             borderWidth: "1.5px"
@@ -1234,6 +1261,11 @@ dom.MINI_REPLY = ->
             placeholder: "Say something..."
             height: post_height
             flexGrow: 1
+            value: ui.text
+
+            onChange: (e) =>
+                ui.text = e.target.value
+                save ui
 
             onKeyDown: (e) =>
                 # escape
@@ -1261,14 +1293,15 @@ dom.MINI_REPLY = ->
             justifySelf: "end"
             marginLeft: 8
             onClick: () =>
-                textref = @refs["post-main"]?.getDOMNode()
-                if textref.value.length
+                if ui.text.length
                     # reply
                     make_post
                         user: c.user.key
-                        body: textref.value.toString()
+                        body: ui.text
                         parent: @props.parent
-                    textref.value = ""
+
+                    ui.text = null
+                    save ui
                     @props?.close()
                 
             "Post"

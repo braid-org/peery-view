@@ -73,13 +73,13 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
         tag: tag
         untagged: !tag
 
-    #// Subscribe to the post
+    # Subscribe to the post
     p = fetch "/post/#{postid}"
 
     sum_votes = 0
     sum_weights = 0
 
-    #// Subscribe to the post's votes
+    # Subscribe to the post's votes
     (fetch "/votes/#{unslash p.key}#{kson}")?.arr?.forEach (v) ->
         # first subscribe to the vote
         if v.key then fetch v
@@ -88,7 +88,7 @@ parser("score/post/<postid>").to_fetch = (key, t) ->
         sum_weights += Math.abs(weights[voter] ? 0)
         sum_votes   += (2 * v.value - 1) * (weights[voter] ? 0)
 
-    #// Our network-weight on the author
+    # Our network-weight on the author
     author_weight = weights[p.user_key] ? 0
 
 
