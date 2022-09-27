@@ -3,6 +3,7 @@
 color1 = "#681"
 color2 = "#c5b"
 
+
 ### === POST FEED === ###
 dom.POSTS = ->
     c = fetch "/current_user"
@@ -14,24 +15,101 @@ dom.POSTS = ->
     layout = fetch "blocks_layout#{kson}"
 
     max_depth = @props.max_depth ? 5
+
+    @local.open_block_replies ?= {}
     # Function to output a chat blocks layout, given a flattened array
-    blocks = (arr, key) ->
+    blocks = (arr, key) =>
         num_blocks = arr?.length
+        # create the array once and then push all the created components into it
+        posts_out = []
+        arr
+            ?.filter (block) -> block.level <= max_depth
+            ?.forEach (block, i) =>
+                # if the block level is 0 then it either has a detached parent
+                # or no parent (in which case there's no context to show)
+                # if the block has a skip count, then its parent was hidden for being bad.
+
+                left = block.level * (post_height - 5) / 2
+
+                num_posts = block.chain.length
+                show_context = block.context? and (block.level == 0 or block.skipped) and (block.context != v.post_key)
+                posts = if show_context then [block.context, ...block.chain] else block.chain
+
+                posts.forEach (post, i) =>
+                    is_context = i == 0 and show_context
+                    is_last = if show_context then i == num_posts else i == num_posts - 1
+
+                    # if there WAS an open block reply under this post, push it to the end of the block
+                    if @local.open_block_replies[post] and not is_last
+                        @local.open_block_replies[block.end] = @local.open_block_replies[post]
+                        delete @local.open_block_replies[post]
+                        save @local
+
+                    # create the post and directly put it on the posts_out array
+                    posts_out.push DIV
+                        key: if is_context then "context-#{block.end}-#{post}" else post
+                        marginLeft: left
+                        display: "flex"
+                        flexDirection: "row"
+                        position: "relative"
+                        #zIndex: num_posts + 1 - i
+                        opacity: if is_context then 0.5 else 1
+
+                        POST
+                            key: "post"
+                            post: post
+                            width: 600 - left
+                            hide_reply: (is_last and not block.children?.length) or is_context
+                            no_controls: is_context
+                            max_lines: if is_context then 2
+
+                        DIV
+                            key: "tags-container"
+                            height: post_height
+                            marginLeft: padding_unit
+
+                            TAGS
+                                key: "tags"
+                                no_expand: is_context
+                                post: post
+                                style: background: "white"
+
+                # spacing and reply button
+                posts_out.push DIV
+                    key: @local.open_block_replies[block.end] ? "block-spacer-#{block.end}"
+                    marginBottom: padding_unit
+                    marginLeft: left
+
+                    unless block.children?.length
+                        if @local.open_block_replies[block.end]
+                            MINI_REPLY
+                                key: "reply-box"
+                                parent: block.end
+                                style: width: 600 - left
+                                # the close callback gets passed a boolean
+                                # true if if the reply was cancelled, false if it was submitted
+                                # for the end-of-block reply box, we want it to stay open after submitting
+                                close: (canceled) =>
+                                    if canceled
+                                        delete @local.open_block_replies[block.end]
+                                        save @local
+                        else
+                            BUTTON
+                                key: "reply-expand"
+                                className: "unbutton"
+                                marginLeft: post_height
+                                fontSize: "0.9375rem"
+                                color: "#444"
+                                onClick: () =>
+                                    @local.open_block_replies[block.end] = Math.random().toString(36).substr(2)
+                                    save @local
+                                "Reply"
+
+
         DIV
             key: key
             marginLeft: 20
-            arr
-                ?.filter (block) -> block.level <= max_depth
-                ?.map (block, i) ->
-                    CHAT_BLOCK
-                        key: "block-#{block.end}"
-                        block: block
-                        index: num_blocks - i
-                        deep_link: block.level == max_depth
-                        # if the block level is 0 then it either has a detached parent
-                        # or no parent (in which case there's no context to show)
-                        # if the block has a skip count, then its parent was hidden for being bad.
-                        show_context: (block.level == 0 or block.skipped) and (block.context != v.post_key)
+            posts_out
     DIV
         key: "posts"
 
@@ -69,105 +147,12 @@ dom.POSTS = ->
 
         blocks layout.top, "top-posts", false
 
-dom.CHAT_BLOCK = ->
-    block = @props.block
-    left = block.level * (post_height - 5) / 2
-
-    num_posts = block.chain.length
-    has_context = block.context? and @props.show_context
-    posts = if has_context then [block.context, ...block.chain] else block.chain
-    # We save our ui state with the last child instead of @local
-    # This is because if a new post is added onto the end of the block,
-    # the block key will change and the state in @local will be lost.
-    # If we save it instead on one of our children, then we can just check all of the children
-    # and determine if the reply box was open before the re-render
-    last_child = block.chain[num_posts - 1]
-    reply_open = fetch "block_reply#{last_child}"
-    DIV
-        key: "block"
-        marginLeft: left
-        marginBottom: padding_unit
-        position: "relative"
-        zIndex: @props.index + 1
-
-        posts.map (post, i) ->
-            is_context = i == 0 and has_context
-            is_last = if has_context then i == num_posts else i == num_posts - 1
-            DIV
-                key: post
-                display: "flex"
-                flexDirection: "row"
-                position: "relative"
-                zIndex: num_posts + 1 - i
-                opacity: if is_context then 0.5 else 1
-
-                POST
-                    key: "post"
-                    post: post
-                    width: 600 - left
-                    hide_reply: (is_last and not block.children?.length) or is_context
-                    no_controls: is_context
-                    max_lines: if is_context then 2
-
-                DIV
-                    key: "tags-container"
-                    height: post_height
-                    marginLeft: padding_unit
-
-                    TAGS
-                        key: "tags"
-                        no_expand: is_context
-                        post: post
-                        style: background: "white"
-
-        unless block.children?.length
-            if reply_open.open
-                MINI_REPLY
-                    key: "mini-reply"
-                    parent: block.end
-                    ui: reply_open
-                    style: width: 600 - left
-                    close: () ->
-                        reply_open.open = false
-                        save reply_open
-            else
-                BUTTON
-                    key: "reply-expand"
-                    className: "unbutton"
-                    marginLeft: post_height
-                    fontSize: "0.9375rem"
-                    color: "#444"
-                    onClick: () ->
-                        reply_open.open = true
-                        save reply_open
-
-                    "Reply"
-                    ###
-                    SPAN
-                        key: "reply-text"
-                        className: "material-icons-outlined md-dark"
-                        fontSize: "1rem"
-                        verticalAlign: "bottom"
-
-                        "reply"
-                    ###
-        else if @props.deep_link
-            # the children have been hidden.
-            A
-                key: "collapsed-link"
-                marginLeft: post_height
-                fontSize: "0.9375rem"
-                color: "#444"
-                href: block.end
-                "data-load-intern": true
-                "Further children were hidden."
-
+###
 dom.CHAT_BLOCK.refresh = ->
     block = @props.block
     last_child = block.chain[block.chain.length - 1]
     reply_open = fetch "block_reply#{last_child}"
 
-    # If the reply box is already open, then we don't need to check if it should be open
     unless reply_open.open
         block.chain[...-1].forEach (post) ->
             # check if any of the posts in the chain were previously the parent-to-be of an open block reply
@@ -178,7 +163,7 @@ dom.CHAT_BLOCK.refresh = ->
                     save reply_open
 
                     save key: s.key
-
+###
 
 # The layout for a single post, including slidergram and such
 dom.POST = ->
@@ -188,7 +173,8 @@ dom.POST = ->
     unless post.user_key?
         # The post has actually just been deleted.
         return
-    ui = fetch "post_state#{post.key}"
+
+    ui = @local#fetch "post_state#{post.key}"
 
     author = fetch post.user_key
 
@@ -1223,6 +1209,17 @@ dom.MINI_REPLY = ->
         return
 
     ui = fetch (@props.ui ? @local)
+    submit = () =>
+        if ui.text?.length
+            # reply
+            make_post
+                user: c.user.key
+                body: ui.text
+                parent: @props.parent
+
+            ui.text = ""
+            save ui
+            @props?.close false
 
     DIV
         display: "grid"
@@ -1247,6 +1244,7 @@ dom.MINI_REPLY = ->
 
         TEXTAREA
             key: "content"
+            ref: "content"
             gridArea: "input"
             className: "stylish-input"
             borderWidth: "1.5px"
@@ -1270,7 +1268,10 @@ dom.MINI_REPLY = ->
             onKeyDown: (e) =>
                 # escape
                 if e.keyCode == 27
-                    @props?.close()
+                    @props?.close true
+                if e.keyCode ==  13 and !e.shiftKey
+                    e.preventDefault()
+                    submit()
 
         if @props?.close
             BUTTON
@@ -1280,7 +1281,7 @@ dom.MINI_REPLY = ->
                 fontSize: 12
                 color: "#999"
                 justifySelf: "end"
-                onClick: () => @props?.close()
+                onClick: () => @props?.close true
                     
                 "Cancel"
 
@@ -1292,17 +1293,7 @@ dom.MINI_REPLY = ->
             color: "#999"
             justifySelf: "end"
             marginLeft: 8
-            onClick: () =>
-                if ui.text.length
-                    # reply
-                    make_post
-                        user: c.user.key
-                        body: ui.text
-                        parent: @props.parent
-
-                    ui.text = null
-                    save ui
-                    @props?.close()
+            onClick: submit
                 
             "Post"
 
