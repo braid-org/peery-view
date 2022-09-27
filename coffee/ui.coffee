@@ -16,7 +16,16 @@ dom.POSTS = ->
 
     max_depth = @props.max_depth ? 5
 
-    @local.open_block_replies ?= {}
+    # We store this as a component property instead of local state
+    # We need it to persist when blocks_layout changes (and the component rerenders)
+    # But the changes that we make to it can be done while rendering
+    # That is, we are able to check and bump each open reply *before* it gets rendered
+    # So we need to be able to change its value without rerendering the function
+    @open_block_replies ?= {}
+    # On the other hand, when a reply button is clicked, we need to change open_block_replies AND rerender
+    # Hence we have a dummy key that can be toggled in order to force refresh
+    @local.refresh ?= false
+
     # Function to output a chat blocks layout, given a flattened array
     blocks = (arr, key) =>
         num_blocks = arr?.length
@@ -40,10 +49,9 @@ dom.POSTS = ->
                     is_last = if show_context then i == num_posts else i == num_posts - 1
 
                     # if there WAS an open block reply under this post, push it to the end of the block
-                    if @local.open_block_replies[post] and not is_last
-                        @local.open_block_replies[block.end] = @local.open_block_replies[post]
-                        delete @local.open_block_replies[post]
-                        save @local
+                    if @open_block_replies[post] and not is_last
+                        @open_block_replies[block.end] = @open_block_replies[post]
+                        delete @open_block_replies[post]
 
                     # create the post and directly put it on the posts_out array
                     posts_out.push DIV
@@ -75,13 +83,16 @@ dom.POSTS = ->
                                 style: background: "white"
 
                 # spacing and reply button
+                # potential optimisation: make this thing its own component
+                # this makes opening and closing the reply box easier, since we don't have to rerender dom.POSTS
+                # submitting a reply will still be the same
                 posts_out.push DIV
-                    key: @local.open_block_replies[block.end] ? "block-spacer-#{block.end}"
+                    key: @open_block_replies[block.end] ? "block-spacer-#{block.end}"
                     marginBottom: padding_unit
                     marginLeft: left
 
                     unless block.children?.length
-                        if @local.open_block_replies[block.end]
+                        if @open_block_replies[block.end]
                             MINI_REPLY
                                 key: "reply-box"
                                 parent: block.end
@@ -91,7 +102,8 @@ dom.POSTS = ->
                                 # for the end-of-block reply box, we want it to stay open after submitting
                                 close: (canceled) =>
                                     if canceled
-                                        delete @local.open_block_replies[block.end]
+                                        delete @open_block_replies[block.end]
+                                        @local.refresh = !@local.refresh
                                         save @local
                         else
                             BUTTON
@@ -101,7 +113,8 @@ dom.POSTS = ->
                                 fontSize: "0.9375rem"
                                 color: "#444"
                                 onClick: () =>
-                                    @local.open_block_replies[block.end] = Math.random().toString(36).substr(2)
+                                    @open_block_replies[block.end] = Math.random().toString(36).substr(2)
+                                    @local.refresh = !@local.refresh
                                     save @local
                                 "Reply"
 
