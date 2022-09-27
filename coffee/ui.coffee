@@ -59,8 +59,6 @@ dom.POSTS = ->
                         marginLeft: left
                         display: "flex"
                         flexDirection: "row"
-                        position: "relative"
-                        #zIndex: num_posts + 1 - i
                         opacity: if is_context then 0.5 else 1
 
                         POST
@@ -513,6 +511,9 @@ dom.TAGS = ->
         alignContent: "stretch"
         padding: "0 #{padding_unit}px"
         boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
+        # If expanded then we need to overlap other stuff
+        position: "relative"
+        zIndex: if @local.expanded then 2 else 1
         style: @props.style
 
         DIV
