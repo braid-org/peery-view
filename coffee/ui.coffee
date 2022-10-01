@@ -21,8 +21,8 @@ dom.POSTS = ->
     # But the changes that we make to it can be done while rendering
     # That is, we are able to check and bump each open reply *before* it gets rendered
     # So we need to be able to change its value without rerendering the function
-    @open_block_replies ?= {}
-    # On the other hand, when a reply button is clicked, we need to change open_block_replies AND rerender
+    @block_replies ?= {}
+    # On the other hand, when a reply button is clicked, we need to change block_replies AND rerender
     # Hence we have a dummy key that can be toggled in order to force refresh
     @local.refresh ?= false
 
@@ -49,12 +49,14 @@ dom.POSTS = ->
                     is_last = if show_context then i == num_posts else i == num_posts - 1
 
                     # if there WAS an open block reply under this post, push it to the end of the block
-                    if @open_block_replies[post] and not is_last
-                        @open_block_replies[block.end] = @open_block_replies[post]
-                        delete @open_block_replies[post]
+                    if @block_replies[post] and not is_last
+                        @block_replies[block.end] = @block_replies[post]
+                        delete @block_replies[post]
 
                     # create the post and directly put it on the posts_out array
                     posts_out.push DIV
+                        # need to uniqueify the key for contexts
+                        # since the same post could appear as context multiple times
                         key: if is_context then "context-#{block.end}-#{post}" else post
                         marginLeft: left
                         display: "flex"
@@ -80,42 +82,20 @@ dom.POSTS = ->
                                 post: post
                                 style: background: "white"
 
-                # spacing and reply button
-                # potential optimisation: make this thing its own component
-                # this makes opening and closing the reply box easier, since we don't have to rerender dom.POSTS
-                # submitting a reply will still be the same
+                # every reply needs to have a key, even the ones that are not open
+                # if our run through the posts didn't get us a reply key, generate one.
+                @block_replies[block.end] ?= "block-end-#{Math.random().toString(36).substr(2)}"
+                # spacing and reply
                 posts_out.push DIV
-                    key: @open_block_replies[block.end] ? "block-spacer-#{block.end}"
-                    marginBottom: padding_unit
+                    key: @block_replies[block.end]
+                    marginBottom: padding_unit if block.children?.length
                     marginLeft: left
 
                     unless block.children?.length
-                        if @open_block_replies[block.end]
-                            MINI_REPLY
-                                key: "reply-box"
-                                parent: block.end
-                                style: width: 600 - left
-                                # the close callback gets passed a boolean
-                                # true if if the reply was cancelled, false if it was submitted
-                                # for the end-of-block reply box, we want it to stay open after submitting
-                                close: (canceled) =>
-                                    if canceled
-                                        delete @open_block_replies[block.end]
-                                        @local.refresh = !@local.refresh
-                                        save @local
-                        else
-                            BUTTON
-                                key: "reply-expand"
-                                className: "unbutton"
-                                marginLeft: post_height
-                                fontSize: "0.9375rem"
-                                color: "#444"
-                                onClick: () =>
-                                    @open_block_replies[block.end] = Math.random().toString(36).substr(2)
-                                    @local.refresh = !@local.refresh
-                                    save @local
-                                "Reply"
-
+                        HOVER_REPLY
+                            key: "reply-box"
+                            parent: block.end
+                            style: width: 600 - left
 
         DIV
             key: key
@@ -1255,6 +1235,7 @@ dom.MINI_REPLY = ->
                 borderRadius: "50%"
                 alignSelf: "start"
                 justifySelf: "start"
+                opacity: 0.5
 
         TEXTAREA
             key: "content"
@@ -1264,8 +1245,8 @@ dom.MINI_REPLY = ->
             borderWidth: "1.5px"
             borderStyle: "solid"
             fontSize: "0.875rem" # 14px but scales
-            lineHeight: 1.2
-            padding: padding_unit
+            lineHeight: 1.4
+            padding: padding_unit - 1.5
             justifySelf: "stretch"
             resize: "vertical"
             minHeight: post_height
@@ -1295,6 +1276,7 @@ dom.MINI_REPLY = ->
                 fontSize: 12
                 color: "#999"
                 justifySelf: "end"
+                display: "none" if @props.no_controls
                 onClick: () => @props?.close true
                     
                 "Cancel"
@@ -1308,9 +1290,96 @@ dom.MINI_REPLY = ->
             justifySelf: "end"
             marginLeft: 8
             onClick: submit
+            display: "none" if @props.no_controls
                 
             "Post"
 
+dom.HOVER_REPLY = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    ui = fetch (@props.ui ? @local)
+    active = ui.hover or ui.focus or ui.text?.length
+
+    DIV
+        display: "flex"
+        marginTop: 5
+        marginBottom: 3
+        style: @props.style
+
+        onMouseEnter: () =>
+            ui.hover = true
+            save ui
+        onMouseLeave: () =>
+            ui.hover = false
+            save ui
+
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            style:
+                width: post_height - 5
+                height: post_height - 5
+                borderRadius: "50%"
+                flexShrink: 0
+                marginRight: 5
+                opacity: if active then 0.5 else 0
+                transition: "opacity 0.15s"
+
+        TEXTAREA
+            key: "content"
+            ref: "content"
+            # the stylish-input class removes some outlines,
+            # and applies a partially opaque border to indicate hover and focus.
+            className: "stylish-input"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            # the stylish-input class includes some border colors 
+            borderColor: "rgba(0, 0, 0, 0)" unless active
+            transition: "border-color 0.15s"
+            fontSize: "0.875rem" # 14px but scales
+            lineHeight: 1.4
+            # since we have a 1.5px border, slightly reduce padding
+            # this ensures correct alignment against real posts
+            padding: padding_unit - 1.5
+            justifySelf: "stretch"
+            resize: "none"
+            minHeight: post_height
+            boxSizing: "border-box"
+            placeholder: "Reply..."
+            height: post_height
+            flexGrow: 1
+            value: ui.text
+
+            onChange: (e) =>
+                ui.text = e.target.value
+                save ui
+
+            onKeyDown: (e) =>
+                # escape
+                if e.keyCode == 27
+                    # what should we do on close??
+                    @refs.content?.getDOMNode()?.blur()
+                if e.keyCode ==  13 and !e.shiftKey
+                    e.preventDefault()
+                    if ui.text?.length
+                        # reply
+                        make_post
+                            user: c.user.key
+                            body: ui.text
+                            parent: @props.parent
+
+                        ui.text = ""
+                        save ui
+
+            onFocus: () =>
+                ui.focus = true
+                save ui
+            onBlur: () =>
+                ui.focus = false
+                save ui
 
 # The login/register modal
 dom.LOGIN = ->
