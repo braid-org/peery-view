@@ -1345,7 +1345,7 @@ dom.HOVER_REPLY = ->
             # this ensures correct alignment against real posts
             padding: padding_unit - 1.5
             justifySelf: "stretch"
-            resize: "none"
+            resize: if ui.focus then "vertical" else "none"
             minHeight: post_height
             boxSizing: "border-box"
             placeholder: "Reply..."
