@@ -326,7 +326,7 @@ dom.POST = ->
             position: "relative"
             display: "flex"
             flexDirection: "row"
-            margin: "2px 0"
+            marginTop: 5
 
             AVATAR_WITH_SLIDER
                 key: "avatar"
@@ -1279,7 +1279,6 @@ dom.HOVER_REPLY = ->
 
     DIV
         display: "flex"
-        marginTop: 5
         marginBottom: 3
         style: @props.style
 
@@ -1327,6 +1326,7 @@ dom.HOVER_REPLY = ->
             height: post_height
             flexGrow: 1
             value: ui.text
+            marginTop: 0
 
             onChange: (e) =>
                 ui.text = e.target.value
