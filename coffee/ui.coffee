@@ -107,7 +107,9 @@ dom.POSTS = ->
            flexDirection: "row"
            justifyContent: "stretch"
            alignItems: "center"
-
+           marginLeft: 10
+           width: outer_width + post_height
+ 
            # Blue line on the left
            DIV
                key: "dummy1"
