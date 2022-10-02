@@ -192,9 +192,7 @@ dom.COLLAPSED_POST = ->
             background: "#999"
 
 
-
-
-# The layout for a single post, including slidergram and such
+# The layout for a single post. Not including slidergram.
 dom.POST = ->
     post = @props.post
     # Subscribe to the post
@@ -233,94 +231,15 @@ dom.POST = ->
     user_clickable = c.logged_in and c.user.key != author.key
     is_author = c.logged_in and c.user.key == author.key
 
-    info_line = (root_style) =>
-        DIV
-            key: "controls"
-            display: "flex"
-            flexDirection: "row"
-            justifyContent: "flex-start"
-            fontSize: "12px"
-            color: "#999"
-            style: root_style
+    controls_visible = (ui.hover or ui.editing) and not @props.no_controls
+    pad = if ui.editing then 0 else padding_unit
+    pad_controls = if ui.editing then padding_unit else 0
 
-
-            SPAN
-                key: "time"
-                flexGrow: 1
-                marginRight: 8
-                time_string
-
-            BUTTON
-                key: "cancel-btn"
-                className: "unbutton"
-                display: unless ui.editing then "none"
-                marginLeft: 8
-                onClick: () =>
-                    ui.editing = false
-                    save ui
-                "Cancel"
-
-            BUTTON
-                key: "save-btn"
-                className: "unbutton"
-                marginLeft: 8
-                display: unless @local.editing then "none"
-                onClick: () =>
-                    save {
-                        post...
-                        body: ui.live_body
-                        edit_time: Math.floor (Date.now() / 1000)
-                    }
-
-                    ui.editing = false
-                    save ui
-                "Save"
-
-            A
-                key: "permalink-btn"
-                className: "unbutton"
-                marginLeft: 8
-                display: if ui.editing or ui.replying then "none"
-                href: post.key
-                "data-load-intern": true
-                "Focus"
-
-            BUTTON
-                key: "delete-btn"
-                className: "unbutton"
-                display: if ui.editing or !is_author then "none"
-                marginLeft: 8
-                onClick: () -> del post.key
-                "Delete"
-
-            BUTTON
-                key: "edit-btn"
-                className: "unbutton"
-                marginLeft: 8
-                display: if post.url or ui.editing or !is_author then "none"
-                onClick: () =>
-                    ui.replying = false
-                    ui.editing = true
-                    ui.live_body = post.body
-                    ui.h = @refs?.body?.getDOMNode?()?.clientHeight + 16
-                    save ui
-                "Edit"
-
-            BUTTON
-                key: "reply-btn"
-                className: "unbutton"
-                marginLeft: 8
-                display: if ui.editing or ui.replying or @props.hide_reply then "none"
-                onClick: () =>
-                    ui.replying = true
-                    ui.editing = false
-                    save ui
-                "Reply"
-
-
-
+    # container for the post and the reply
     DIV
         width: @props.width
+        
+        # the actual post
         ARTICLE
             key: "post-content"
             position: "relative"
@@ -348,6 +267,11 @@ dom.POST = ->
                 display: "flex"
                 flexDirection: "column"
                 flexGrow: 1
+                background: "#eee"
+                boxSizing: "border-box"
+                # when we edit, the textarea assumes the padding
+                # the controls line serves to pad the bottom
+                padding: "#{pad}px #{pad}px 0 #{pad}px"
                 onMouseEnter: () =>
                     ui.hover = true
                     save ui
@@ -358,7 +282,6 @@ dom.POST = ->
                 if post.url then [
                     A
                         key: "title"
-                        className: "post-title"
                         lineHeight: 1.3
                         justifySelf: "stretch"
                         textDecoration: "none"
@@ -373,74 +296,140 @@ dom.POST = ->
                         overflowX: "hidden"
                         textOverflow: "ellipsis"
                         pretty_url
-
-                    unless @props.no_controls then info_line height: 16
                     ]
+
                 else
-                    DIV
-                        key: "post-body-edit"
-                        flexGrow: 1
-                        background: "#eee"
+                    if ui.editing
+                        # A textbox with the text of the post body
+                        AUTOSIZEBOX
+                            key: "editbox"
+                            ref: "editbox"
+                            gridArea: "textbox"
+                            padding: padding_unit
 
-                        if ui.editing
-                            # A textbox with the text of the post body
-                            TEXTAREA
-                                key: "editbox"
-                                ref: "editbox"
-                                gridArea: "textbox"
-                                padding: padding_unit
+                            className: "stylish-input"
+                            #minHeight: post_height
+                            width: "100%"
+                            boxSizing: "border-box"
+                            fontSize: "0.9375rem" # 15px unless zoom
+                            lineHeight: 1.4
 
-                                # Make the textbox take the same space as the original post body
-                                minHeight: ui.h
-                                height: ui.h
-                                width: "100%"
-                                boxSizing: "border-box"
+                            resize: "none"
 
-                                rows: 3
-                                resize: "vertical"
-                                fontSize: "0.875rem" # 14px unless zoom
+                            placeholder: "Edit your post..."
+                            
+                            value: ui.live_body
+                            onChange: (e) =>
+                                ui.live_body = e.target.value
+                                save ui
 
-                                placeholder: "Edit your post..."
-                                
-                                value: ui.live_body
-                                onChange: (e) =>
-                                    ui.live_body = e.target.value
-                                    save ui
-                                
-
-                        else
-                            DIV
-                                key: "body"
-                                ref: "body"
-                                boxSizing: "border-box"
-                                padding: padding_unit
-                                paddingBottom: if ui.hover and not @props.no_controls then 0 else 16
-
-                                if post.title
-                                    SPAN
-                                        key: "title"
-                                        display: "block"
-                                        fontSize: "1rem" # 16px unless zoom
-                                        lineHeight: 1.5
-                                        className: "post-title"
-                                        fontWeight: "bold"
-                                        post.title
-
+                    else [
+                            if post.title
                                 SPAN
-                                    key: "body-intern"
-                                    whiteSpace: "pre-line"
-                                    textAlign: "justify"
-                                    fontSize: "0.9375rem" # 15px unless zoom
-                                    lineHeight: 1.4
-                                    post.body
+                                    key: "title"
+                                    display: "block"
+                                    fontSize: "1rem" # 16px unless zoom
+                                    lineHeight: 1.5
+                                    className: "post-title"
+                                    fontWeight: "bold"
+                                    post.title
+
+                            SPAN
+                                key: "body-intern"
+                                whiteSpace: "pre-line"
+                                textAlign: "justify"
+                                fontSize: "0.9375rem" # 15px unless zoom
+                                lineHeight: 1.4
+                                post.body
+                    ]
 
 
+                # controls line
+                DIV
+                    key: "controls"
+                    display: "flex"
+                    flexDirection: "row"
+                    justifyContent: "flex-start"
+                    fontSize: "12px"
+                    color: "#666"
+                    opacity: if controls_visible then 1 else 0
+                    transition: "opacity 0.2s ease-in-out"
+                    pointerEvents: if controls_visible then "auto" else "none"
+                    padding: "0 #{pad_controls}px"
+                    height: 14
 
-                        unless @props.no_controls then info_line
-                            display: if ui.hover or ui.editing then "flex" else "none"
-                            padding: "0 #{padding_unit}px"
-                            height: 16
-                            color: "#666"
+
+                    SPAN
+                        key: "time"
+                        flexGrow: 1
+                        marginRight: 8
+                        time_string
+
+                    BUTTON
+                        key: "cancel-btn"
+                        className: "unbutton"
+                        display: unless ui.editing then "none"
+                        marginLeft: 8
+                        onClick: () =>
+                            ui.editing = false
+                            save ui
+                        "Cancel"
+
+                    BUTTON
+                        key: "save-btn"
+                        className: "unbutton"
+                        marginLeft: 8
+                        display: unless @local.editing then "none"
+                        onClick: () =>
+                            save {
+                                post...
+                                body: ui.live_body
+                                edit_time: Math.floor (Date.now() / 1000)
+                            }
+
+                            ui.editing = false
+                            save ui
+                        "Save"
+
+                    A
+                        key: "permalink-btn"
+                        className: "unbutton"
+                        marginLeft: 8
+                        display: if ui.editing or ui.replying then "none"
+                        href: post.key
+                        "data-load-intern": true
+                        "Focus"
+
+                    BUTTON
+                        key: "delete-btn"
+                        className: "unbutton"
+                        display: if ui.editing or !is_author then "none"
+                        marginLeft: 8
+                        onClick: () -> del post.key
+                        "Delete"
+
+                    BUTTON
+                        key: "edit-btn"
+                        className: "unbutton"
+                        marginLeft: 8
+                        display: if post.url or ui.editing or !is_author then "none"
+                        onClick: () =>
+                            ui.replying = false
+                            ui.editing = true
+                            ui.live_body = post.body
+                            save ui
+                        "Edit"
+
+                    BUTTON
+                        key: "reply-btn"
+                        className: "unbutton"
+                        marginLeft: 8
+                        display: if ui.editing or ui.replying or @props.hide_reply then "none"
+                        onClick: () =>
+                            ui.replying = true
+                            ui.editing = false
+                            save ui
+                        "Reply"
 
         if ui.replying
             MINI_REPLY
@@ -1212,7 +1201,7 @@ dom.MINI_REPLY = ->
                 justifySelf: "start"
                 opacity: 0.5
 
-        TEXTAREA
+        AUTOSIZEBOX
             key: "content"
             ref: "content"
             gridArea: "input"
@@ -1223,7 +1212,7 @@ dom.MINI_REPLY = ->
             lineHeight: 1.4
             padding: padding_unit - 1.5
             justifySelf: "stretch"
-            resize: "vertical"
+            resize: "none"
             minHeight: post_height
             boxSizing: "border-box"
             placeholder: "Say something..."
