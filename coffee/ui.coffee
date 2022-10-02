@@ -1,8 +1,6 @@
-# TODO: These should be arguments for the relevant elements
-# TODO: Should UI elements fetch global state or take arguments?
+# TOOD: put these somewhere better
 color1 = "#681"
 color2 = "#c5b"
-
 
 ### === POST FEED === ###
 dom.POSTS = ->
@@ -41,12 +39,15 @@ dom.POSTS = ->
                 left = block.level * (post_height - 5) / 2
 
                 num_posts = block.chain.length
-                show_context = block.context? and (block.level == 0 or block.skipped) and (block.context != v.post_key)
-                posts = if show_context then [block.context, ...block.chain] else block.chain
+                if block.context? and (block.level == 0 or block.skipped) and (block.context != v.post_key)
+                    posts_out.push COLLAPSED_POST
+                        key: "context-#{block.end}-#{block.context}"
+                        post: block.context
+                        style: marginLeft: left
+                        width: 600 - left
 
-                posts.forEach (post, i) =>
-                    is_context = i == 0 and show_context
-                    is_last = if show_context then i == num_posts else i == num_posts - 1
+                block.chain?.forEach (post, i) =>
+                    is_last = i == num_posts - 1
 
                     # if there WAS an open block reply under this post, push it to the end of the block
                     if @block_replies[post] and not is_last
@@ -55,21 +56,16 @@ dom.POSTS = ->
 
                     # create the post and directly put it on the posts_out array
                     posts_out.push DIV
-                        # need to uniqueify the key for contexts
-                        # since the same post could appear as context multiple times
-                        key: if is_context then "context-#{block.end}-#{post}" else post
+                        key: post
                         marginLeft: left
                         display: "flex"
                         flexDirection: "row"
-                        opacity: if is_context then 0.5 else 1
 
                         POST
                             key: "post"
                             post: post
                             width: 600 - left
-                            hide_reply: (is_last and not block.children?.length) or is_context
-                            no_controls: is_context
-                            max_lines: if is_context then 2
+                            hide_reply: is_last and not block.children?.length
 
                         DIV
                             key: "tags-container"
@@ -78,7 +74,6 @@ dom.POSTS = ->
 
                             TAGS
                                 key: "tags"
-                                no_expand: is_context
                                 post: post
                                 style: background: "white"
 
@@ -138,23 +133,66 @@ dom.POSTS = ->
 
         blocks layout.top, "top-posts", false
 
-###
-dom.CHAT_BLOCK.refresh = ->
-    block = @props.block
-    last_child = block.chain[block.chain.length - 1]
-    reply_open = fetch "block_reply#{last_child}"
+# The collapsed stub of a post.
+# In some contexts, is expandable?
+dom.COLLAPSED_POST = ->
+    post = @props.post
+    # Subscribe to the post
+    if post?.key or typeof(post) == "string" then post = fetch post
+    unless post.user_key?
+        # The post has actually just been deleted.
+        return
 
-    unless reply_open.open
-        block.chain[...-1].forEach (post) ->
-            # check if any of the posts in the chain were previously the parent-to-be of an open block reply
-            bus.fetch_once "block_reply#{post}", (s) ->
-                if s.open
-                    reply_open.open = true
-                    reply_open.text = s.text
-                    save reply_open
+    author = fetch post.user_key
+    ARTICLE
+        position: "relative"
+        display: "flex"
+        flexDirection: "row"
+        margin: "3px 0"
+        opacity: 0.8
+        width: @props.width
+        style: @props.style
 
-                    save key: s.key
-###
+        AVATAR
+            key: "avatar"
+            user: author
+            clickable: false
+            hide_tooltip: true
+            width: post_height/2
+            height: post_height/2
+            style:
+                justifySelf: "center"
+                alignSelf: "flex-start"
+                flexShrink: 0
+                flexGrow: 0
+                marginRight: 5
+                borderRadius: "50%"
+
+
+        DIV
+            key: "content"
+            justifySelf: "stretch"
+            alignSelf: "stretch"
+            #flexGrow: 1
+            overflowX: "hidden"
+            textOverflow: "ellipsis"
+            whiteSpace: "nowrap"
+            fontSize: "0.9375rem" # 15px unless zoom
+            lineHeight: 1.4
+            color: "#444"
+            marginRight: padding_unit
+
+            post.title ? post.body
+
+        DIV
+            key: "gray-line"
+            height: 1.5
+            flexGrow: 1
+            alignSelf: "center"
+            background: "#999"
+
+
+
 
 # The layout for a single post, including slidergram and such
 dom.POST = ->
@@ -388,26 +426,13 @@ dom.POST = ->
                                         fontWeight: "bold"
                                         post.title
 
-                                # could try with webkit clamp?
-                                # webkit clamp breaks words though
-                                if @props.max_lines
-                                    CLIP_BOX
-                                        key: "body-intern"
-                                        body: post.body
-                                        max_lines: @props.max_lines
-                                        style:
-                                            whiteSpace: "pre-line"
-                                            textAlign: "justify"
-                                            fontSize: "0.9375rem" # 15px unless zoom
-                                            lineHeight: 1.4
-                                else
-                                    SPAN
-                                        key: "body-intern"
-                                        whiteSpace: "pre-line"
-                                        textAlign: "justify"
-                                        fontSize: "0.9375rem" # 15px unless zoom
-                                        lineHeight: 1.4
-                                        post.body
+                                SPAN
+                                    key: "body-intern"
+                                    whiteSpace: "pre-line"
+                                    textAlign: "justify"
+                                    fontSize: "0.9375rem" # 15px unless zoom
+                                    lineHeight: 1.4
+                                    post.body
 
 
 
@@ -427,56 +452,6 @@ dom.POST = ->
                 close: () =>
                     ui.replying = false
                     save ui
-
-dom.CLIP_BOX = ->
-    @local.body_clipped ?= @props.body
-    @local.n_words = @props.body.split(" ").length
-    DIV
-        display: "contents"
-        P
-            key: "box"
-            ref: "box"
-            style: @props.style
-            @local.body_clipped
-
-        unless @local.profiled
-            # hidden, uninteractive element to measure the size of the text
-            P
-                key: "profile"
-                ref: "profile"
-                style: @props.style
-                whiteSpace: "nowrap"
-                opacity: 0
-                pointerEvents: "none"
-                userSelect: "none"
-                position: "absolute"
-                @props.body
-            
-
-dom.CLIP_BOX.refresh = ->
-
-    box = @refs.box.getDOMNode()
-    lh = parseFloat window.getComputedStyle(box).lineHeight
-    l = Math.round (box.clientHeight / lh)
-
-    # first run, where we ran with nowrap.
-    # compute some statistics about the text dimensions
-    unless @local.profiled
-        profile = @refs?.profile?.getDOMNode()
-        @local.px_per_word = profile.clientWidth / @local.n_words
-        @local.profiled = true
-    # once we've profiled, we can begin chopping
-    if @local.profiled and l > @props.max_lines
-        # use the stats from the profile to get an O(1) approximation of the number of words that fit
-        unless @local.profile_applied
-            max_words_estim = @props.max_lines * box.clientWidth / @local.px_per_word
-            @local.body_clipped = @props.body.split(" ")[..max_words_estim].join(" ") + " …"
-            @local.profile_applied = true
-        # generally, the profiler will be off by a few words, so we need to refine the estimate
-        # we could do binary search, but this causes less flickering and for practical purposes is faster
-        else
-            @local.body_clipped = @local.body_clipped.split(" ")[...-2].join(" ") + " …"
-    save @local
 
 dom.TAGS = ->
     c = fetch "/current_user"
@@ -1328,7 +1303,7 @@ dom.HOVER_REPLY = ->
                 opacity: if active then 0.5 else 0
                 transition: "opacity 0.15s"
 
-        TEXTAREA
+        AUTOSIZEBOX
             key: "content"
             ref: "content"
             # the stylish-input class removes some outlines,
@@ -1345,7 +1320,7 @@ dom.HOVER_REPLY = ->
             # this ensures correct alignment against real posts
             padding: padding_unit - 1.5
             justifySelf: "stretch"
-            resize: if ui.focus then "vertical" else "none"
+            resize: "none"
             minHeight: post_height
             boxSizing: "border-box"
             placeholder: "Reply..."
@@ -1849,3 +1824,35 @@ dom.FILTER = ->
             marginLeft: 5
             Number(Math.pow(@local.filter_val, 2) * Math.sign @local.filter_val ).toFixed 2
 
+
+dom.AUTOSIZEBOX = ->
+    props = bus.clone @props
+    props.ref = 'textbox'
+    props.rows = 1
+    delete props['data-widget']
+    delete props['data-key']
+
+    # We now disable the vertical scrollbar, because it takes up horizontal
+    # space, which changes the width of the textarea, which affects line
+    # wrapping of the content, which makes the element taller than necessary
+    # until we make it big enough that the scrollbar can disappear, at which
+    # point it'll remain too tall.
+    props.overflowY = 'hidden'
+
+    TEXTAREA props
+
+dom.AUTOSIZEBOX.up = ->
+    target = @refs.textbox.getDOMNode()
+    document.fonts.ready.then () -> 
+        target.style.height = target.scrollHeight + "px"
+
+    target.addEventListener 'input', resizebox, false
+
+dom.AUTOSIZEBOX.refresh = ->
+    target = @refs.textbox.getDOMNode()
+    resizebox target: target
+  
+resizebox = (e) ->
+    document.fonts.ready.then () ->
+        e.target.style.height = "auto"
+        e.target.style.height = e.target.scrollHeight + "px"
