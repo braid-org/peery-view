@@ -83,7 +83,7 @@ dom.POSTS = ->
                 # spacing and reply
                 posts_out.push DIV
                     key: @block_replies[block.end]
-                    marginBottom: padding_unit if block.children?.length
+                    marginBottom: padding_unit if block.children?.length or not c.logged_in
                     marginLeft: left
 
                     unless block.children?.length
@@ -424,7 +424,7 @@ dom.POST = ->
                         key: "reply-btn"
                         className: "unbutton"
                         marginLeft: 8
-                        display: if ui.editing or ui.replying or @props.hide_reply then "none"
+                        display: if ui.editing or ui.replying or @props.hide_reply or not c.logged_in then "none"
                         onClick: () =>
                             ui.replying = true
                             ui.editing = false
@@ -1584,6 +1584,7 @@ dom.USERS = ->
             display: "flex"
             flexDirection: "row"
             justifyContent: "space-evenly"
+            width: outer_width
 
             ["top", "new", "old"].map (s) =>
                 BUTTON
