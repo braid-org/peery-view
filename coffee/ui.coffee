@@ -1170,7 +1170,7 @@ dom.SUBMIT_POST = ->
             color: "#999"
             onClick: form_submit
             display: unless @local.typed then "none"
-            "Post"
+            "Send"
 
 dom.MINI_REPLY = ->
     c = fetch "/current_user"
@@ -1267,7 +1267,7 @@ dom.MINI_REPLY = ->
             onClick: submit
             display: "none" if @props.no_controls
                 
-            "Post"
+            "Send"
 
 dom.HOVER_REPLY = ->
     c = fetch "/current_user"
@@ -1276,10 +1276,23 @@ dom.HOVER_REPLY = ->
 
     ui = fetch (@props.ui ? @local)
     active = ui.hover or ui.focus or ui.text?.length
+    submit = () =>
+        if ui.text?.length
+            # reply
+            make_post
+                user: c.user.key
+                body: ui.text
+                parent: @props.parent
+
+            ui.text = ""
+            save ui
 
     DIV
-        display: "flex"
-        marginBottom: 3
+        display: "grid"
+        grid: "\" avatar input\" auto
+               \" .      post \" auto
+               / #{post_height}px 1fr"
+        marginBottom: 2
         style: @props.style
 
         onMouseEnter: () =>
@@ -1294,20 +1307,21 @@ dom.HOVER_REPLY = ->
             user: c.user
             hide_tooltip: true
             style:
+                gridArea: "avatar"
                 width: post_height - 5
                 height: post_height - 5
                 borderRadius: "50%"
-                flexShrink: 0
-                marginRight: 5
                 opacity: if active then 0.5 else 0
                 transition: "opacity 0.15s"
 
         AUTOSIZEBOX
             key: "content"
             ref: "content"
+            gridArea: "input"
             # the stylish-input class removes some outlines,
             # and applies a partially opaque border to indicate hover and focus.
             className: "stylish-input"
+            boxSizing: "border-box"
             borderWidth: "1.5px"
             borderStyle: "solid"
             # the stylish-input class includes some border colors 
@@ -1318,15 +1332,15 @@ dom.HOVER_REPLY = ->
             # since we have a 1.5px border, slightly reduce padding
             # this ensures correct alignment against real posts
             padding: padding_unit - 1.5
-            justifySelf: "stretch"
-            resize: "none"
-            minHeight: post_height
-            boxSizing: "border-box"
-            placeholder: "Reply..."
-            height: post_height
-            flexGrow: 1
-            value: ui.text
             marginTop: 0
+            justifySelf: "stretch"
+            # don't put resize handles; we autoresize
+            resize: "none"
+            # don't get smaller than the height of the avatar
+            minHeight: post_height
+            height: post_height
+            placeholder: "Reply..."
+            value: ui.text
 
             onChange: (e) =>
                 ui.text = e.target.value
@@ -1339,15 +1353,6 @@ dom.HOVER_REPLY = ->
                     @refs.content?.getDOMNode()?.blur()
                 if e.keyCode ==  13 and !e.shiftKey
                     e.preventDefault()
-                    if ui.text?.length
-                        # reply
-                        make_post
-                            user: c.user.key
-                            body: ui.text
-                            parent: @props.parent
-
-                        ui.text = ""
-                        save ui
 
             onFocus: () =>
                 ui.focus = true
@@ -1355,6 +1360,19 @@ dom.HOVER_REPLY = ->
             onBlur: () =>
                 ui.focus = false
                 save ui
+
+        BUTTON
+            key: "submit"
+            gridArea: "post"
+            className: "unbutton"
+            fontSize: 12
+            color: "#999"
+            justifySelf: "end"
+            marginLeft: 8
+            onClick: submit
+            display: "none" unless ui.text?.length
+                
+            "Send"
 
 # The login/register modal
 dom.LOGIN = ->
