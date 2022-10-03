@@ -247,7 +247,7 @@
                 when "post_details" then [
                     if v.context then COLLAPSED_POST
                         key: "parent"
-                        post: v.context
+                        post: (fetch v.post_key).parent_key
                         width: 600
                     POST
                         key: "post"

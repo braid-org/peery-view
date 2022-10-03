@@ -2027,7 +2027,7 @@ dom.NOTIFICATION = ->
                     # TODO: highlight some context here
                     when "reply"
                         @props.close?()
-                        load_path "#{notif.resp_post_key}#{stringify_kson {context: notif.post_key}}"
+                        load_path "#{notif.resp_post_key}#{stringify_kson {context: true}}"
 
             DIV
                 key: "text"
