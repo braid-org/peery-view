@@ -136,11 +136,15 @@
         }, null, u
 
     window.parse_path = (path) ->
+        v = key: "view"
+
         path = slash unescape path
         if path.endsWith "/"
             path = path[...-1]
-        v = fetch "view"
-        v.tag = v.user_key = v.page = v.post_key = null
+        if -1 != path.indexOf "\("
+            [path, kson] = split_once path, "\("
+            Object.assign v, parse_kson "\(#{kson}"
+            
         switch
             # User list
             when path == "/users"
@@ -206,7 +210,15 @@
             load_path target.getAttribute "href"
             
 
-    parse_path ((new URL window.location.href).pathname)
+    load = () ->
+        path = new URL window.location.href
+        parse_path path.pathname
+
+    # wait until other scripts have loaded, so that we can use the KSON parser
+    if document.readyState == "complete"
+        load()
+    else
+        window.addEventListener("DOMContentLoaded", load)
 
     dom.BODY = ->
         v = fetch "view"
@@ -233,6 +245,10 @@
                     USERS key: "users"
                     ]
                 when "post_details" then [
+                    if v.context then COLLAPSED_POST
+                        key: "parent"
+                        post: v.context
+                        width: 600
                     POST
                         key: "post"
                         post: v.post_key
@@ -286,13 +302,6 @@
                         copy.tag = v.tag
                     save copy
 
-
-    ###
-    if document.readyState == "complete"
-        create_local_state_listeners()
-    else
-        window.addEventListener("DOMContentLoaded", () => create_local_state_listeners())
-    ###
 
 
 </script>
