@@ -247,7 +247,7 @@ dom.POST = ->
             position: "relative"
             display: "flex"
             flexDirection: "row"
-            marginTop: 5
+            marginTop: 2
 
             AVATAR_WITH_SLIDER
                 key: "avatar"
@@ -355,7 +355,7 @@ dom.POST = ->
                     fontSize: "12px"
                     color: "#666"
                     opacity: if controls_visible then 1 else 0
-                    transition: "opacity 0.2s ease-in-out"
+                    # transition: "opacity 0.05s ease-in"
                     pointerEvents: if controls_visible then "auto" else "none"
                     padding: "0 #{pad_controls}px"
                     height: 14
@@ -1302,8 +1302,8 @@ dom.HOVER_REPLY = ->
                 width: post_height - 5
                 height: post_height - 5
                 borderRadius: "50%"
-                opacity: if active then 0.5 else 0
-                transition: "opacity 0.15s"
+                opacity: if ui.text?.length then 1.0 else 0
+                # transition: "opacity 0.15s"
 
         AUTOSIZEBOX
             key: "content"
@@ -1317,7 +1317,7 @@ dom.HOVER_REPLY = ->
             borderStyle: "solid"
             # the stylish-input class includes some border colors 
             borderColor: "rgba(0, 0, 0, 0)" unless active
-            transition: "border-color 0.15s"
+            # transition: "border-color 0.08s"
             fontSize: "0.875rem" # 14px but scales
             lineHeight: 1.4
             # since we have a 1.5px border, slightly reduce padding
