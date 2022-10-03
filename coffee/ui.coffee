@@ -1081,7 +1081,7 @@ dom.SUBMIT_POST = ->
             key: "main"
             ref: "post-main"
             className: "stylish-input"
-            borderWidth: "1.5px"
+            borderWidth: "1px"
             borderStyle: "solid"
             gridArea: "main"
             fontSize: "0.9375rem" # 15px but scales
@@ -1208,11 +1208,11 @@ dom.MINI_REPLY = ->
             ref: "content"
             gridArea: "input"
             className: "stylish-input"
-            borderWidth: "1.5px"
+            borderWidth: "1px"
             borderStyle: "solid"
             fontSize: "0.875rem" # 14px but scales
             lineHeight: 1.4
-            padding: padding_unit - 1.5
+            padding: padding_unit - 1
             justifySelf: "stretch"
             resize: "none"
             minHeight: post_height
@@ -1313,16 +1313,16 @@ dom.HOVER_REPLY = ->
             # and applies a partially opaque border to indicate hover and focus.
             className: "stylish-input"
             boxSizing: "border-box"
-            borderWidth: "1.5px"
+            borderWidth: "1px"
             borderStyle: "solid"
             # the stylish-input class includes some border colors 
             borderColor: "rgba(0, 0, 0, 0)" unless active
             # transition: "border-color 0.08s"
             fontSize: "0.875rem" # 14px but scales
             lineHeight: 1.4
-            # since we have a 1.5px border, slightly reduce padding
+            # since we have a 1px border, slightly reduce padding
             # this ensures correct alignment against real posts
-            padding: padding_unit - 1.5
+            padding: padding_unit - 1
             marginTop: 0
             justifySelf: "stretch"
             # don't put resize handles; we autoresize
