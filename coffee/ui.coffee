@@ -1965,6 +1965,7 @@ dom.NOTIFICATIONS = ->
         display: "flex"
         flexDirection: "column"
         alignItems: "stretch"
+        minWidth: 300
 
         # if a.read != b.read, then put the unread one first
         # otherwise, sort by time
@@ -1973,6 +1974,14 @@ dom.NOTIFICATIONS = ->
                 key: notif.key
                 notification: notif.key
                 close: @props.close
+
+        unless all.length
+            DIV
+                color: "#444"
+                fontSize: 14
+                textAlign: "center"
+                padding: padding_unit
+                "No notifications."
 
 # an individual actionable notification
 dom.NOTIFICATION = ->
