@@ -1158,15 +1158,20 @@ dom.MAIN_HEADER = ->
            
             # Display one of various popups
             switch @local.modal
+                ###
                 when "post" then SUBMIT_POST
                     close: close
                     key: "submit-modal"
+                ###
                 when "settings" then SETTINGS
                     close: close
                     key: "settings-modal"
                 when "login" then LOGIN
                     close: close
                     key: "login-modal"
+                when "notifs" then NOTIFICATIONS
+                    close: close
+                    key: "notifs-modal"
 
 # The view text, with rolodex view selectors
 dom.X_OF_Y = ->
@@ -1906,6 +1911,7 @@ dom.SETTINGS = ->
                 @props.close?()
             "Save"
 
+# A bell icon with an unread count
 dom.NOTIFICATION_ICON = ->
     c = fetch "/current_user"
     unless c.logged_in
@@ -1934,7 +1940,7 @@ dom.NOTIFICATION_ICON = ->
             position: "absolute"
             bottom: 0
             right: 0
-            display: "none" unless notifs?.arr?.length > 0
+            display: "none" unless notifs?.unread > 0
             transform: "translateX(4px)"
             fontSize: 14
             color: "white"
@@ -1942,9 +1948,147 @@ dom.NOTIFICATION_ICON = ->
             borderRadius: "50%"
             minWidth: "1.2em"
             textAlign: "center"
-            notifs?.arr?.length.toString()
+            fontWeight: "bold"
+            notifs?.unread?.toString()
 
+# a list of notifictions
+dom.NOTIFICATIONS = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
 
+    notifs = fetch "#{c.user.key}/notifications"
+    all = bus.clone notifs.arr ? []
+
+    # use ol here?
+    DIV
+        display: "flex"
+        flexDirection: "column"
+        alignItems: "stretch"
+
+        # if a.read != b.read, then put the unread one first
+        # otherwise, sort by time
+        all.sort (a, b) -> (a.read == b.read) * (b.time - a.time) + a.read - b.read
+           .map (notif) => NOTIFICATION
+                key: notif.key
+                notification: notif.key
+                close: @props.close
+
+# an individual actionable notification
+dom.NOTIFICATION = ->
+    notif = @props.notification
+    # Subscribe to the notification
+    if notif?.key or typeof(notif) == "string" then notif = fetch notif
+    unless notif.user_key?
+        # The notification has been deleted
+        return
+
+    responder = fetch notif.resp_user_key
+    time_string = prettyDate(notif.time * 1000)
+    DIV
+        display: "flex"
+        flexDirection: "row"
+        margin: "2px 0"
+        padding: "2px 5px"
+        style: @props.style
+
+        background: if @local.hover then "#f4f4f4"
+        onMouseEnter: () =>
+            @local.hover = true
+            save @local
+        onMouseLeave: () =>
+            @local.hover = false
+            save @local
+
+        SPAN
+            key: "unread-indicator"
+            opacity: if notif.read then 0 else 1
+            alignSelf: "center"
+            marginRight: 5
+            background: color2
+            width: 8
+            height: 8
+            borderRadius: 4
+            ""
+
+        BUTTON
+            key: "content"
+            className: "unbutton"
+            display: "flex"
+            flexDirection: "column"
+            flexGrow: 1
+            cursor: "pointer"
+            onClick: () =>
+                # mark the notification as read
+                notif.read = true
+                save notif
+                # action, depending on the type of notification
+                switch notif.type
+                    # TODO: highlight some context here
+                    when "reply"
+                        @props.close?()
+                        load_path notif.resp_post_key
+
+            DIV
+                key: "text"
+                fontSize: 14
+
+                SPAN
+                    key: "user-bold"
+                    fontWeight: "bold"
+                    responder.name ? notif.resp_user_key ? "Someone"
+
+                SPAN
+                    key: "notif-description"
+                    " replied to your post."
+
+            DIV
+                key: "time"
+                fontSize: 12
+                color: "#666"
+                time_string
+
+        BUTTON
+            key: "mark-read"
+            className: "material-icons-outlined md-dark unbutton"
+            fontSize: "18px"
+            textAlign: "center"
+            marginLeft: 10
+            padding: 2
+
+            color: if @local.hover_read then "#444" else "#999"
+            onMouseEnter: () =>
+                @local.hover_read = true
+                save @local
+            onMouseLeave: () =>
+                @local.hover_read = false
+                save @local
+
+            onClick: () ->
+                notif.read = true
+                save notif
+            "check"
+
+        BUTTON
+            key: "delete"
+            className: "material-icons-outlined md-dark unbutton"
+            fontSize: "18px"
+            textAlign: "center"
+            marginLeft: 5
+            padding: 2
+
+            color: if @local.hover_del then "#444" else "#999"
+            onMouseEnter: () =>
+                @local.hover_del = true
+                save @local
+            onMouseLeave: () =>
+                @local.hover_del = false
+                save @local
+
+            onClick: () -> bus.delete notif
+            "delete"
+
+            
 
 ### === ALL USER DISPLAY === ###
 # The list of all users

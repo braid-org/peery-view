@@ -43,14 +43,25 @@ bus = require('statebus').serve
                 if val.parent_key?
                     parent = bus.fetch val.parent_key
                     if parent.user_key != val.user_key
-                        parent_user_notifications = bus.fetch "#{parent.user_key}/notifications"
-                        (parent_user_notifications.arr ?= []).push
-                            type: "reply"
-                            post_key: val.key
-                            user_key: val.user_key
+                        # pick a key for the notification
+                        notif = 
+                            key: "notification/#{Math.random().toString(36).slice(2)}"
+                            user_key: parent.user_key
+                            # should we use the time on the post
+                            # or the current system time??
                             time: val.time
                             read: false
-                        bus.save parent_user_notifications
+                            type: "reply"
+                            post_key: val.parent_key
+                            resp_post_key: val.key
+                            resp_user_key: val.user_key
+
+                        bus.save.sync notif
+
+                        notifications = bus.fetch "#{parent.user_key}/notifications"
+                        (notifications.arr ?= []).push notif
+                        notifications.unread = (notifications.unread ? 0) + 1
+                        bus.save notifications
 
                 return t.done val
 
@@ -179,17 +190,63 @@ bus = require('statebus').serve
             
             t.done val
 
+        # notifications are private
+        parser('notification/<nid>').to_fetch = (key, t) ->
+            c = client.fetch "current_user"
+            n = bus.fetch key
+            if c.logged_in and c.user.key == n.user_key
+                n
+            else
+                {}
 
-        parser('user/<userid>/notifications').to_save = (key, val, old, t) ->
+
+        parser('notification/<nid>').to_save = (key, val, old, t) ->
+            # users cannot create notifications
+            unless old.user_key?
+                return t.abort()
+
+            # you can't edit someone else's notifications
+            c = client.fetch "current_user"
+            unless c.logged_in and c.user.key == old.user_key
+                return t.abort()
+
+            # increment the read count
+            user_notifs = bus.fetch "#{old.user_key}/notifications"
+            user_notifs.unread = (user_notifs.unread ? 0) + old.read - val.read
+            bus.save.sync user_notifs
+
+            # but, you can mark your own notification as read
+            # otherwise you aren't allowed to change them
+            old.read = val.read
+            bus.save old
+            t.done old
+
+        parser('notification/<nid>').to_delete = (key, old, t) ->
+            # you can't delete someone else's notifications
+            c = client.fetch "current_user"
+            unless c.logged_in and c.user.key == old.user_key
+                return t.abort()
+
+            # remove the key from the notifs array
+            user_notifs = bus.fetch "#{old.user_key}/notifications"
+            user_notifs.arr = user_notifs.arr?.filter (n) -> n.key != key
+            user_notifs.unread -= (1 - old.read)
+            bus.save.sync user_notifs
+            # why can't we actually delete! ugh
+            bus.save {key}
+            t.done()
+
+        # notifications are private
+        parser('user/<userid>/notifications').to_fetch = (key, t) ->
             {userid} = t._path
             c = client.fetch "current_user"
-            unless c.logged_in and c.user.key == "user/#{userid}"
-                return t.abort()
-            # remove read notifications
-            val.arr = (val.arr ?= []).filter (n) -> not n.read
-            # really, the only change want to allow is marking a notification as read.
-            # but there's not really any harm in allowing users to fuck up their own notifications
-            t.done val
+            if c.logged_in and c.user.key == "user/#{userid}"
+                bus.fetch key
+            else
+                {}
+
+        parser('user/<userid>/notifications').to_save = (key, val, old, t) ->
+            t.abort()
 
 
         parser('user/<userid>').to_save = (key, val, old, t) ->
