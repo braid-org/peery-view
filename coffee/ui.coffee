@@ -650,6 +650,350 @@ dom.ADD_TAG = ->
 
                     suggested
 
+### === Various post submission methods === ###
+# The submit-post modal
+dom.SUBMIT_POST = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    form_submit = =>
+        body = @refs["post-main"].getDOMNode()
+        title = @refs["post-title"].getDOMNode()
+        body_val = body?.value.trim()
+        title_val = title?.value.trim()
+
+        if body_val and (title_val or !@local.show_title)
+            make_post
+                user: c.user.key
+                title: title.value
+                url: if @local.show_title then body_val
+                body: unless @local.show_title then body_val
+                parent: @props.parent
+
+            # reset the form
+            title.value = ""
+            body.value = ""
+            @local.typed = @local.show_title = false
+            save @local
+
+        @props.close?()
+
+    DIV
+        key: "submit-container"
+        display: "grid"
+        width: 600
+        grid: "\" icon main  main   main \"  auto
+               \" .    title title  title\"  auto
+               \" .    .     cancel submit\" 18px
+                / auto 1fr   auto    auto "
+        gridColumnGap: 5
+        gridRowGap: 2
+        alignItems: "center"
+        marginLeft: 20
+
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            gridArea: "icon"
+            style:
+                width: post_height - 5
+                height: post_height - 5
+                borderRadius: "50%"
+                alignSelf: "start"
+                justifySelf: "start"
+                opacity: 0.5
+
+        TEXTAREA
+            key: "main"
+            ref: "post-main"
+            className: "stylish-input"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            gridArea: "main"
+            fontSize: "0.9375rem" # 15px but scales
+            lineHeight: 1.2
+            padding: padding_unit
+            justifySelf: "stretch"
+            resize: "vertical"
+            minHeight: post_height
+            boxSizing: "border-box"
+            placeholder: "Say something..."
+            style: height: "#{post_height}px"
+            ###
+            onKeyDown: (e) =>
+                # enter
+                if e.keyCode == 13
+                    form_submit()
+                # tab
+                else if e.keyCode == 9
+                    e.preventDefault()
+                    @refs["post-url"].getDOMNode().focus()
+            ###
+            onInput: (e) =>
+                # check if current value is a link
+                val = e.target.value?.trim()
+                try
+                    the_url = new URL val
+                    # must be an http or https url
+                    @local.show_title = (the_url.protocol == "http:") or (the_url.protocol == "https:")
+                catch
+                    # value is not a url
+                    @local.show_title = false
+                finally
+                    @local.typed = val?.length > 0
+                    save @local
+                # if an event handler returns false, some browsers will interpret as a call to e.preventDefault()
+                return
+
+
+        INPUT
+            key: "title"
+            ref: "post-title"
+            gridArea: "title"
+            className: "stylish-input"
+            borderWidth: "2px"
+            borderStyle: "solid"
+            padding: padding_unit
+            boxSizing: "border-box"
+            placeholder: "Add a title..."
+            fontSize: "0.9375rem"
+            lineHeight: "#{post_height - 2 * padding_unit}px"
+            whiteSpace: "nowrap"
+            display: unless @local.show_title then "none"
+            style: height: "#{post_height}px"
+            ###
+            onKeyDown: (e) =>
+                if e.keyCode == 13
+                    form_submit()
+                else if e.keyCode == 9
+                    e.preventDefault()
+            ###
+        
+        BUTTON
+            key: "cancel"
+            className: "unbutton"
+            gridArea: "cancel"
+            fontSize: "14px"
+            display: unless @props.cancel then "none"
+            color: "#999"
+            onClick: @props.close
+            "Cancel"
+
+        BUTTON
+            key: "submit"
+            className: "unbutton"
+            gridArea: "submit"
+            fontSize: "14px"
+            color: "#999"
+            onClick: form_submit
+            display: unless @local.typed then "none"
+            "Send"
+
+# manually-expanded reply below a post
+dom.MINI_REPLY = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    ui = fetch (@props.ui ? @local)
+    submit = () =>
+        if ui.text?.length
+            # reply
+            make_post
+                user: c.user.key
+                body: ui.text
+                parent: @props.parent
+
+            ui.text = ""
+            save ui
+            @props?.close false
+
+    DIV
+        display: "grid"
+        grid: "\" avatar        input  input\" auto
+               \" .             cancel post  \" 16px
+               / #{post_height}px 1fr auto"
+        marginTop: 5
+        marginBottom: 3
+        style: @props.style
+
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            style:
+                gridArea: "avatar"
+                width: post_height - 5
+                height: post_height - 5
+                borderRadius: "50%"
+                alignSelf: "start"
+                justifySelf: "start"
+                opacity: 0.5
+
+        AUTOSIZEBOX
+            key: "content"
+            ref: "content"
+            gridArea: "input"
+            className: "stylish-input"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            fontSize: "0.875rem" # 14px but scales
+            lineHeight: 1.4
+            padding: padding_unit - 1.5
+            justifySelf: "stretch"
+            resize: "none"
+            minHeight: post_height
+            boxSizing: "border-box"
+            placeholder: "Say something..."
+            height: post_height
+            flexGrow: 1
+            value: ui.text
+
+            onChange: (e) =>
+                ui.text = e.target.value
+                save ui
+
+            onKeyDown: (e) =>
+                # escape
+                if e.keyCode == 27
+                    @props?.close true
+                if e.keyCode ==  13 and !e.shiftKey
+                    e.preventDefault()
+                    submit()
+
+        if @props?.close
+            BUTTON
+                key: "cancel"
+                gridArea: "cancel"
+                className: "unbutton"
+                fontSize: 12
+                color: "#999"
+                justifySelf: "end"
+                display: "none" if @props.no_controls
+                onClick: () => @props?.close true
+                    
+                "Cancel"
+
+        BUTTON
+            key: "submit"
+            gridArea: "post"
+            className: "unbutton"
+            fontSize: 12
+            color: "#999"
+            justifySelf: "end"
+            marginLeft: 8
+            onClick: submit
+            display: "none" if @props.no_controls
+                
+            "Send"
+
+# implicitly expanded reply for block ends
+dom.HOVER_REPLY = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    ui = fetch (@props.ui ? @local)
+    active = ui.hover or ui.focus or ui.text?.length
+    submit = () =>
+        if ui.text?.length
+            # reply
+            make_post
+                user: c.user.key
+                body: ui.text
+                parent: @props.parent
+
+            ui.text = ""
+            save ui
+
+    DIV
+        display: "grid"
+        grid: "\" avatar input\" auto
+               \" .      post \" auto
+               / #{post_height}px 1fr"
+        marginBottom: 2
+        style: @props.style
+
+        onMouseEnter: () =>
+            ui.hover = true
+            save ui
+        onMouseLeave: () =>
+            ui.hover = false
+            save ui
+
+        AVATAR
+            key: "avatar"
+            user: c.user
+            hide_tooltip: true
+            style:
+                gridArea: "avatar"
+                width: post_height - 5
+                height: post_height - 5
+                borderRadius: "50%"
+                opacity: if active then 0.5 else 0
+                transition: "opacity 0.15s"
+
+        AUTOSIZEBOX
+            key: "content"
+            ref: "content"
+            gridArea: "input"
+            # the stylish-input class removes some outlines,
+            # and applies a partially opaque border to indicate hover and focus.
+            className: "stylish-input"
+            boxSizing: "border-box"
+            borderWidth: "1.5px"
+            borderStyle: "solid"
+            # the stylish-input class includes some border colors 
+            borderColor: "rgba(0, 0, 0, 0)" unless active
+            transition: "border-color 0.15s"
+            fontSize: "0.875rem" # 14px but scales
+            lineHeight: 1.4
+            # since we have a 1.5px border, slightly reduce padding
+            # this ensures correct alignment against real posts
+            padding: padding_unit - 1.5
+            marginTop: 0
+            justifySelf: "stretch"
+            # don't put resize handles; we autoresize
+            resize: "none"
+            # don't get smaller than the height of the avatar
+            minHeight: post_height
+            height: post_height
+            placeholder: "Reply..."
+            value: ui.text
+
+            onChange: (e) =>
+                ui.text = e.target.value
+                save ui
+
+            onKeyDown: (e) =>
+                # escape
+                if e.keyCode == 27
+                    # what should we do on close??
+                    @refs.content?.getDOMNode()?.blur()
+                if e.keyCode ==  13 and !e.shiftKey
+                    e.preventDefault()
+
+            onFocus: () =>
+                ui.focus = true
+                save ui
+            onBlur: () =>
+                ui.focus = false
+                save ui
+
+        BUTTON
+            key: "submit"
+            gridArea: "post"
+            className: "unbutton"
+            fontSize: 12
+            color: "#999"
+            justifySelf: "end"
+            marginLeft: 8
+            onClick: submit
+            display: "none" unless ui.text?.length
+                
+            "Send"
 
 ### === HEADER AND POPUPS === ###
 # The BEEG header
@@ -747,7 +1091,7 @@ dom.MAIN_HEADER = ->
                 "data-load-intern": true
                 "Search"
 
-            if c.logged_in
+            if c.logged_in then [
                 BUTTON
                     key: "user"
                     className: "unbutton"
@@ -759,7 +1103,7 @@ dom.MAIN_HEADER = ->
                     SPAN
                         key: "name"
                         className: "mobile-hide"
-                        marginLeft: 14
+                        marginLeft: 10
                         marginRight: 4
                         c.user.name
                     AVATAR
@@ -771,6 +1115,14 @@ dom.MAIN_HEADER = ->
                             width: 40
                             height: 40
                             overflow: "hidden"
+
+                NOTIFICATION_ICON
+                    key: "notifications"
+                    style: marginLeft: 10
+                    onClick: () =>
+                        @local.modal = if @local.modal == "notifs" then false else "notifs"
+                        save @local
+                ]
             else
                 BUTTON
                     key: "user"
@@ -1344,6 +1696,7 @@ dom.HOVER_REPLY = ->
                     @refs.content?.getDOMNode()?.blur()
                 if e.keyCode ==  13 and !e.shiftKey
                     e.preventDefault()
+                    submit()
 
             onFocus: () =>
                 ui.focus = true
@@ -1553,6 +1906,43 @@ dom.SETTINGS = ->
                 @props.close?()
             "Save"
 
+dom.NOTIFICATION_ICON = ->
+    c = fetch "/current_user"
+    unless c.logged_in
+        return
+
+    notifs = fetch "#{c.user.key}/notifications"
+
+    BUTTON
+        className: "unbutton"
+        position: "relative"
+        cursor: if @props.onClick then "pointer"
+        onClick: @props.onClick
+        style: @props.style
+
+        SPAN
+            key: "icon"
+            color: "inherit"
+            className: "material-icons-outlined md-dark"
+            fontSize: "28px"
+            textAlign: "center"
+            lineHeight: "#{post_height - 5}px"
+            "notifications"
+
+        SPAN
+            key: "count"
+            position: "absolute"
+            bottom: 0
+            right: 0
+            display: "none" unless notifs?.arr?.length > 0
+            transform: "translateX(4px)"
+            fontSize: 14
+            color: "white"
+            background: color2
+            borderRadius: "50%"
+            minWidth: "1.2em"
+            textAlign: "center"
+            notifs?.arr?.length.toString()
 
 
 

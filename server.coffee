@@ -39,6 +39,19 @@ bus = require('statebus').serve
                 all_posts = bus.fetch "posts"
                 (all_posts.arr ?= []).push val
                 bus.save all_posts
+                # generate a notification
+                if val.parent_key?
+                    parent = bus.fetch val.parent_key
+                    if parent.user_key != val.user_key
+                        parent_user_notifications = bus.fetch "#{parent.user_key}/notifications"
+                        (parent_user_notifications.arr ?= []).push
+                            type: "reply"
+                            post_key: val.key
+                            user_key: val.user_key
+                            time: val.time
+                            read: false
+                        bus.save parent_user_notifications
+
                 return t.done val
 
             if old.body and val.body and old.body != val.body
@@ -165,6 +178,19 @@ bus = require('statebus').serve
                 bus.save all_tags
             
             t.done val
+
+
+        parser('user/<userid>/notifications').to_save = (key, val, old, t) ->
+            {userid} = t._path
+            c = client.fetch "current_user"
+            unless c.logged_in and c.user.key == "user/#{userid}"
+                return t.abort()
+            # remove read notifications
+            val.arr = (val.arr ?= []).filter (n) -> not n.read
+            # really, the only change want to allow is marking a notification as read.
+            # but there's not really any harm in allowing users to fuck up their own notifications
+            t.done val
+
 
         parser('user/<userid>').to_save = (key, val, old, t) ->
             # The client can't change their join date
