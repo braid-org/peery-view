@@ -6,6 +6,24 @@ parse = require('./coffee/parser.coffee')
 bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
+
+        is_logged_in = false
+        client('current_user').on_save = (val) ->
+            # if the client just logged in
+            if val.logged_in and not is_logged_in
+                is_logged_in = true
+
+                current_time = Math.floor(new Date().getTime() / 1000)
+                # if the user reloaded the page or something, we don't want to consider this as a new login
+                # so we only update the login if it's been more than 1 minute
+                if current_time - val.user.last_login > 60
+                    user = bus.clone val.user
+                    # we don't update login times on logout/disconnect
+                    # so user.current_login is actually the time of the *last* login
+                    user.last_login = user.current_login
+                    user.current_login = current_time
+                    bus.save user
+
         parser = parse.PPPParser client
 
         parser('post/<postid>').to_save = (key, val, old, t) ->
@@ -250,11 +268,14 @@ bus = require('statebus').serve
 
 
         parser('user/<userid>').to_save = (key, val, old, t) ->
-            # The client can't change their join date
-            unless old.joined == val.joined
+            # The client can't change certain keys
+            locked = ["joined", "border", "last_login", "current_login"]
+            didnt_change = locked
+                .map (k) -> old[k] == val[k]
+                .reduce (a, b) -> a and b
+            unless didnt_change
                 return t.abort()
-            unless old.border == val.border
-                return t.abort()
+
             bus.save val
             t.done val
 
@@ -262,9 +283,10 @@ bus = require('statebus').serve
             bus.fetch 'users'
 
         client.shadows bus
-        
+
 ########## main bus handlers #########
 bus_parser = parse.PPPParser bus
+bus.honk = false
 
 # safety check for state that should return an array
 default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
