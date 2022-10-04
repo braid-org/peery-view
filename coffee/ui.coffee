@@ -185,7 +185,16 @@ dom.COLLAPSED_POST = ->
             color: "#444"
             marginRight: padding_unit
 
-            post.title ? post.body
+            SPAN
+                key: "title"
+                fontWeight: "bold" if post.body?.length
+                marginRight: 10 if post.body?.length
+                display: "none" unless post.title?.length
+                post.title
+
+            SPAN
+                key: "body"
+                post.body
 
         DIV
             key: "gray-line"
@@ -2269,66 +2278,112 @@ dom.USER = ->
 dom.SEARCH_BOX = ->
     v = fetch "view"
 
-    search = () =>
-        v.query = @local.query
-        save v
-
-    @local.query ?= v.query
-    save @local
-
     DIV
         display: "flex"
-        flexDirection: "row"
         justifyContent: "stretch"
-        padding: 10
+        marginTop: padding_unit
+        marginLeft: padding_unit * 2
         width: inner_width
 
         INPUT
             key: "searchbox"
             ref: "searchbox"
-            value: @local.query
+            value: v.query
             flexGrow: 1
             fontSize: 18
             lineHeight: 1.4
             padding: "2px 4px"
             onChange: (e) =>
-                @local.query = e.target.value
-                save @local
-            onKeyDown: (e) -> if e.keyCode == 13 then search()
-
-        BUTTON
-            key: "submit"
-            onClick: search
-            marginLeft: 10
-            fontSize: 16
-            lineHeight: 1.4
-            padding: "4px 8px"
-
-            "Search"
+                v.query = e.target.value
+                save v
+            #onKeyDown: (e) -> if e.keyCode == 13 then search()
         
     
 # Search results
 dom.POSTS_SEARCH = ->
+    results = @local.results ? []
+    v = fetch "view"
+    DIV
+        key: "posts"
+        width: inner_width
+        marginLeft: 20
+    
+        DIV
+            key: "n-results"
+            color: "#444"
+            fontSize: 12
+            unless v.query?.length
+                "Search populates automatically as you type."
+            else if results.length == 0
+                "No results found."
+            else
+                "#{results.length} results found."
+
+        results.map (result) ->
+            DIV
+                key: result.key
+                padding: padding_unit
+                marginBottom: padding_unit
+
+                COLLAPSED_POST
+                    key: "parent"
+                    post: result.parent_key
+                POST
+                    key: "match"
+                    post: result.key
+
+dom.POSTS_SEARCH.refresh = ->
     c = fetch "/current_user"
     v = fetch "view"
 
 
     username = v.user_key ? c?.user?.key ? "/user/default"
-    score_kson = stringify_kson user: username
+    kson = stringify_kson user: username, tag: v.tag
 
-    min_weight = (fetch "filter").min ? -0.2
-    # Should we even do filtering in search?
-    posts = ((fetch "/posts").arr ? [])
-        .filter (p) -> ((fetch("score#{p.key}#{score_kson}").value ? 0) > min_weight) and
-                       (v.query.length) and
-                       (p.title.toLowerCase().includes v.query.toLowerCase())
-    
-    DIV
-        key: "posts"
-        posts.map (post) ->
-            POST
-                post: post.key
-                key: unslash post.key
+    unless @local.last_query != v.query or @local.last_kson != kson
+        return
+    unless v.query?.length
+        @local.results = []
+        save @local
+        return
+
+    # to be improved with fuzzy search
+    match_text = (query, data) ->
+        if data?.length
+            ind = data.toLowerCase().indexOf query.toLowerCase()
+            if ind == -1
+                0
+            else
+                1
+        else
+            0
+
+    match_post = (query, post) ->
+        Math.max(
+            match_text(query, post.body)
+            match_text(query, post.title)
+            match_text(query, post.url)
+        )
+
+    # since the search query is just a filter, if a new character was added,
+    # we can just search in the previous results
+    unless kson == @local.last_kson and \
+       @local.last_query?.length and \
+       v.query?.startsWith @local.last_query
+        @local.results = (fetch "/posts").arr
+
+    q = v.query
+    @local.results = @local.results
+        .filter (res) -> match_post q, res
+        .sort (a, b) ->
+            a_score = (fetch "score#{a.key}#{kson}").sort_top
+            b_score = (fetch "score#{b.key}#{kson}").sort_top
+
+            b.score - a.score
+    @local.last_kson = kson
+    @local.last_query = v.query
+    save @local
+
 
 # filter
 dom.FILTER = ->
