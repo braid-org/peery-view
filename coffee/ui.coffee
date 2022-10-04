@@ -98,6 +98,7 @@ dom.POSTS = ->
             posts_out
     DIV
         key: "posts"
+        style: @props.style
 
         blocks layout.new, "new-posts"
 
@@ -240,6 +241,7 @@ dom.POST = ->
     # container for the post and the reply
     DIV
         width: @props.width
+        style: @props.style
         
         # the actual post
         ARTICLE
@@ -397,7 +399,7 @@ dom.POST = ->
                         key: "permalink-btn"
                         className: "unbutton"
                         marginLeft: 8
-                        display: if ui.editing or ui.replying then "none"
+                        display: if ui.editing or ui.replying or @props.hide_focus then "none"
                         href: post.key
                         "data-load-intern": true
                         "Focus"
@@ -1023,7 +1025,7 @@ dom.MAIN_HEADER = ->
             zIndex: 5
 
             # Dynamic rolodex title
-            if v.page == "posts" then X_OF_Y
+            if v.page in ["posts", "post_details"] then X_OF_Y
                 key: "title-dropdown"
                 flexGrow: 1
             else
@@ -1209,7 +1211,9 @@ dom.X_OF_Y = ->
                 # Callback for when an entry has been chosen
                 close: (chosen) =>
                     if @local.pers
-                        load_path if chosen then (users[chosen]?.key ? "/") else "/"
+                        path_base = if chosen then (users[chosen]?.key ? "/") else "/"
+                        kson = stringify_kson {tag: v.tag}
+                        load_path path_base + kson
                     @local.pers = false
                     save @local
                 # Function to render each element
@@ -1274,7 +1278,11 @@ dom.X_OF_Y = ->
                 selected: selected_tag
                 close: (chosen) =>
                     if @local.cont
-                        load_path if chosen then (tags[chosen] ? "/") else "/"
+                        # reconstruct the current url
+                        path_base = v.user_key ? v.post_key ? "/"
+                        kson = stringify_kson (if chosen then {tag: tags[chosen]} else {})
+
+                        load_path path_base + kson
                     @local.cont = false
                     save @local
                 # Function to render each element

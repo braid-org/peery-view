@@ -144,7 +144,7 @@
         if -1 != path.indexOf "\("
             [path, kson] = split_once path, "\("
             Object.assign v, parse_kson "\(#{kson}"
-            
+          
         switch
             # User list
             when path == "/users"
@@ -177,13 +177,11 @@
                 v.query = path[8..]
 
             # Tag view
-            when path.length > 2
-                v.tag = unslash path
-                v.page = "posts"
-                v.title = titlecase v.tag
             else
                 v.page = "posts"
                 v.title = null
+                if v.tag
+                    v.title = titlecase v.tag
         save v
         document.title = format_title v.title
 
@@ -245,15 +243,29 @@
                     USERS key: "users"
                     ]
                 when "post_details" then [
+                    BIG_MULTIGRAM key: "multigram"
+                    FILTER key: "filter"
                     if v.context then COLLAPSED_POST
                         key: "parent"
                         post: (fetch v.post_key).parent_key
                         width: 600
-                    POST
-                        key: "post"
-                        post: v.post_key
+
+                    DIV
+                        key: "context-and-reply"
+                        marginLeft: 20
                         width: 600
-                    POSTS key: "posts"
+
+                        POST
+                            key: "post"
+                            post: v.post_key
+                            hide_reply: true
+                            hide_focus: true
+
+                        HOVER_REPLY
+                            key: "reply"
+                            parent: v.post_key
+
+                    POSTS key: "posts", style: marginLeft: 20
                 ]
                 when "search" then [
                     SEARCH_BOX key: "search"
