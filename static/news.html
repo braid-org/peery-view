@@ -245,15 +245,15 @@
                 when "post_details" then [
                     BIG_MULTIGRAM key: "multigram"
                     FILTER key: "filter"
-                    if v.context then COLLAPSED_POST
-                        key: "parent"
-                        post: (fetch v.post_key).parent_key
-                        width: 600
 
                     DIV
-                        key: "context-and-reply"
+                        key: "tree-root"
                         marginLeft: 20
-                        width: 600
+                        width: outer_width
+
+                        if v.context then COLLAPSED_POST
+                            key: "parent"
+                            post: (fetch v.post_key).parent_key
 
                         POST
                             key: "post"
@@ -261,9 +261,10 @@
                             hide_reply: true
                             hide_focus: true
 
-                        HOVER_REPLY
-                            key: "reply"
-                            parent: v.post_key
+                    HOVER_REPLY
+                        key: "reply"
+                        parent: v.post_key
+                        style: width: 600, marginLeft: 20
 
                     POSTS key: "posts", style: marginLeft: 20
                 ]

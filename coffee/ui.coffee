@@ -142,7 +142,7 @@ dom.COLLAPSED_POST = ->
     post = @props.post
     # Subscribe to the post
     if post?.key or typeof(post) == "string" then post = fetch post
-    unless post.user_key?
+    unless post?.user_key?
         # The post has actually just been deleted.
         return
 
