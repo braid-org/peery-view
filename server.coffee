@@ -7,22 +7,34 @@ bus = require('statebus').serve
     port: 1312
     client: (client, server) ->
 
-        is_logged_in = false
+        # keeping track of login times
+        login = null
         client('current_user').on_save = (val) ->
-            # if the client just logged in
-            if val.logged_in and not is_logged_in
-                is_logged_in = true
+            # if the current user changed
+            if val?.user?.key != login
+                # a user logged out
+                if login
+                    logout login
 
-                current_time = Math.floor(new Date().getTime() / 1000)
-                # if the user reloaded the page or something, we don't want to consider this as a new login
-                # so we only update the login if it's been more than 1 minute
-                if current_time - val.user.last_login > 60
+                login = val?.user?.key
+                # a user logged in
+                if login
                     user = bus.clone val.user
-                    # we don't update login times on logout/disconnect
-                    # so user.current_login is actually the time of the *last* login
-                    user.last_login = user.current_login
-                    user.current_login = current_time
+                    user.last_login = now()
+
+                    # if the user was logged out for more than 60 seconds,
+                    # we want to show them content since their last login.
+                    if user.last_login - user.last_logout > 60
+                        user.last_viewed = user.last_logout
+                    
                     bus.save user
+
+        logout = (user_key) ->
+            user = bus.fetch user_key
+            user.last_logout = now()
+            bus.save user
+
+        server.on 'close', () -> if login then logout login
 
         parser = parse.PPPParser client
 
@@ -268,8 +280,8 @@ bus = require('statebus').serve
 
 
         parser('user/<userid>').to_save = (key, val, old, t) ->
-            # The client can't change certain keys
-            locked = ["joined", "border", "last_login", "current_login"]
+            # The user can't change certain keys
+            locked = ["joined", "border", "last_login", "last_logout", "last_viewed"]
             didnt_change = locked
                 .map (k) -> old[k] == val[k]
                 .reduce (a, b) -> a and b
@@ -290,6 +302,8 @@ bus.honk = false
 
 # safety check for state that should return an array
 default_arr = (key) -> {arr: [], (bus.cache[key] ?= {key: key})...}
+# get current time in seconds
+now = () -> Math.floor(new Date().getTime() / 1000)
 
 # Network-spread weighting
 MIN_WEIGHT = 0.05
