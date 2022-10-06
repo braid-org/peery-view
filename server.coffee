@@ -791,5 +791,5 @@ restore_pass = (name, newpass) ->
   user.pass = require('bcrypt-nodejs').hashSync(newpass)
   console.log('############# Now user is ', user)
   bus.save(user)
+  bus.dirty('users/passwords')   # Bug in statebus server libs: this shouldn't be required
   console.log('############# Saved!!!!!!! ')
-
