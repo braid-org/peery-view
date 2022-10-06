@@ -350,7 +350,6 @@ dom.POST = ->
                             SPAN
                                 key: "body-intern"
                                 whiteSpace: "pre-line"
-                                textAlign: "justify"
                                 fontSize: "0.9375rem" # 15px unless zoom
                                 lineHeight: 1.4
                                 post.body
