@@ -292,7 +292,10 @@ bus = require('statebus').serve
             t.done val
 
         client('users').to_fetch = (t) ->
-            bus.fetch 'users'
+            users = bus.clone bus.fetch 'users'
+            users.all.forEach (u) -> delete u.pass
+            users
+
 
         client.shadows bus
 
@@ -689,14 +692,12 @@ migrate = (state) ->
                 # create a post
                 # key is of the form "post/<parentid>/comment/<commentid>"
                 nk = s.key.split "/"
-                pk = s.parent_key.split "/"
-                if pk.length == 4
+                pk = s.post_key
+                if s.parent_key
                     # parent is a comment
                     # change it to the new ID of the converted parent
+                    pk = s.parent_key.split "/"
                     pk = "post/#{pk[1]}#{pk[3]}"
-                else
-                    # parent is a post
-                    pk = s.parent_key
 
                 new_post =
                     key: "post/#{nk[1]}#{nk[3]}"
