@@ -9,8 +9,8 @@ dom.AVATAR = ->
     if (typeof @props.user == 'string') or @props.user.key
         user = fetch(@props.user)
     # else it is a connection possibly just with a name
+
     
-    add_initials = @props.add_initials ? !user?.pic
     name = user.name ? user.invisible_name ? user.key.substr(1 + user.key.indexOf("/", 2)) ? 'Anonymous'
     extend @props,
         'data-user': name
@@ -35,22 +35,23 @@ dom.AVATAR = ->
     if @props.hide_tooltip && !user.key == your_key()
         @props.title = name
 
-    if user.pic
+    # check if the image loaded properly
+    img_loaded = (fetch "profile_pic#{user.key}")?.loaded ? false
+    # add initials if explicitly set or if user 
+    add_initials = @props.add_initials ? !(user?.pic and img_loaded)
+    if user.pic and img_loaded
         src = user.pic
 
-        if src.indexOf('/') == -1 && default_path
-            src = "#{default_path}/#{src}"
         @props.style.backgroundImage = "url(\"#{src}\")"
-        @props.style.backgroundColor ?= "white"
-        @props.style.backgroundClip ?= "padding-box"
+        @props.style.backgroundColor = "white"
+        @props.style.backgroundClip = "padding-box"
         @props.style.zIndex ?= 2
     else
         # Generate a pseudorandom background color
-        # But deterministic with respect to the user
+        # But dHow can I make sure the background image is fully loaded?eterministic with respect to the user
         hue = parseInt(md5(user?.key ? name).substr(0, 2), 16)
         @props.style.backgroundColor ?= "hsl(#{hue},45%,70%)"
         @props.style.zIndex ?= 1
-        @props.style.userSelect ?= "none"
 
     if add_initials
         if name == 'Anonymous'
@@ -65,6 +66,7 @@ dom.AVATAR = ->
             justifyContent: "center"
             alignItems: "center"
             flexShrink: 0
+            userSelect: "none"
             @props...
         },
     
@@ -235,4 +237,35 @@ style.innerHTML =   """
 """
 
 document.head.appendChild style
-default_path = window.avatar_default_path or get_script_attr('avatar', 'default-path')
+
+# attempt to load the user's profile picture.
+# this allows us to tell if the profile picture was blocked, or 404s
+bus("profile_pic/user/*").to_fetch = (key, star, t) ->
+    userid = "/user/#{star}"
+    user = fetch userid
+    cached = bus.cache[key]
+    # if we haven't yet tried to load, try to load
+    if user.pic and !cached?.tried
+        # if we haven't loaded ten seconds from now, give up.
+        timeout = setTimeout 10000, () ->
+            # is this necessary to stop a potentially hung load attempt?
+            delete img
+            save
+                key: key
+                loaded: false
+                tried: false
+        # create an image object to listen to onload
+        img = new Image()
+        img.addEventListener 'load', () ->
+            clearTimeout timeout
+            # if we successfully loaded the image, save that
+            save
+                key: key
+                loaded: true
+                tried: true
+        # put the eventlisteners on before we set the source
+        # to be sure not to miss anything
+        img.src = user.pic
+
+    cached ? {key, loaded: false, tried: false}
+
