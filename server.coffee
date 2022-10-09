@@ -676,14 +676,39 @@ migrate = (state) ->
         state.save m
 
     unless m.delete_comments
-        console.log "MIGRATION DAC: Delete All Comments."
+        console.log "MIGRATION DAC: Convert all comments to posts."
         posts = state.fetch "posts"
-        posts?.arr?.forEach (p) ->
+        (posts.arr ?= []).forEach (p) ->
             comments = state.fetch "#{p.key}/comments"
 
-            static_comments = JSON.parse JSON.stringify ( comments?.arr ? [] )
+            static_comments = state.clone comments.arr ? []
             state.delete comments
-            state.delete comment.key for comment in static_comments
+            static_comments.forEach (c) ->
+                s = state.clone c
+                state.delete c
+                # create a post
+                # key is of the form "post/<parentid>/comment/<commentid>"
+                nk = s.key.split "/"
+                pk = s.parent_key.split "/"
+                if pk.length == 4
+                    # parent is a comment
+                    # change it to the new ID of the converted parent
+                    pk = "post/#{pk[1]}#{pk[3]}"
+                else
+                    # parent is a post
+                    pk = s.parent_key
+
+                new_post =
+                    key: "post/#{nk[1]}#{nk[3]}"
+                    body: s.body
+                    time: s.time
+                    edit_time: s.edit_time
+                    user_key: s.user_key
+                    parent_key: pk
+                state.save new_post
+                posts.arr.push new_post
+        state.save posts 
+        
         console.log "MIGRATION DAC: Migration complete."
         m.delete_comments = true
         state.save m
