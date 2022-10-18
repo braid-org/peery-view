@@ -13,9 +13,10 @@ dom.POSTS = ->
     kson = stringify_kson tag: v.tag, user: username, root_post: v.post_key
     layout = fetch "blocks_layout#{kson}"
 
-    # get the top posts since last login
-    kson_lastlogin = stringify_kson tag: v.tag, user: username
-    top_since = fetch "top_since_last_login#{kson_lastlogin}"
+    unless v.post_key
+        # get the top posts since last login
+        kson_lastlogin = stringify_kson tag: v.tag, user: username
+        top_since = fetch "top_since_last_login#{kson_lastlogin}"
 
     max_depth = @props.max_depth ? 5
 
@@ -115,7 +116,7 @@ dom.POSTS = ->
         key: "posts"
         style: @props.style
 
-        if top_since.posts?.length
+        if top_since?.posts?.length
             DIV
                 key: "since_last_login"
                 top_since.posts.map (p) ->

@@ -298,7 +298,7 @@ parser("blocks_layout").to_fetch = (key, t) ->
 
 parser('top_since_last_login').to_fetch = (key, t) ->
     {user, tag} = t._params
-    kson = stringify_kson t._params
+    kson = stringify_kson {user, tag}
 
     user = fetch user
     posts = fetch "/posts"
