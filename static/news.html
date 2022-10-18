@@ -2,7 +2,9 @@
 <html lang=en>
 <head>
 <meta charset=UTF-8>
+<!--
 <meta name=viewport content="width=device-width, initial-scale=1">
+-->
 <title>PeeryView</title>
 <style>
     body {
@@ -75,7 +77,7 @@
     .mobile-show {
         display: none;
     }
-
+    /*
     @media only screen and (max-width: 650px) {
 
         div[data-widget=POST] {
@@ -112,11 +114,12 @@
             font-size: 14px !important;
         }
     }
+    */
 
 </style>
 
 <script type=coffee>
-    window.outer_width = 800
+    window.outer_width = 900
     window.inner_width = 700
     window.post_height = 45
     window.padding_unit = 10
@@ -224,8 +227,10 @@
             key: "body-container"
             display: "flex"
             flexDirection: "column"
-            alignItems: "left"
+            alignItems: "stretch"
             padding: 10
+            margin: "0 auto"
+            width: "max(800px, calc(75vw - 100px))"
 
             IMG
                 key: "peery-logo"
@@ -295,7 +300,8 @@
         DIV
             width: w
             className: "mobile-hide"
-            marginLeft: 20
+            paddingTop: 2 * padding_unit
+            alignSelf: "center"
 
             MULTIGRAM
                 key: "multigram-inner"

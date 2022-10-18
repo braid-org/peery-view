@@ -9,8 +9,13 @@ dom.POSTS = ->
 
     # User who's viewing the posts
     username = v.user_key ? c?.user?.key ? "/user/default"
+    # get the chat block layout
     kson = stringify_kson tag: v.tag, user: username, root_post: v.post_key
     layout = fetch "blocks_layout#{kson}"
+
+    # get the top posts since last login
+    kson_lastlogin = stringify_kson tag: v.tag, user: username
+    top_since = fetch "top_since_last_login#{kson_lastlogin}"
 
     max_depth = @props.max_depth ? 5
 
@@ -18,11 +23,19 @@ dom.POSTS = ->
     # We need it to persist when blocks_layout changes (and the component rerenders)
     # But the changes that we make to it can be done while rendering
     # That is, we are able to check and bump each open reply *before* it gets rendered
-    # So we need to be able to change its value without rerendering the function
+    # So we need to be able to change its value without rerendering the component
     @block_replies ?= {}
-    # On the other hand, when a reply button is clicked, we need to change block_replies AND rerender
-    # Hence we have a dummy key that can be toggled in order to force refresh
-    @local.refresh ?= false
+    # call this on refresh or on window resize
+    @resize_replies = () =>
+        # set the width of every hover reply to the width of its parent post
+        Object.entries @block_replies
+            .forEach ([k, v]) =>
+                reply = @refs[v].getDOMNode().firstChild
+                # if there actually is a hover reply
+                if reply
+                    # get the width of the post above it
+                    w = @refs[k].getDOMNode().offsetWidth
+                    reply.style.width = "#{w}px"
 
     # Function to output a chat blocks layout, given a flattened array
     blocks = (arr, key) =>
@@ -63,9 +76,11 @@ dom.POSTS = ->
 
                         POST
                             key: "post"
+                            ref: if is_last then "#{block.end}"
                             post: post
-                            width: 600 - left
+                            #width: 600 - left
                             hide_reply: is_last and not block.children?.length
+                            style: flexGrow: 1
 
                         DIV
                             key: "tags-container"
@@ -83,6 +98,7 @@ dom.POSTS = ->
                 # spacing and reply
                 posts_out.push DIV
                     key: @block_replies[block.end]
+                    ref: @block_replies[block.end]
                     marginBottom: padding_unit if block.children?.length or not c.logged_in
                     marginLeft: left
 
@@ -90,51 +106,95 @@ dom.POSTS = ->
                         HOVER_REPLY
                             key: "reply-box"
                             parent: block.end
-                            style: width: 600 - left
+                            
 
         DIV
             key: key
-            marginLeft: 20
             posts_out
     DIV
         key: "posts"
         style: @props.style
 
+        if top_since.posts?.length
+            DIV
+                key: "since_last_login"
+                top_since.posts.map (p) ->
+                    DIV
+                        key: p.key
+                        display: "flex"
+                        flexDirection: "row"
+                        marginBottom: padding_unit/2
+
+                        POST
+                            key: "post"
+                            post: p.key
+                            style: flexGrow: 1
+
+                        DIV
+                            key: "tags-container"
+                            height: post_height
+                            marginLeft: padding_unit
+
+                            TAGS
+                                key: "tags"
+                                post: p.key
+                                style: background: "white"
+
+                SEPARATOR
+                    key: "login-sep"
+                    width: "100%"
+                    text: "Since last login"
+
         blocks layout.new, "new-posts"
 
-        DIV
-           key: "sort-separator"
-           display: if layout.new.length then "flex" else "none"
-           flexDirection: "row"
-           justifyContent: "stretch"
-           alignItems: "center"
-           marginLeft: 10
-           width: outer_width + post_height
- 
-           # Blue line on the left
-           DIV
-               key: "dummy1"
-               flexGrow: 1
-               height: 1.5
-               background: "#36a"
-               borderRadius: 1
-
-           SPAN
-               key: "text"
-               color: "#36a"
-               margin: "0px 1ch"
-               "Two weeks ago"
-
-           # Blue line on the right
-           DIV
-               key: "dummy2"
-               flexGrow: 1
-               height: 1.5
-               background: "#36a"
-               borderRadius: 1
-
+        if layout.new?.length
+            SEPARATOR
+                key: "weeks-sep"
+                width: "100%"
+                text: "Two weeks ago"
 
         blocks layout.top, "top-posts", false
+
+# create a window event to resize the replies
+dom.POSTS.up = ->
+    register_window_event @_rootNodeID, "resize", @resize_replies
+# cancel the window event
+dom.POSTS.down = ->
+    unregister_window_event @_rootNodeID, "resize"
+dom.POSTS.refresh = ->
+    @resize_replies()
+
+
+dom.SEPARATOR = ->
+
+    DIV
+       display: "flex"
+       flexDirection: "row"
+       justifyContent: "stretch"
+       alignItems: "center"
+       width: @props.width
+
+       # Blue line on the left
+       DIV
+           key: "dummy1"
+           flexGrow: 1
+           height: 1.5
+           background: "#36a"
+           borderRadius: 1
+
+       SPAN
+           key: "text"
+           color: "#36a"
+           margin: "0px 1ch"
+           @props.text
+
+       # Blue line on the right
+       DIV
+           key: "dummy2"
+           flexGrow: 1
+           height: 1.5
+           background: "#36a"
+           borderRadius: 1
 
 # The collapsed stub of a post.
 # In some contexts, is expandable?
@@ -690,116 +750,118 @@ dom.SUBMIT_POST = ->
         @props.close?()
 
     DIV
-        key: "submit-container"
-        display: "grid"
-        width: 600
-        grid: "\" icon main  main   main \"  auto
-               \" .    title title  title\"  auto
-               \" .    .     cancel submit\" 18px
-                / auto 1fr   auto    auto "
-        gridColumnGap: 5
-        gridRowGap: 2
-        alignItems: "center"
-        marginLeft: 20
+        key: "spacing-container"
 
-        AVATAR
-            key: "avatar"
-            user: c.user
-            hide_tooltip: true
-            gridArea: "icon"
-            style:
-                width: post_height - 5
-                height: post_height - 5
-                borderRadius: "50%"
-                alignSelf: "start"
-                justifySelf: "start"
-                opacity: 0.5
+        DIV
+            key: "submit-container"
+            display: "grid"
+            width: 600
+            grid: "\" icon main  main   main \"  auto
+                   \" .    title title  title\"  auto
+                   \" .    .     cancel submit\" 18px
+                    / auto 1fr   auto    auto "
+            gridColumnGap: 5
+            gridRowGap: 2
+            alignItems: "center"
 
-        TEXTAREA
-            key: "main"
-            ref: "post-main"
-            className: "stylish-input"
-            borderWidth: "1.5px"
-            borderStyle: "solid"
-            gridArea: "main"
-            fontSize: "0.9375rem" # 15px but scales
-            lineHeight: 1.2
-            padding: padding_unit
-            justifySelf: "stretch"
-            resize: "vertical"
-            minHeight: post_height
-            boxSizing: "border-box"
-            placeholder: "Say something..."
-            style: height: "#{post_height}px"
-            ###
-            onKeyDown: (e) =>
-                # enter
-                if e.keyCode == 13
-                    form_submit()
-                # tab
-                else if e.keyCode == 9
-                    e.preventDefault()
-                    @refs["post-url"].getDOMNode().focus()
-            ###
-            onInput: (e) =>
-                # check if current value is a link
-                val = e.target.value?.trim()
-                try
-                    the_url = new URL val
-                    # must be an http or https url
-                    @local.show_title = (the_url.protocol == "http:") or (the_url.protocol == "https:")
-                catch
-                    # value is not a url
-                    @local.show_title = false
-                finally
-                    @local.typed = val?.length > 0
-                    save @local
-                # if an event handler returns false, some browsers will interpret as a call to e.preventDefault()
-                return
+            AVATAR
+                key: "avatar"
+                user: c.user
+                hide_tooltip: true
+                gridArea: "icon"
+                style:
+                    width: post_height - 5
+                    height: post_height - 5
+                    borderRadius: "50%"
+                    alignSelf: "start"
+                    justifySelf: "start"
+                    opacity: 0.5
+
+            TEXTAREA
+                key: "main"
+                ref: "post-main"
+                className: "stylish-input"
+                borderWidth: "1.5px"
+                borderStyle: "solid"
+                gridArea: "main"
+                fontSize: "0.9375rem" # 15px but scales
+                lineHeight: 1.2
+                padding: padding_unit
+                justifySelf: "stretch"
+                resize: "vertical"
+                minHeight: post_height
+                boxSizing: "border-box"
+                placeholder: "Say something..."
+                style: height: "#{post_height}px"
+                ###
+                onKeyDown: (e) =>
+                    # enter
+                    if e.keyCode == 13
+                        form_submit()
+                    # tab
+                    else if e.keyCode == 9
+                        e.preventDefault()
+                        @refs["post-url"].getDOMNode().focus()
+                ###
+                onInput: (e) =>
+                    # check if current value is a link
+                    val = e.target.value?.trim()
+                    try
+                        the_url = new URL val
+                        # must be an http or https url
+                        @local.show_title = (the_url.protocol == "http:") or (the_url.protocol == "https:")
+                    catch
+                        # value is not a url
+                        @local.show_title = false
+                    finally
+                        @local.typed = val?.length > 0
+                        save @local
+                    # if an event handler returns false, some browsers will interpret as a call to e.preventDefault()
+                    return
 
 
-        INPUT
-            key: "title"
-            ref: "post-title"
-            gridArea: "title"
-            className: "stylish-input"
-            borderWidth: "2px"
-            borderStyle: "solid"
-            padding: padding_unit
-            boxSizing: "border-box"
-            placeholder: "Add a title..."
-            fontSize: "0.9375rem"
-            lineHeight: "#{post_height - 2 * padding_unit}px"
-            whiteSpace: "nowrap"
-            display: unless @local.show_title then "none"
-            style: height: "#{post_height}px"
-            ###
-            onKeyDown: (e) =>
-                if e.keyCode == 13
-                    form_submit()
-                else if e.keyCode == 9
-                    e.preventDefault()
-            ###
-        
-        BUTTON
-            key: "cancel"
-            className: "unbutton"
-            gridArea: "cancel"
-            fontSize: "14px"
-            display: unless @props.cancel then "none"
-            color: "#999"
-            onClick: @props.close
-            "Cancel"
+            INPUT
+                key: "title"
+                ref: "post-title"
+                gridArea: "title"
+                className: "stylish-input"
+                borderWidth: "2px"
+                borderStyle: "solid"
+                padding: padding_unit
+                boxSizing: "border-box"
+                placeholder: "Add a title..."
+                fontSize: "0.9375rem"
+                lineHeight: "#{post_height - 2 * padding_unit}px"
+                whiteSpace: "nowrap"
+                display: unless @local.show_title then "none"
+                style: height: "#{post_height}px"
+                ###
+                onKeyDown: (e) =>
+                    if e.keyCode == 13
+                        form_submit()
+                    else if e.keyCode == 9
+                        e.preventDefault()
+                ###
+            
+            BUTTON
+                key: "cancel"
+                className: "unbutton"
+                gridArea: "cancel"
+                fontSize: "14px"
+                display: unless @props.cancel then "none"
+                color: "#999"
+                onClick: @props.close
+                "Cancel"
 
-        BUTTON
-            key: "submit"
-            className: "unbutton"
-            gridArea: "submit"
-            fontSize: "14px"
-            color: "#999"
-            onClick: form_submit
-            display: unless @local.typed then "none"
-            "Send"
+            BUTTON
+                key: "submit"
+                className: "unbutton"
+                gridArea: "submit"
+                fontSize: "14px"
+                color: "#999"
+                onClick: form_submit
+                display: unless @local.typed then "none"
+                "Send"
 
 # manually-expanded reply below a post
 dom.MINI_REPLY = ->
@@ -1020,15 +1082,12 @@ dom.MAIN_HEADER = ->
         ref: "headercontainer"
         position: "relative"
         zIndex: 10
-        maxWidth: outer_width + 100
-        width: "100%"
         NAV
             key: "actual-header"
             ref: "header"
             display: "flex"
             flexDirection: "row"
             alignItems: "center"
-            padding: "10px 45px"
             color: "#444"
             zIndex: 5
 
@@ -1394,350 +1453,6 @@ dom.ROLODEX.refresh = ->
         el.scrollTop = top
         @local.has_jumped_to_initial = true
         save @local
-
-
-# The submit-post modal
-dom.SUBMIT_POST = ->
-    c = fetch "/current_user"
-    unless c.logged_in
-        return
-
-    form_submit = =>
-        body = @refs["post-main"].getDOMNode()
-        title = @refs["post-title"].getDOMNode()
-        body_val = body?.value.trim()
-        title_val = title?.value.trim()
-
-        if body_val and (title_val or !@local.show_title)
-            make_post
-                user: c.user.key
-                title: title.value
-                url: if @local.show_title then body_val
-                body: unless @local.show_title then body_val
-                parent: @props.parent
-
-            # reset the form
-            title.value = ""
-            body.value = ""
-            @local.typed = @local.show_title = false
-            save @local
-
-        @props.close?()
-
-    DIV
-        key: "submit-container"
-        display: "grid"
-        width: 600
-        grid: "\" icon main  main   main \"  auto
-               \" .    title title  title\"  auto
-               \" .    .     cancel submit\" 18px
-                / auto 1fr   auto    auto "
-        gridColumnGap: 5
-        gridRowGap: 2
-        alignItems: "center"
-        marginLeft: 20
-
-        AVATAR
-            key: "avatar"
-            user: c.user
-            hide_tooltip: true
-            gridArea: "icon"
-            style:
-                width: post_height - 5
-                height: post_height - 5
-                borderRadius: "50%"
-                alignSelf: "start"
-                justifySelf: "start"
-                opacity: 0.5
-
-        TEXTAREA
-            key: "main"
-            ref: "post-main"
-            className: "stylish-input"
-            borderWidth: "1px"
-            borderStyle: "solid"
-            gridArea: "main"
-            fontSize: "0.9375rem" # 15px but scales
-            lineHeight: 1.2
-            padding: padding_unit
-            justifySelf: "stretch"
-            resize: "vertical"
-            minHeight: post_height
-            boxSizing: "border-box"
-            placeholder: "Say something..."
-            style: height: "#{post_height}px"
-            ###
-            onKeyDown: (e) =>
-                # enter
-                if e.keyCode == 13
-                    form_submit()
-                # tab
-                else if e.keyCode == 9
-                    e.preventDefault()
-                    @refs["post-url"].getDOMNode().focus()
-            ###
-            onInput: (e) =>
-                # check if current value is a link
-                val = e.target.value?.trim()
-                try
-                    the_url = new URL val
-                    # must be an http or https url
-                    @local.show_title = (the_url.protocol == "http:") or (the_url.protocol == "https:")
-                catch
-                    # value is not a url
-                    @local.show_title = false
-                finally
-                    @local.typed = val?.length > 0
-                    save @local
-                # if an event handler returns false, some browsers will interpret as a call to e.preventDefault()
-                return
-
-
-        INPUT
-            key: "title"
-            ref: "post-title"
-            gridArea: "title"
-            className: "stylish-input"
-            borderWidth: "2px"
-            borderStyle: "solid"
-            padding: padding_unit
-            boxSizing: "border-box"
-            placeholder: "Add a title..."
-            fontSize: "0.9375rem"
-            lineHeight: "#{post_height - 2 * padding_unit}px"
-            whiteSpace: "nowrap"
-            display: unless @local.show_title then "none"
-            style: height: "#{post_height}px"
-            ###
-            onKeyDown: (e) =>
-                if e.keyCode == 13
-                    form_submit()
-                else if e.keyCode == 9
-                    e.preventDefault()
-            ###
-        
-        BUTTON
-            key: "cancel"
-            className: "unbutton"
-            gridArea: "cancel"
-            fontSize: "14px"
-            display: unless @props.cancel then "none"
-            color: "#999"
-            onClick: @props.close
-            "Cancel"
-
-        BUTTON
-            key: "submit"
-            className: "unbutton"
-            gridArea: "submit"
-            fontSize: "14px"
-            color: "#999"
-            onClick: form_submit
-            display: unless @local.typed then "none"
-            "Send"
-
-dom.MINI_REPLY = ->
-    c = fetch "/current_user"
-    unless c.logged_in
-        return
-
-    ui = fetch (@props.ui ? @local)
-    submit = () =>
-        if ui.text?.length
-            # reply
-            make_post
-                user: c.user.key
-                body: ui.text
-                parent: @props.parent
-
-            ui.text = ""
-            save ui
-            @props?.close false
-
-    DIV
-        display: "grid"
-        grid: "\" avatar        input  input\" auto
-               \" .             cancel post  \" 16px
-               / #{post_height}px 1fr auto"
-        marginTop: 5
-        marginBottom: 3
-        style: @props.style
-
-        AVATAR
-            key: "avatar"
-            user: c.user
-            hide_tooltip: true
-            style:
-                gridArea: "avatar"
-                width: post_height - 5
-                height: post_height - 5
-                borderRadius: "50%"
-                alignSelf: "start"
-                justifySelf: "start"
-                opacity: 0.5
-
-        AUTOSIZEBOX
-            key: "content"
-            ref: "content"
-            gridArea: "input"
-            className: "stylish-input"
-            borderWidth: "1px"
-            borderStyle: "solid"
-            fontSize: "0.875rem" # 14px but scales
-            lineHeight: 1.4
-            padding: padding_unit - 1
-            justifySelf: "stretch"
-            resize: "none"
-            minHeight: post_height
-            boxSizing: "border-box"
-            placeholder: "Say something..."
-            height: post_height
-            flexGrow: 1
-            value: ui.text
-
-            onChange: (e) =>
-                ui.text = e.target.value
-                save ui
-
-            onKeyDown: (e) =>
-                # escape
-                if e.keyCode == 27
-                    @props?.close true
-                if e.keyCode ==  13 and !e.shiftKey
-                    e.preventDefault()
-                    submit()
-
-        if @props?.close
-            BUTTON
-                key: "cancel"
-                gridArea: "cancel"
-                className: "unbutton"
-                fontSize: 12
-                color: "#999"
-                justifySelf: "end"
-                display: "none" if @props.no_controls
-                onClick: () => @props?.close true
-                    
-                "Cancel"
-
-        BUTTON
-            key: "submit"
-            gridArea: "post"
-            className: "unbutton"
-            fontSize: 12
-            color: "#999"
-            justifySelf: "end"
-            marginLeft: 8
-            onClick: submit
-            display: "none" if @props.no_controls
-                
-            "Send"
-
-dom.HOVER_REPLY = ->
-    c = fetch "/current_user"
-    unless c.logged_in
-        return
-
-    ui = fetch (@props.ui ? @local)
-    active = ui.hover or ui.focus or ui.text?.length
-    submit = () =>
-        if ui.text?.length
-            # reply
-            make_post
-                user: c.user.key
-                body: ui.text
-                parent: @props.parent
-
-            ui.text = ""
-            save ui
-
-    DIV
-        display: "grid"
-        grid: "\" avatar input\" auto
-               \" .      post \" auto
-               / #{post_height}px 1fr"
-        marginBottom: 2
-        style: @props.style
-
-        onMouseEnter: () =>
-            ui.hover = true
-            save ui
-        onMouseLeave: () =>
-            ui.hover = false
-            save ui
-
-        AVATAR
-            key: "avatar"
-            user: c.user
-            hide_tooltip: true
-            style:
-                gridArea: "avatar"
-                width: post_height - 5
-                height: post_height - 5
-                borderRadius: "50%"
-                opacity: if ui.text?.length then 1.0 else 0
-                # transition: "opacity 0.15s"
-
-        AUTOSIZEBOX
-            key: "content"
-            ref: "content"
-            gridArea: "input"
-            # the stylish-input class removes some outlines,
-            # and applies a partially opaque border to indicate hover and focus.
-            className: "stylish-input"
-            boxSizing: "border-box"
-            borderWidth: "1px"
-            borderStyle: "solid"
-            # the stylish-input class includes some border colors 
-            borderColor: "rgba(0, 0, 0, 0)" unless active
-            # transition: "border-color 0.08s"
-            fontSize: "0.875rem" # 14px but scales
-            lineHeight: 1.4
-            # since we have a 1px border, slightly reduce padding
-            # this ensures correct alignment against real posts
-            padding: padding_unit - 1
-            marginTop: 0
-            justifySelf: "stretch"
-            # don't put resize handles; we autoresize
-            resize: "none"
-            # don't get smaller than the height of the avatar
-            minHeight: post_height
-            height: post_height
-            placeholder: "Reply..."
-            value: ui.text
-
-            onChange: (e) =>
-                ui.text = e.target.value
-                save ui
-
-            onKeyDown: (e) =>
-                # escape
-                if e.keyCode == 27
-                    # what should we do on close??
-                    @refs.content?.getDOMNode()?.blur()
-                if e.keyCode ==  13 and !e.shiftKey
-                    e.preventDefault()
-                    submit()
-
-            onFocus: () =>
-                ui.focus = true
-                save ui
-            onBlur: () =>
-                ui.focus = false
-                save ui
-
-        BUTTON
-            key: "submit"
-            gridArea: "post"
-            className: "unbutton"
-            fontSize: 12
-            color: "#999"
-            justifySelf: "end"
-            marginLeft: 8
-            onClick: submit
-            display: "none" unless ui.text?.length
-                
-            "Send"
 
 # The login/register modal
 dom.LOGIN = ->
@@ -2140,12 +1855,16 @@ dom.USERS = ->
         .sort sort_func
     DIV
         key: "users"
+        alignSelf: "center"
+        width: "inner_width"
+
         DIV
             key: "sort-select"
             display: "flex"
             flexDirection: "row"
             justifyContent: "space-evenly"
-            width: outer_width
+            maxWidth: outer_width / 2
+            margin: "0 auto"
 
             ["top", "new", "old"].map (s) =>
                 BUTTON
@@ -2281,8 +2000,8 @@ dom.SEARCH_BOX = ->
         display: "flex"
         justifyContent: "stretch"
         marginTop: padding_unit
-        marginLeft: padding_unit * 2
         width: inner_width
+        alignSelf: "center"
 
         INPUT
             key: "searchbox"
@@ -2305,7 +2024,7 @@ dom.POSTS_SEARCH = ->
     DIV
         key: "posts"
         width: inner_width
-        marginLeft: 20
+        alignSelf: "center"
     
         DIV
             key: "n-results"
@@ -2378,7 +2097,7 @@ dom.POSTS_SEARCH.refresh = ->
             a_score = (fetch "score#{a.key}#{kson}").sort_top
             b_score = (fetch "score#{b.key}#{kson}").sort_top
 
-            b.score - a.score
+            b_score - a_score
     @local.last_kson = kson
     @local.last_query = v.query
     save @local
@@ -2402,8 +2121,9 @@ dom.FILTER = ->
         key: "container"
         style: @props.style
         display: "flex"
-        maxWidth: 600
-        marginLeft: 20
+        maxWidth: inner_width
+        width: "100%"
+        alignSelf: "center"
         marginBottom: 10
         color: "#666"
 
@@ -2461,7 +2181,16 @@ dom.AUTOSIZEBOX.up = ->
     document.fonts.ready.then () -> 
         target.style.height = target.scrollHeight + "px"
 
+    # when the textarea recieves input or the window is resized,
+    # resize the textarea depending on the contents
     target.addEventListener 'input', resizebox, false
+    register_window_event @_rootNodeID, "resize", () =>
+        target = @refs.textbox.getDOMNode()
+        resizebox target: target
+
+# cancel the window event
+dom.AUTOSIZEBOX.down = ->
+    unregister_window_event @_rootNodeID, "resize"
 
 dom.AUTOSIZEBOX.refresh = ->
     target = @refs.textbox.getDOMNode()

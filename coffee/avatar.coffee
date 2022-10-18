@@ -48,7 +48,7 @@ dom.AVATAR = ->
         @props.style.zIndex ?= 2
     else
         # Generate a pseudorandom background color
-        # But dHow can I make sure the background image is fully loaded?eterministic with respect to the user
+        # But deterministic with respect to the user
         hue = parseInt(md5(user?.key ? name).substr(0, 2), 16)
         @props.style.backgroundColor ?= "hsl(#{hue},45%,70%)"
         @props.style.zIndex ?= 1

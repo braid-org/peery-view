@@ -295,3 +295,25 @@ parser("blocks_layout").to_fetch = (key, t) ->
         top: top_arr
 
     }
+
+parser('top_since_last_login').to_fetch = (key, t) ->
+    {user, tag} = t._params
+    kson = stringify_kson t._params
+
+    user = fetch user
+    posts = fetch "/posts"
+        ?.arr
+        ?.filter (p) -> p.time > user.last_viewed
+
+    posts.sort (a, b) -> 
+            a_score = (fetch "score#{a.key}#{kson}").sort_top
+            b_score = (fetch "score#{b.key}#{kson}").sort_top
+
+            b_score - a_score
+
+    N = Math.min posts.length, 10
+
+    {
+        key
+        posts: posts[..N]
+    }
