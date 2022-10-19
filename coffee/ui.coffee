@@ -31,7 +31,8 @@ dom.POSTS = ->
         # set the width of every hover reply to the width of its parent post
         Object.entries @block_replies
             .forEach ([k, v]) =>
-                reply = @refs[v].getDOMNode().firstChild
+                # do we ever have to remove refs to @block_replies?
+                reply = @refs[v]?.getDOMNode()?.firstChild
                 # if there actually is a hover reply
                 if reply
                     # get the width of the post above it
