@@ -42,6 +42,7 @@ dom.SLIDERGRAM = ->
     display: 'inline-flex'
     flexDirection: 'column'
     userSelect: "none"
+    style: @props.style
 
     # These two handle ghosted slides
     onMouseEnter: if !read_only then (e) =>

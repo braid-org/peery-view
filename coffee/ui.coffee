@@ -84,15 +84,9 @@ dom.POSTS = ->
                             hide_reply: is_last and not block.children?.length
                             style: flexGrow: 1
 
-                        DIV
-                            key: "tags-container"
-                            height: post_height
-                            marginLeft: padding_unit
-
-                            TAGS
-                                key: "tags"
-                                post: post
-                                style: background: "white"
+                        TAGS
+                            key: "tags"
+                            post: post
 
                 # every reply needs to have a key, even the ones that are not open
                 # if our run through the posts didn't get us a reply key, generate one.
@@ -132,15 +126,9 @@ dom.POSTS = ->
                             post: p.key
                             style: flexGrow: 1
 
-                        DIV
-                            key: "tags-container"
-                            height: post_height
-                            marginLeft: padding_unit
-
-                            TAGS
-                                key: "tags"
-                                post: p.key
-                                style: background: "white"
+                        TAGS
+                            key: "tags"
+                            post: p.key
 
                 SEPARATOR
                     key: "login-sep"
@@ -523,31 +511,57 @@ dom.TAGS = ->
 
     @local.expanded &= !@props.no_expand
 
-    ASIDE
-        display: "flex"
-        flexDirection: "column"
-        alignContent: "stretch"
-        padding: "0 #{padding_unit}px"
-        boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
-        # If expanded then we need to overlap other stuff
-        position: "relative"
-        zIndex: if @local.expanded then 2 else 1
-        style: @props.style
+    tags_to_show = post.tags ? []
+    if v.tag
+        tags_to_show = [null, (post.tags?.filter (a) -> a != v.tag)...]
 
-        DIV
-            key: "untagged-slider"
-            display: "flex"
+    DIV
+        height: post_height
+        width: slider_width + 32
+        marginLeft: padding_unit
+        position: "relative"
+        # If expanded then we need to overlap other stuff
+        zIndex: if @local.expanded then 2 else 1
+
+        ASIDE
+            key: "tags-grid"
+            display: "grid"
+            gridTemplateColumns: "[labels] auto [sliders] auto [buttons] auto"
+            padding: "0 #{padding_unit}px"
+            boxShadow: if @local.expanded then "rgba(0, 0, 0, 0.2) 0px 1px 5px 1px"
+            position: "absolute"
+            top: 0
+            right: 0
+            background: "white"
+
+            SPAN
+                key: "dummy-or-text"
+                gridColumn: "labels"
+                fontSize: 14
+                textTransform: "capitalize"
+                color: "#666"
+                whiteSpace: "nowrap"
+                alignSelf: "center"
+                if v.tag and @local.expanded
+                    SPAN
+                        key: "tag-text"
+                        marginRight: 15
+
+                        v.tag
 
             SLIDERGRAM_WITH_TAG
                 key: "slidergram"
                 post: post
+                tag: v.tag
                 width: slider_width
                 height: slider_height
                 max_avatar_radius: slider_height / 2.5
                 read_only: !c.logged_in
+                gridColumn: "sliders"
 
             BUTTON
                 key: "more"
+                gridColumn: "buttons"
                 color: "#999"
                 className: "material-icons-outlined md-dark unbutton"
                 fontSize: "24px"
@@ -559,50 +573,46 @@ dom.TAGS = ->
                     save @local
                 if @local.expanded then "expand_less" else "expand_more"
 
-        # The tags that are actually on the post, plus their sliders
-        if @local.expanded then [
-            post.tags?.map (tag) =>
-                DIV
-                    key: "tag-#{tag}"
-                    display: "flex"
+            # The tags that are actually on the post, plus their sliders
+            if @local.expanded then [
+                tags_to_show.map (tag) =>
+                    DIV
+                        key: "tag-#{tag}"
+                        display: "contents"
 
-                    SLIDERGRAM_WITH_TAG
-                        key: "tag-slidergram"
-                        post: post
-                        tag: tag
-                        width: slider_width
-                        height: slider_height
-                        max_avatar_radius: slider_height / 2.5
-                        read_only: !c.logged_in
+                        SPAN
+                            key: "tag-text"
+                            fontSize: 14
+                            marginRight: 15
+                            textTransform: "capitalize"
+                            color: "#666"
+                            whiteSpace: "nowrap"
+                            alignSelf: "center"
+                            gridColumn: "labels"
 
-                    SPAN
-                        key: "tag-text"
-                        fontSize: 14
-                        marginLeft: 15
-                        textTransform: "capitalize"
-                        color: "#666"
-                        whiteSpace: "nowrap"
-                        alignSelf: "center"
+                            tag
 
-                        tag
-            
-            DIV
-                key: "add-tag"
-                display: if c.logged_in then "flex" else "none"
-                alignItems: "flex-end"
-                height: slider_height + 12
+                        SLIDERGRAM_WITH_TAG
+                            key: "tag-slidergram"
+                            post: post
+                            tag: tag
+                            width: slider_width
+                            height: slider_height
+                            max_avatar_radius: slider_height / 2.5
+                            read_only: !c.logged_in
+                            style: gridColumn: "sliders"
 
-                SLIDER_BOTTOM
-                    key: "empty-slider"
-                    width: slider_width
-                    linewidth: 1.75
+                
+                # text?
+                # plus button?
                 
                 ADD_TAG
                     key: "textbox-and-dropdown"
                     post: post.key
-                    style: marginLeft: 15, height: 20, alignSelf: "center"
+                    style: height: slider_height, width: slider_width, gridColumn: "sliders"
 
-            ]
+
+                ]
 
 dom.ADD_TAG = ->
     post = fetch @props.post
@@ -629,7 +639,7 @@ dom.ADD_TAG = ->
                 new_tag = box.value.toString().toLowerCase()
                 # Disable adding certain tags.
                 # In the future, we should make this check serverside so it can't be bypassed.
-                if new_tag.indexOf("/") == -1 and ["users", "about"].indexOf(new_tag) ==  -1
+                if new_tag.indexOf("/") == -1 and ["users", "about", "search", "post"].indexOf(new_tag) ==  -1
                     post.tags.push new_tag
                 box.value = ""
                 save post
@@ -646,11 +656,12 @@ dom.ADD_TAG = ->
             INPUT
                 key: "textbox"
                 ref: "addlabel"
+                className: "stylish-input stylish-input-noborder"
                 placeholder: "New Tag..."
                 fontSize: 15
                 color: "#666"
-                border: "none"
-                maxWidth: "15ch"
+                borderWidth: 1.5
+                style: width: slider_width - 5, height: slider_height - 5
                 # Handle arrow keys, enter, etc
                 onKeyDown: (e) =>
                     switch e.keyCode
@@ -697,7 +708,7 @@ dom.ADD_TAG = ->
 
         DIV
             key: "results-overflow"
-            marginTop: 5
+            marginTop: 2
             overflowY: "visible"
             background: "white"
             boxShadow: "0 2px 3px rgba(0,0,0,0.2)"
@@ -1007,7 +1018,6 @@ dom.HOVER_REPLY = ->
                 height: post_height - 5
                 borderRadius: "50%"
                 opacity: if active then 0.5 else 0
-                transition: "opacity 0.15s"
 
         AUTOSIZEBOX
             key: "content"
@@ -1021,7 +1031,6 @@ dom.HOVER_REPLY = ->
             borderStyle: "solid"
             # the stylish-input class includes some border colors 
             borderColor: "rgba(0, 0, 0, 0)" unless active
-            transition: "border-color 0.15s"
             fontSize: "0.875rem" # 14px but scales
             lineHeight: 1.4
             # since we have a 1.5px border, slightly reduce padding
