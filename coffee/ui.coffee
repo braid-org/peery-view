@@ -522,6 +522,7 @@ dom.TAGS = ->
         position: "relative"
         # If expanded then we need to overlap other stuff
         zIndex: if @local.expanded then 2 else 1
+        flexShrink: 0
 
         ASIDE
             key: "tags-grid"
