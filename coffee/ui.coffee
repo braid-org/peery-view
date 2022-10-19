@@ -517,7 +517,7 @@ dom.TAGS = ->
 
     DIV
         height: post_height
-        width: slider_width + 32
+        width: slider_width + 55
         marginLeft: padding_unit
         position: "relative"
         # If expanded then we need to overlap other stuff
@@ -575,7 +575,7 @@ dom.TAGS = ->
 
             # The tags that are actually on the post, plus their sliders
             if @local.expanded then [
-                tags_to_show.map (tag) =>
+                tags_to_show.map (tag) ->
                     DIV
                         key: "tag-#{tag}"
                         display: "contents"
