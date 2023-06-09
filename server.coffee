@@ -241,7 +241,9 @@ bus = require('statebus').serve
             t.done val
 
         client('users').to_fetch = (t) ->
-            bus.fetch 'users'
+           users = bus.clone bus.fetch 'users'
+           users.all.forEach (u) -> delete u.pass
+           users
 
         client.shadows bus
         
@@ -685,10 +687,39 @@ bus.http.get '/client.js', (req, res) ->
 
 
 
+# Serve upgraded v7 state over Braid-HTTP!
 old_bodify = bus.to_http_body
 bus.to_http_body = (o) ->
-    if o.key == 'posts'
-        JSON.stringify o.arr
+    prefix = 'https://peeryview.org/'
+    prefix = '/'
+    post_up = (post) ->            # Upgrade post objects
+        post = bus.clone(post)
+        key = prefix + post.key
+        delete post.key
+        post.user = {link: prefix + post.user_key}
+        delete post.user_key
+        return post
+    vote_up = (vote) ->            # Upgrade vote objects
+        vote = bus.clone(vote)
+        key = prefix + vote.key
+        delete vote.key
+        vote.user = {link: prefix + vote.user_key}
+        delete vote.user_key
+        vote.target = {link: prefix + vote.target_key}
+        delete vote.target_key
+        return vote
+
+    # Now match the URLs and upgrade the data!
+    if o.key.startsWith('posts')
+        JSON.stringify o.arr.map (post) ->
+            {link: prefix + post.key, body: post_up(post)}
+    else if o.key.startsWith('post/')
+        JSON.stringify(post_up(o))
+    else if o.key.includes('/votes')
+        JSON.stringify o.arr.map (vote) ->
+            {link: prefix + vote.key, body: vote_up(vote)}
+    else if o.key.includes('/vote/')
+        JSON.stringify(vote_up(o))
     else
         old_bodify o 
 
@@ -726,4 +757,3 @@ restore_pass = (name, newpass) ->
   console.log('############# Now user is ', user)
   bus.save(user)
   console.log('############# Saved!!!!!!! ')
-
